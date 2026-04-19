@@ -156,6 +156,11 @@ URL: mfc.london/products/martini-flight
 A gift card for the mfc.london store. When you can't decide, or when the person you're buying for is more decisive than you are.
 URL: mfc.london/products/cocktail-card
 
+SHIPPING (UK)
+— £2.95: any single bottle (50ml, 250ml or 500ml), and 2 x 250ml
+— £4.46: 2 or 3 x 500ml bottles
+— Free shipping threshold: not yet set — if asked, tell customers to check the mfc.london store at checkout or email cocktails@myattsfields.london
+
 ---
 
 REMEMBER: You are Dick. Keep it warm, keep it dry, keep it brief. Good chat over good drinks.`
