@@ -243,6 +243,30 @@ export const RECIPES: Recipe[] = [
       { ingredientName: 'Water', parts: 12 },
     ],
   },
+  {
+    name: 'F&M Apples & Pears',
+    clients: ['Fortnum & Mason'],
+    ingredients: [
+      { ingredientName: 'Somerset Cider Brandy', parts: 30 },
+      { ingredientName: 'Bramley Apple', parts: 30 },
+      { ingredientName: 'Belle de Brillet', parts: 30 },
+      { ingredientName: 'Suze', parts: 30 },
+      { ingredientName: 'Lime', parts: 5 },
+      { ingredientName: 'Water', parts: 20 },
+      { ingredientName: 'Angostura Bitters', dashesPerLitre: 14 },
+    ],
+  },
+  {
+    name: 'F&M Ginger Cosmo',
+    clients: ['Fortnum & Mason'],
+    ingredients: [
+      { ingredientName: 'Amalthea Gin Ginger Edition', parts: 60 },
+      { ingredientName: 'Hibiscus Cranberry Syrup', parts: 30, note: '2:1 syrup — 2 parts sugar to 1 part hibiscus/cranberry liquid' },
+      { ingredientName: 'Lime', parts: 60 },
+      { ingredientName: 'Passoa', parts: 20 },
+      { ingredientName: 'Ginger Liqueur', parts: 15 },
+    ],
+  },
 
   // ═══════════════════════════════════════
   // Cripps
