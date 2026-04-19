@@ -1,4 +1,4 @@
-export type Client = "Myatt's Fields" | 'Fortnum & Mason' | 'Cripps' | 'Bailey & Sage' | 'Macknade' | 'Liberty';
+export type Client = "Myatt's Fields" | 'Fortnum & Mason' | 'Cripps' | 'Bayley & Sage' | 'Macknade' | 'Liberty';
 
 export type IngredientType = 'jerry-can' | 'bottle' | 'house-made' | 'dashes';
 

@@ -6,15 +6,15 @@ const MODULES: HubModule[] = [
     label: "CRM",
     sublabel: "Contacts & pipeline",
     description:
-      "The single record of every buyer, caterer, and retailer — conversations, stage, next action.",
-    status: "building",
+      "Keep one record of every buyer, caterer, and retailer — stage, next action, and the last conversation — so nothing slips through email.",
+    status: "soon",
   },
   {
     href: "/sales/wholesale",
     label: "Wholesale Accounts",
     sublabel: "Retailers & hospitality",
     description:
-      "Fortnum & Mason, Cripps, Liberty, Macknade, Bailey & Sage, Italo, British Airways — terms, pricing, and order history.",
+      "Manage terms, pricing, and order history for every wholesale partner in one place — Fortnum & Mason, Cripps, Liberty, Macknade, Bayley & Sage, Italo, British Airways.",
     status: "soon",
   },
   {
@@ -22,7 +22,7 @@ const MODULES: HubModule[] = [
     label: "Caterers",
     sublabel: "Event-led pipeline",
     description:
-      "The caterer list, five-litre pricing, and event pipeline feeding the kitchen.",
+      "Price and book caterer events against the five-litre format, and feed the pipeline straight into the production schedule.",
     status: "soon",
   },
   {
@@ -30,7 +30,7 @@ const MODULES: HubModule[] = [
     label: "Amazon",
     sublabel: "Marketplace performance",
     description:
-      "Listings, fees, and per-SKU profit — isolating Amazon as a channel so it can be managed on its own terms.",
+      "See the real per-SKU profit after Amazon fees, so the marketplace is managed on its own terms rather than pooled with wholesale.",
     status: "soon",
   },
   {
@@ -38,7 +38,7 @@ const MODULES: HubModule[] = [
     label: "D2C / Shopify",
     sublabel: "Direct customers",
     description:
-      "Shopify order data, repeat-customer cohorts, and campaign performance.",
+      "Drill into Shopify orders, repeat-customer cohorts, and campaign returns to see what is actually driving direct revenue.",
     status: "soon",
   },
   {
@@ -46,7 +46,7 @@ const MODULES: HubModule[] = [
     label: "Leads & Outreach",
     sublabel: "New business",
     description:
-      "Prospects, outreach templates, and a place to log conversations before they become accounts.",
+      "Log prospect conversations, run outreach from a shared template library, and turn leads into accounts without the spreadsheet.",
     status: "soon",
   },
 ];

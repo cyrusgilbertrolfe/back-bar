@@ -151,7 +151,14 @@ export default function ProfitabilityClient({ breakdowns, summary }: Props) {
                         color: active ? "#f0f0f0" : "#cfcfcf",
                       }}
                     >
-                      <span className="truncate">{b.productName}</span>
+                      <span className="truncate flex flex-col">
+                        <span className="truncate">{b.productName}</span>
+                        {b.productId === "martini-flight" && (
+                          <span className="text-[10px] italic" style={{ color: "#666" }}>
+                            Derived recipe pending — aggregated from component SKU costs
+                          </span>
+                        )}
+                      </span>
                       <span className="text-right tabular-nums" style={{ color: "#777" }}>
                         {b.size}
                       </span>

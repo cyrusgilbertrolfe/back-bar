@@ -6,15 +6,15 @@ const MODULES: HubModule[] = [
     label: "Recipes",
     sublabel: "Cocktail specifications",
     description:
-      "Browse and manage cocktail recipes, ingredient ratios, and production notes.",
-    status: "live",
+      "Browse and edit the canonical spec for every cocktail — ratios, production notes, and the drinks available to each client.",
+    status: "soon",
   },
   {
     href: "/drinks/range",
     label: "The Range",
     sublabel: "Active SKUs",
     description:
-      "Every drink we currently sell — format, price, channel availability, and status.",
+      "See every drink currently on sale in one place, with format, price, and channel availability at a glance.",
     status: "soon",
   },
   {
@@ -22,7 +22,7 @@ const MODULES: HubModule[] = [
     label: "New Product Development",
     sublabel: "What we are building",
     description:
-      "Drinks in R&D, tasting notes, costings, and the path from idea to launch.",
+      "Track drinks through R&D from first idea to launch, with tasting notes, costings, and decision dates.",
     status: "soon",
   },
   {
@@ -30,7 +30,7 @@ const MODULES: HubModule[] = [
     label: "Photo & Video Assets",
     sublabel: "Creative library",
     description:
-      "Every photograph and video pour, tagged by drink and ready for Amazon, Shopify, and press.",
+      "Find the right photograph or pour video for any drink and hand it to Amazon, Shopify, or press without a search party.",
     status: "soon",
   },
   {
@@ -38,7 +38,7 @@ const MODULES: HubModule[] = [
     label: "Content Plan",
     sublabel: "Marketing calendar",
     description:
-      "Launches, drops, press moments, and social content — a single calendar for the year.",
+      "Plan launches, drops, press moments, and social content on a single calendar so the year reads as a story, not a scramble.",
     status: "soon",
   },
   {
@@ -46,7 +46,7 @@ const MODULES: HubModule[] = [
     label: "Press",
     sublabel: "Release & coverage",
     description:
-      "Press releases, coverage tracking, and the assets journalists need.",
+      "Draft press releases, track coverage as it lands, and hand journalists exactly the assets they need.",
     status: "soon",
   },
 ];

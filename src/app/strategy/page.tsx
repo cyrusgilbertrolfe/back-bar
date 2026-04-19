@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Strategy & Targets — The Ledger',
+  title: 'Strategy & Targets — The Back Bar',
   description: 'Myatt\'s Fields Cocktails — strategic direction, goals, and how we are getting there.',
 }
 
@@ -259,7 +259,7 @@ const SECTIONS: Section[] = [
 
         <p style={S.p}>
           The result is 29 SKUs with confirmed wholesale prices, all of which pass the retailer test, and a live
-          pricing module in The Ledger where COGS can be updated as ingredient costs change — with the impact
+          pricing module in The Back Bar where COGS can be updated as ingredient costs change — with the impact
           flowing through to wholesale prices instantly. This moves pricing from a periodic, manual exercise
           to a live business tool.
         </p>
@@ -311,7 +311,7 @@ export default function StrategyPage() {
       {/* Top bar */}
       <div style={S.topBar}>
         <Link href="/" style={S.backLink}>
-          ← The Ledger
+          ← The Back Bar
         </Link>
         <div style={S.pageTitle}>Strategy & Targets</div>
         <div style={S.updatedNote}>

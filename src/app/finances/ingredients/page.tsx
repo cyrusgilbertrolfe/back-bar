@@ -12,6 +12,12 @@ export default function IngredientsPage() {
     INGREDIENTS.map((i) => [i.id, getRecipesUsingIngredient(i.id).length]),
   );
 
+  const lastUpdated = [...INGREDIENTS]
+    .map((i) => i.currentPriceSetAt)
+    .concat(PRICE_HISTORY.map((e) => e.date))
+    .sort()
+    .pop();
+
   return (
     <div className="min-h-screen" style={{ background: "#080808" }}>
       <Nav />
@@ -40,7 +46,7 @@ export default function IngredientsPage() {
             >
               COGS Reconciliation
             </a>{" "}
-            for the full SKU-level view.
+            for the full SKU-level view. Last updated {lastUpdated}.
           </p>
         </div>
 

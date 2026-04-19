@@ -10,7 +10,7 @@ const CLIENTS: Client[] = [
   "Myatt's Fields",
   "Fortnum & Mason",
   "Cripps",
-  "Bailey & Sage",
+  "Bayley & Sage",
   "Macknade",
   "Liberty",
 ];

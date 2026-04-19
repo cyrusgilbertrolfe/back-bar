@@ -14,7 +14,7 @@ const MODULES: HubModule[] = [
     label: "Inventory",
     sublabel: "Stock & dispatch",
     description:
-      "Live view of every bottle produced, dispatched, or sitting in stock — across Amazon, Shopify, and wholesale.",
+      "See at a glance how much stock you hold across Amazon, Shopify, and wholesale — and whether you need to batch before the next dispatch.",
     status: "soon",
   },
   {
@@ -22,7 +22,7 @@ const MODULES: HubModule[] = [
     label: "Cocktail Master List",
     sublabel: "Recipe ratios",
     description:
-      "The canonical spec for every drink: ingredient ratios, batch yields, and sub-recipe dependencies.",
+      "Look up ratios, batch yields, and sub-recipe dependencies for any drink so the kitchen can make anything without guesswork.",
     status: "soon",
   },
   {
@@ -30,7 +30,7 @@ const MODULES: HubModule[] = [
     label: "Stock Audit",
     sublabel: "Physical stocktake",
     description:
-      "Guided quarterly stocktake — count, value, and reconcile wet goods and dry goods.",
+      "Run a guided quarterly stocktake, reconcile physical count against the system, and produce a valuation ready for year-end.",
     status: "soon",
   },
   {
@@ -38,7 +38,7 @@ const MODULES: HubModule[] = [
     label: "Production Schedule",
     sublabel: "What to make, when",
     description:
-      "Upcoming orders, batch plans, and bottling days — pull forecasts from Shopify and wholesale pipeline.",
+      "Plan batching and bottling days against the wholesale pipeline and Shopify forecast so the kitchen is never surprised by an order.",
     status: "soon",
   },
   {
@@ -46,7 +46,7 @@ const MODULES: HubModule[] = [
     label: "Suppliers & Purchasing",
     sublabel: "Raw materials",
     description:
-      "Bottles, caps, jerry cans, labels, spirits — reorder points, lead times, and supplier contacts.",
+      "Track reorder points and lead times for bottles, caps, jerry cans, labels, and spirits — and get flagged before anything runs out.",
     status: "soon",
   },
 ];
