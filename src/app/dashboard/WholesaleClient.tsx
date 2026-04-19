@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { fmt, fmtShort, pct, Section, PeriodPills } from "./_shared";
+import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
 
 type Partner = {
   revenue: Record<string, number>;
@@ -18,45 +19,77 @@ export default function WholesaleClient({
   partnerOrder: string[];
   periods: string[];
 }) {
-  // Default to the most recent period that has any revenue
-  const defaultPeriod = [...periods].reverse().find((p) =>
-    partnerOrder.some((name) => (partners[name]?.revenue?.[p] ?? 0) > 0)
-  ) ?? periods[periods.length - 1];
+  const defaultPeriod =
+    [...periods]
+      .reverse()
+      .find((p) => partnerOrder.some((name) => (partners[name]?.revenue?.[p] ?? 0) > 0)) ??
+    periods[periods.length - 1];
 
   const [selectedPeriod, setSelectedPeriod] = useState<string>(defaultPeriod);
   const selectedIdx = periods.indexOf(selectedPeriod);
   const prevPeriod = selectedIdx > 0 ? periods[selectedIdx - 1] : null;
 
   const picker = (
-    <PeriodPills
-      values={periods}
-      selected={selectedPeriod}
-      onChange={setSelectedPeriod}
-    />
+    <PeriodPills values={periods} selected={selectedPeriod} onChange={setSelectedPeriod} />
   );
 
   return (
-    <Section title="Wholesale Partners" badge="QB" right={picker}>
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+    <Section title="Wholesale partners" badge="QB" right={picker}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+          gap: 32,
+          borderTop: `1px solid ${COLOR.rule}`,
+          borderBottom: `1px solid ${COLOR.rule}`,
+          padding: "20px 0",
+          marginBottom: 32,
+        }}
+      >
         {partnerOrder.map((pName) => {
           const p = partners[pName];
           const latest = p?.revenue?.[selectedPeriod] ?? 0;
-          const prev = prevPeriod ? (p?.revenue?.[prevPeriod] ?? 0) : 0;
+          const prev = prevPeriod ? p?.revenue?.[prevPeriod] ?? 0 : 0;
           const trend = prev > 0 ? ((latest - prev) / prev) * 100 : null;
           return (
-            <div
-              key={pName}
-              className="rounded-lg p-4"
-              style={{ background: "#111", border: "1px solid #1a1a1a" }}
-            >
-              <p className="text-[9px] uppercase tracking-[0.12em] mb-1 truncate" style={{ color: "#555" }}>
+            <div key={pName}>
+              <p
+                style={{
+                  fontSize: 10,
+                  color: COLOR.muted,
+                  marginBottom: 6,
+                  ...smallCaps,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {pName}
               </p>
-              <p className="text-lg font-bold tabular-nums" style={{ color: latest > 0 ? "#f0f0f0" : "#333" }}>
+              <p
+                style={{
+                  fontFamily: FONT.serif,
+                  fontSize: 22,
+                  fontWeight: 400,
+                  color: latest > 0 ? COLOR.ink : COLOR.mutedLight,
+                  lineHeight: 1.15,
+                  letterSpacing: "-0.01em",
+                  ...tabularNums,
+                }}
+              >
                 {latest > 0 ? fmtShort(latest) : "—"}
               </p>
-              <p className="text-[10px] tabular-nums mt-1" style={{ color: trend === null ? "#555" : (trend ?? 0) >= 0 ? "#4fae8f" : "#e07a5f" }}>
-                {latest > 0 ? selectedPeriod : "No orders"}{trend !== null ? ` · ${pct(trend)}` : ""}
+              <p
+                style={{
+                  fontSize: 11,
+                  marginTop: 4,
+                  color:
+                    trend === null ? COLOR.muted : (trend ?? 0) >= 0 ? COLOR.positive : COLOR.flag,
+                  ...tabularNums,
+                }}
+              >
+                {latest > 0 ? selectedPeriod : "No orders"}
+                {trend !== null ? ` · ${pct(trend)}` : ""}
               </p>
             </div>
           );
@@ -84,33 +117,59 @@ function PartnerHistoryTable({
   periods: string[];
   selectedPeriod: string;
 }) {
-  // Show 5 most recent periods up to and including the selected one
   const selectedIdx = periods.indexOf(selectedPeriod);
   const endIdx = selectedIdx >= 0 ? selectedIdx + 1 : periods.length;
   const startIdx = Math.max(0, endIdx - 5);
   const displayPeriods = periods.slice(startIdx, endIdx);
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
         <thead>
-          <tr>
-            <th className="px-3 py-2 text-[10px] uppercase tracking-[0.1em] font-semibold text-left" style={{ color: "#555", borderBottom: "1px solid #1c1c1c" }}>
+          <tr
+            style={{
+              borderTop: `2px solid ${COLOR.ink}`,
+              borderBottom: `1px solid ${COLOR.ruleBold}`,
+            }}
+          >
+            <th
+              style={{
+                padding: "12px 12px",
+                textAlign: "left",
+                fontSize: 10,
+                color: COLOR.muted,
+                fontWeight: 500,
+                ...smallCaps,
+              }}
+            >
               Partner
             </th>
             {displayPeriods.map((p) => (
               <th
                 key={p}
-                className="px-3 py-2 text-[10px] uppercase tracking-[0.1em] font-semibold text-right whitespace-nowrap"
                 style={{
-                  color: p === selectedPeriod ? "#c9a227" : "#555",
-                  borderBottom: "1px solid #1c1c1c",
+                  padding: "12px 12px",
+                  textAlign: "right",
+                  fontSize: 10,
+                  color: p === selectedPeriod ? COLOR.accent : COLOR.muted,
+                  fontWeight: 500,
+                  whiteSpace: "nowrap",
+                  ...smallCaps,
                 }}
               >
                 {p}
               </th>
             ))}
-            <th className="px-3 py-2 text-[10px] uppercase tracking-[0.1em] font-semibold text-right" style={{ color: "#c9a227", borderBottom: "1px solid #1c1c1c" }}>
+            <th
+              style={{
+                padding: "12px 12px",
+                textAlign: "right",
+                fontSize: 10,
+                color: COLOR.accent,
+                fontWeight: 500,
+                ...smallCaps,
+              }}
+            >
               All-time
             </th>
           </tr>
@@ -119,31 +178,65 @@ function PartnerHistoryTable({
           {partnerOrder.map((pName) => {
             const p = partners[pName];
             return (
-              <tr key={pName} style={{ borderBottom: "1px solid #141414" }}>
-                <td className="px-3 py-3" style={{ color: "#cfcfcf" }}>{pName}</td>
+              <tr key={pName} style={{ borderBottom: `1px solid ${COLOR.rule}` }}>
+                <td
+                  style={{
+                    padding: "14px 12px",
+                    fontFamily: FONT.serif,
+                    fontSize: 16,
+                    color: COLOR.ink,
+                  }}
+                >
+                  {pName}
+                </td>
                 {displayPeriods.map((period) => {
                   const val = p?.revenue?.[period] ?? 0;
                   const isSelected = period === selectedPeriod;
                   return (
                     <td
                       key={period}
-                      className="px-3 py-3 text-right tabular-nums"
                       style={{
-                        color: val > 0 ? (isSelected ? "#c9a227" : "#f0f0f0") : "#333",
+                        padding: "14px 12px",
+                        textAlign: "right",
+                        fontFamily: FONT.mono,
+                        color:
+                          val > 0
+                            ? isSelected
+                              ? COLOR.accent
+                              : COLOR.ink
+                            : COLOR.mutedLight,
                         fontWeight: isSelected ? 600 : 400,
+                        ...tabularNums,
                       }}
                     >
                       {val > 0 ? fmt(val) : "—"}
                     </td>
                   );
                 })}
-                <td className="px-3 py-3 text-right tabular-nums font-semibold" style={{ color: "#c9a227" }}>
+                <td
+                  style={{
+                    padding: "14px 12px",
+                    textAlign: "right",
+                    fontFamily: FONT.mono,
+                    color: COLOR.accent,
+                    fontWeight: 600,
+                    ...tabularNums,
+                  }}
+                >
                   {fmt(p?.total ?? 0)}
                 </td>
               </tr>
             );
           })}
         </tbody>
+        <tfoot>
+          <tr>
+            <td
+              colSpan={displayPeriods.length + 2}
+              style={{ borderTop: `2px solid ${COLOR.ink}`, padding: 0, height: 2 }}
+            />
+          </tr>
+        </tfoot>
       </table>
     </div>
   );

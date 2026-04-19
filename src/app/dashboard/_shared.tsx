@@ -1,3 +1,5 @@
+import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
+
 export function fmt(n: number) {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
@@ -29,24 +31,31 @@ export function KpiCard({
   warning?: boolean;
 }) {
   return (
-    <div
-      className="rounded-xl p-5"
-      style={{
-        background: accent ? "#0f0f0f" : "#0a0a0a",
-        border: `1px solid ${warning ? "rgba(224,122,95,0.3)" : accent ? "rgba(201,162,39,0.2)" : "#1c1c1c"}`,
-      }}
-    >
-      <p className="text-[9px] uppercase tracking-[0.12em] mb-2" style={{ color: "#555" }}>
-        {label}
-      </p>
+    <div>
+      <p style={{ fontSize: 10, color: COLOR.muted, marginBottom: 6, ...smallCaps }}>{label}</p>
       <p
-        className="text-2xl font-bold tabular-nums"
-        style={{ color: accent ? "#c9a227" : "#f0f0f0" }}
+        style={{
+          fontFamily: FONT.serif,
+          fontSize: 26,
+          fontWeight: 400,
+          color: warning ? COLOR.flag : accent ? COLOR.accent : COLOR.ink,
+          letterSpacing: "-0.01em",
+          lineHeight: 1.15,
+          ...tabularNums,
+        }}
       >
         {value}
       </p>
       {sub && (
-        <p className="text-[10px] mt-2" style={{ color: warning ? "#e07a5f" : "#444" }}>
+        <p
+          style={{
+            fontSize: 11,
+            color: warning ? COLOR.flagSoft : COLOR.muted,
+            marginTop: 4,
+            lineHeight: 1.4,
+            fontFamily: FONT.sans,
+          }}
+        >
           {sub}
         </p>
       )}
@@ -67,27 +76,45 @@ export function Section({
 }) {
   const isLive = badge === "Live";
   return (
-    <div
-      className="rounded-xl p-6 mb-8"
-      style={{ background: "#0a0a0a", border: "1px solid #1c1c1c" }}
-    >
-      <div className="flex items-center gap-3 mb-5">
-        <p className="text-[10px] uppercase tracking-[0.15em] font-semibold" style={{ color: "#555" }}>
-          {title}
-        </p>
+    <section style={{ marginBottom: 48 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: 16,
+          marginBottom: 16,
+          flexWrap: "wrap",
+          rowGap: 8,
+        }}
+      >
+        <p style={{ fontSize: 11, color: COLOR.muted, ...smallCaps }}>{title}</p>
         <span
-          className="px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase"
           style={{
-            background: isLive ? "rgba(79,174,143,0.1)" : "rgba(85,85,85,0.1)",
-            color: isLive ? "#4fae8f" : "#555",
+            fontSize: 10,
+            color: isLive ? COLOR.accent : COLOR.mutedLight,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            ...smallCaps,
           }}
         >
+          <span
+            aria-hidden
+            style={{
+              display: "inline-block",
+              width: 5,
+              height: 5,
+              borderRadius: "50%",
+              background: isLive ? COLOR.accent : "transparent",
+              border: `1px solid ${isLive ? COLOR.accent : COLOR.ruleBold}`,
+            }}
+          />
           {badge}
         </span>
-        {right && <div className="ml-auto">{right}</div>}
+        {right && <div style={{ marginLeft: "auto" }}>{right}</div>}
       </div>
       {children}
-    </div>
+    </section>
   );
 }
 
@@ -103,7 +130,7 @@ export function PeriodPills<T extends string | number>({
   format?: (v: T) => string;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
       {values.map((v) => {
         const isSelected = v === selected;
         return (
@@ -111,12 +138,16 @@ export function PeriodPills<T extends string | number>({
             key={String(v)}
             type="button"
             onClick={() => onChange(v)}
-            className="px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-[0.1em] transition-colors"
             style={{
-              background: isSelected ? "rgba(201,162,39,0.15)" : "#111",
-              color: isSelected ? "#c9a227" : "#888",
-              border: `1px solid ${isSelected ? "rgba(201,162,39,0.35)" : "#1c1c1c"}`,
+              padding: "4px 10px",
+              fontSize: 11,
+              background: "none",
+              color: isSelected ? COLOR.accent : COLOR.muted,
+              border: "1px solid",
+              borderColor: isSelected ? COLOR.accent : "transparent",
               cursor: "pointer",
+              fontFamily: FONT.sans,
+              ...smallCaps,
             }}
           >
             {format ? format(v) : String(v)}

@@ -7,6 +7,7 @@ import { calculateBatch } from "@/lib/calculator";
 import { useSettings } from "@/hooks/useSettings";
 import BatchOutput from "./BatchOutput";
 import PrintView from "./PrintView";
+import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
 
 const CLIENTS: Client[] = [
   "Myatt's Fields",
@@ -34,7 +35,6 @@ export default function Calculator() {
     return RECIPES.filter((r) => r.clients.includes(selectedClient));
   }, [selectedClient]);
 
-  // Auto-calculate whenever recipe or active volume changes
   useEffect(() => {
     if (selectedRecipe) {
       setResult(calculateBatch(selectedRecipe, activeLitres, settings));
@@ -87,65 +87,117 @@ export default function Calculator() {
 
   return (
     <div>
-      {/* Print-only view */}
       <div className="print-only" aria-hidden="true">
         {result && <PrintView result={result} date={today} />}
       </div>
 
-      {/* Screen view */}
-      <div className="no-print space-y-8">
+      <div className="no-print" style={{ display: "flex", flexDirection: "column", gap: 40 }}>
         {/* Step 1: Client */}
         <section>
-          <StepLabel step={1} label="Select client" />
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
-            {CLIENTS.map((client) => (
-              <button
-                key={client}
-                onClick={() => handleClientSelect(client)}
-                className="rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-150 text-left border"
-                style={{
-                  background: selectedClient === client ? "#2d6a4f" : "#141414",
-                  borderColor: selectedClient === client ? "#52b788" : "#2d2d2d",
-                  color: selectedClient === client ? "#fff" : "#d1d5db",
-                }}
-              >
-                {client}
-              </button>
-            ))}
+          <StepHeader step={1} label="Client" />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+              gap: 8,
+              marginTop: 16,
+            }}
+          >
+            {CLIENTS.map((client) => {
+              const active = selectedClient === client;
+              return (
+                <button
+                  key={client}
+                  onClick={() => handleClientSelect(client)}
+                  style={{
+                    padding: "14px 16px",
+                    fontSize: 15,
+                    fontFamily: FONT.serif,
+                    textAlign: "left",
+                    background: active ? COLOR.ink : "transparent",
+                    color: active ? COLOR.paper : COLOR.ink,
+                    border: `1px solid ${active ? COLOR.ink : COLOR.rule}`,
+                    cursor: "pointer",
+                    minHeight: 52,
+                  }}
+                >
+                  {client}
+                </button>
+              );
+            })}
           </div>
         </section>
 
         {/* Step 2: Recipe */}
         {selectedClient && (
           <section>
-            <StepLabel step={2} label={`Select recipe — ${selectedClient}`} />
+            <StepHeader step={2} label={`Recipe — ${selectedClient}`} />
             {filteredRecipes.length === 0 ? (
-              <p className="mt-4 text-sm italic" style={{ color: "#6b7280" }}>
+              <p
+                style={{
+                  marginTop: 16,
+                  fontFamily: FONT.serif,
+                  fontStyle: "italic",
+                  color: COLOR.muted,
+                }}
+              >
                 No recipes available for {selectedClient} yet.
               </p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-                {filteredRecipes.map((recipe) => (
-                  <button
-                    key={recipe.name}
-                    onClick={() => handleRecipeSelect(recipe)}
-                    className="rounded-xl px-4 py-3 text-sm font-medium transition-all duration-150 text-left border"
-                    style={{
-                      background: selectedRecipe?.name === recipe.name ? "#1a3d29" : "#141414",
-                      borderColor:
-                        selectedRecipe?.name === recipe.name ? "#2d6a4f" : "#2d2d2d",
-                      color: selectedRecipe?.name === recipe.name ? "#52b788" : "#d1d5db",
-                    }}
-                  >
-                    <span className="block font-semibold">{recipe.name}</span>
-                    <span className="block text-xs mt-0.5 truncate" style={{ color: "#6b7280" }}>
-                      {recipe.ingredients
-                        .filter((i) => i.parts !== undefined)
-                        .map((i) => i.ingredientName)
-                        .join(", ")}
-                    </span>
-                  </button>
-                ))}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                  gap: 8,
+                  marginTop: 16,
+                }}
+              >
+                {filteredRecipes.map((recipe) => {
+                  const active = selectedRecipe?.name === recipe.name;
+                  return (
+                    <button
+                      key={recipe.name}
+                      onClick={() => handleRecipeSelect(recipe)}
+                      style={{
+                        padding: "14px 16px",
+                        textAlign: "left",
+                        background: active ? COLOR.paperDeep : "transparent",
+                        color: COLOR.ink,
+                        border: `1px solid ${active ? COLOR.accent : COLOR.rule}`,
+                        cursor: "pointer",
+                        minHeight: 64,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: FONT.serif,
+                          fontSize: 17,
+                          fontWeight: 500,
+                          color: active ? COLOR.accent : COLOR.ink,
+                        }}
+                      >
+                        {recipe.name}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: COLOR.muted,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {recipe.ingredients
+                          .filter((i) => i.parts !== undefined)
+                          .map((i) => i.ingredientName)
+                          .join(", ")}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -154,26 +206,36 @@ export default function Calculator() {
         {/* Step 3: Volume */}
         {selectedRecipe && (
           <section>
-            <StepLabel step={3} label="Volume" />
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              {/* Standard 9L pill */}
+            <StepHeader step={3} label="Volume" />
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: 16,
+                marginTop: 16,
+              }}
+            >
               <button
                 onClick={handleUseStandard}
-                className="rounded-xl px-5 py-2.5 text-sm font-semibold border transition-all duration-150"
                 style={{
-                  background: !isCustomActive ? "#1a1a1a" : "#141414",
-                  borderColor: !isCustomActive ? "#c9a227" : "#2d2d2d",
-                  color: !isCustomActive ? "#c9a227" : "#6b7280",
+                  padding: "12px 22px",
+                  fontSize: 15,
+                  fontFamily: FONT.serif,
+                  background: !isCustomActive ? COLOR.ink : "transparent",
+                  color: !isCustomActive ? COLOR.paper : COLOR.inkSoft,
+                  border: `1px solid ${!isCustomActive ? COLOR.ink : COLOR.rule}`,
+                  cursor: "pointer",
+                  minHeight: 48,
                 }}
               >
-                9L — Standard
+                9 L — standard
               </button>
 
-              <span style={{ color: "#2d2d2d" }}>|</span>
+              <span style={{ color: COLOR.muted }}>or</span>
 
-              {/* Custom input */}
-              <div className="flex items-center gap-2">
-                <div className="relative">
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                   <input
                     type="number"
                     min="0.1"
@@ -183,27 +245,42 @@ export default function Calculator() {
                     onChange={(e) => setCustomInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleCustomCalculate()}
                     placeholder="Custom"
-                    className="rounded-xl px-4 py-2.5 pr-8 text-sm font-medium border outline-none transition-all w-28"
                     style={{
-                      background: "#141414",
-                      borderColor: isCustomActive ? "#c9a227" : "#2d2d2d",
-                      color: "#fff",
+                      width: 120,
+                      padding: "12px 30px 12px 14px",
+                      fontSize: 15,
+                      fontFamily: FONT.mono,
+                      background: "transparent",
+                      color: COLOR.ink,
+                      border: `1px solid ${isCustomActive ? COLOR.accent : COLOR.rule}`,
+                      outline: "none",
+                      minHeight: 48,
+                      ...tabularNums,
                     }}
                   />
                   <span
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none"
-                    style={{ color: "#6b7280" }}
+                    style={{
+                      position: "absolute",
+                      right: 12,
+                      fontSize: 13,
+                      color: COLOR.muted,
+                      pointerEvents: "none",
+                    }}
                   >
                     L
                   </span>
                 </div>
                 <button
                   onClick={handleCustomCalculate}
-                  className="rounded-xl px-4 py-2.5 text-sm font-bold border transition-all duration-150"
                   style={{
-                    background: "#c9a227",
-                    borderColor: "#e0b840",
-                    color: "#0a0a0a",
+                    padding: "12px 22px",
+                    fontSize: 11,
+                    background: COLOR.accent,
+                    color: COLOR.paper,
+                    border: "none",
+                    cursor: "pointer",
+                    minHeight: 48,
+                    ...smallCaps,
                   }}
                 >
                   Calculate
@@ -211,7 +288,15 @@ export default function Calculator() {
               </div>
             </div>
             {customError && (
-              <p className="mt-2 text-sm" style={{ color: "#f87171" }}>
+              <p
+                style={{
+                  marginTop: 10,
+                  fontSize: 13,
+                  color: COLOR.flag,
+                  fontFamily: FONT.serif,
+                  fontStyle: "italic",
+                }}
+              >
                 {customError}
               </p>
             )}
@@ -221,26 +306,33 @@ export default function Calculator() {
         {/* Results */}
         {result && (
           <section>
-            <div className="flex items-center justify-between mb-4">
-              <StepLabel step={4} label="Batch sheet" />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between",
+                marginBottom: 20,
+                flexWrap: "wrap",
+                gap: 16,
+              }}
+            >
+              <StepHeader step={4} label="Batch sheet" />
               <button
                 onClick={() => window.print()}
-                className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold border transition-all duration-150"
                 style={{
-                  background: "#141414",
-                  borderColor: "#2d6a4f",
-                  color: "#52b788",
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  fontSize: 11,
+                  color: COLOR.accent,
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  textUnderlineOffset: 3,
+                  textDecorationThickness: 1,
+                  ...smallCaps,
                 }}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
-                  />
-                </svg>
-                Print / Save as PDF
+                Print / save as PDF
               </button>
             </div>
             <div ref={printRef}>
@@ -253,16 +345,28 @@ export default function Calculator() {
   );
 }
 
-function StepLabel({ step, label }: { step: number; label: string }) {
+function StepHeader({ step, label }: { step: number; label: string }) {
   return (
-    <div className="flex items-center gap-3">
+    <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
       <span
-        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-        style={{ background: "#c9a227", color: "#0a0a0a" }}
+        style={{
+          fontFamily: FONT.mono,
+          fontSize: 12,
+          color: COLOR.muted,
+          letterSpacing: "0.08em",
+        }}
       >
-        {step}
+        {String(step).padStart(2, "0")}
       </span>
-      <h2 className="text-base font-semibold" style={{ color: "#f0f0f0" }}>
+      <h2
+        style={{
+          fontFamily: FONT.serif,
+          fontSize: 22,
+          fontWeight: 500,
+          letterSpacing: "-0.01em",
+          color: COLOR.ink,
+        }}
+      >
         {label}
       </h2>
     </div>

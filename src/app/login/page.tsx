@@ -1,4 +1,5 @@
 import { login } from '@/app/actions/auth'
+import { COLOR, FONT, smallCaps } from '@/lib/design'
 
 export default function LoginPage({
   searchParams,
@@ -6,38 +7,87 @@ export default function LoginPage({
   searchParams: Promise<{ error?: string }>
 }) {
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}>
-      <div className="w-full max-w-sm px-6">
-        <div className="text-center mb-10">
-          <p className="text-xs uppercase tracking-[0.6em] font-medium mb-2" style={{ color: '#c9a227' }}>
-            Myatt&apos;s Fields
+    <div
+      style={{
+        minHeight: '100vh',
+        background: COLOR.paper,
+        color: COLOR.ink,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '40px 20px',
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: 360 }}>
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <p
+            style={{
+              fontSize: 10,
+              color: COLOR.accent,
+              marginBottom: 14,
+              ...smallCaps,
+            }}
+          >
+            Myatt&apos;s Fields Cocktails
           </p>
-          <h1 className="text-3xl font-bold tracking-tight" style={{ color: '#f0f0f0', letterSpacing: '-0.02em' }}>
+          <h1
+            style={{
+              fontFamily: FONT.serif,
+              fontSize: 44,
+              fontWeight: 400,
+              letterSpacing: '-0.025em',
+              lineHeight: 1,
+              color: COLOR.ink,
+            }}
+          >
             The Back Bar
           </h1>
+          <p
+            style={{
+              fontFamily: FONT.serif,
+              fontStyle: 'italic',
+              fontSize: 14,
+              color: COLOR.muted,
+              marginTop: 14,
+              lineHeight: 1.5,
+            }}
+          >
+            Internal — not for circulation.
+          </p>
         </div>
-        <form action={login} className="flex flex-col gap-4">
+        <form action={login} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <input
             type="password"
             name="password"
             placeholder="Password"
             required
             autoFocus
-            className="w-full px-4 py-3 rounded-lg text-base outline-none"
             style={{
-              background: '#1a1a1a',
-              border: '1px solid #333',
-              color: '#f0f0f0',
+              width: '100%',
+              padding: '14px 16px',
+              fontSize: 15,
+              outline: 'none',
+              background: 'transparent',
+              border: `1px solid ${COLOR.rule}`,
+              color: COLOR.ink,
+              fontFamily: FONT.sans,
             }}
           />
           <button
             type="submit"
-            className="w-full py-3 rounded-lg font-medium text-base"
-            style={{ background: '#e8c96e', color: '#0a0a0a' }}
+            style={{
+              width: '100%',
+              padding: '14px 16px',
+              fontSize: 12,
+              background: COLOR.ink,
+              color: COLOR.paper,
+              border: 'none',
+              cursor: 'pointer',
+              ...smallCaps,
+            }}
           >
             Enter
           </button>
-          {/* error message rendered server-side via searchParams */}
           <WrongPassword searchParams={searchParams} />
         </form>
       </div>
@@ -53,7 +103,15 @@ async function WrongPassword({
   const params = await searchParams
   if (!params.error) return null
   return (
-    <p className="text-center text-sm" style={{ color: '#e05252' }}>
+    <p
+      style={{
+        textAlign: 'center',
+        fontSize: 13,
+        fontFamily: FONT.serif,
+        fontStyle: 'italic',
+        color: COLOR.flag,
+      }}
+    >
       Incorrect password
     </p>
   )

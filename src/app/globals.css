@@ -1,39 +1,37 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-background: #0a0a0a;
-  --color-foreground: #f0f0f0;
+  --color-background: #F5F1EA;
+  --color-foreground: #1A1815;
 
-  /* Brand colours */
-  --color-green-brand: #2d6a4f;
-  --color-green-light: #40916c;
-  --color-green-bright: #52b788;
-  --color-gold-brand: #c9a227;
-  --color-gold-light: #e0b840;
-  --color-gold-muted: #a07c1a;
+  /* Editorial palette — The Back Bar */
+  --color-paper: #F5F1EA;
+  --color-paper-deep: #EDE7DA;
+  --color-ink: #1A1815;
+  --color-ink-soft: #3B362E;
+  --color-muted: #6B665D;
+  --color-rule: #D9D2C5;
+  --color-rule-bold: #B8AE99;
+  --color-accent: #7A5A2B;
+  --color-flag: #8E3A2C;
 
-  /* Surface layers */
-  --color-dark-bg: #0a0a0a;
-  --color-dark-card: #141414;
-  --color-dark-surface: #1e1e1e;
-  --color-dark-border: #2d2d2d;
-  --color-dark-muted: #6b7280;
-
-  --font-sans: var(--font-dm-sans);
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-spectral);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
 :root {
-  --background: #0a0a0a;
-  --foreground: #f0f0f0;
+  --background: #F5F1EA;
+  --foreground: #1A1815;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-dm-sans), system-ui, sans-serif;
-  font-weight: 300;
-  font-size: 17px;
-  line-height: 1.6;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -58,8 +56,29 @@ body {
   }
 }
 
-/* Scrollbar */
+/* Scrollbar — matched to cream palette */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #141414; }
-::-webkit-scrollbar-thumb { background: #2d2d2d; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #3d3d3d; }
+::-webkit-scrollbar-track { background: #EDE7DA; }
+::-webkit-scrollbar-thumb { background: #B8AE99; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #8A857A; }
+
+/* Editorial helpers — used across pages */
+.smallcaps {
+  font-feature-settings: "smcp" 1, "c2sc" 1;
+  text-transform: lowercase;
+  letter-spacing: 0.05em;
+}
+.tabular {
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+
+/* Bare buttons that sit inline with text — used for toggle links */
+button.text-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+}

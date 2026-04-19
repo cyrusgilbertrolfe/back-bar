@@ -8,6 +8,7 @@ import {
   pricePerMl,
 } from "@/lib/ingredients";
 import { updateIngredientPrice } from "@/app/actions/ingredients";
+import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
 
 const fmt = (n: number) =>
   n.toLocaleString("en-GB", { style: "currency", currency: "GBP", minimumFractionDigits: 2 });
@@ -64,76 +65,124 @@ export default function IngredientsClient({ ingredients, priceHistory, usageCoun
   );
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-8">
+    <div
+      className="ingredients-grid"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1.2fr",
+        gap: 48,
+      }}
+    >
       {/* LEFT — ingredient table */}
       <section>
-        <div className="mb-4">
-          <input
-            type="text"
-            placeholder="Search ingredients…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-lg text-sm outline-none"
-            style={{
-              background: "#0f0f0f",
-              border: "1px solid #1c1c1c",
-              color: "#f0f0f0",
-            }}
-          />
-        </div>
+        <input
+          type="text"
+          placeholder="Search ingredients…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "10px 14px",
+            fontSize: 14,
+            outline: "none",
+            background: "transparent",
+            border: `1px solid ${COLOR.rule}`,
+            color: COLOR.ink,
+            fontFamily: FONT.sans,
+            marginBottom: 20,
+          }}
+        />
 
-        <div
-          className="rounded-xl overflow-hidden"
-          style={{ background: "#0a0a0a", border: "1px solid #1c1c1c" }}
-        >
-          <div
-            className="grid grid-cols-[1.6fr_0.6fr_0.7fr_0.4fr] gap-2 px-4 py-3 text-[10px] uppercase tracking-[0.12em] font-semibold"
-            style={{ color: "#555", borderBottom: "1px solid #1c1c1c" }}
-          >
-            <span>Ingredient</span>
-            <span className="text-right">Bottle</span>
-            <span className="text-right">Price</span>
-            <span className="text-right">Used in</span>
-          </div>
-          <ul>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, tableLayout: "fixed" }}>
+          <colgroup>
+            <col />
+            <col style={{ width: 76 }} />
+            <col style={{ width: 78 }} />
+            <col style={{ width: 56 }} />
+          </colgroup>
+          <thead>
+            <tr
+              style={{
+                borderTop: `2px solid ${COLOR.ink}`,
+                borderBottom: `1px solid ${COLOR.ruleBold}`,
+              }}
+            >
+              <th style={thStyle("left")}>Ingredient</th>
+              <th style={thStyle("right")}>Bottle</th>
+              <th style={thStyle("right")}>Price</th>
+              <th style={thStyle("right")}>Used in</th>
+            </tr>
+          </thead>
+          <tbody>
             {filtered.map((ing) => {
               const active = ing.id === selectedId;
               const count = usageCounts[ing.id] ?? 0;
               return (
-                <li key={ing.id}>
-                  <button
-                    onClick={() => setSelectedId(ing.id)}
-                    className="w-full grid grid-cols-[1.6fr_0.6fr_0.7fr_0.4fr] gap-2 px-4 py-3 text-sm text-left transition-colors"
+                <tr
+                  key={ing.id}
+                  className="ing-row"
+                  style={{
+                    borderBottom: `1px solid ${COLOR.rule}`,
+                    background: active ? COLOR.paperDeep : "transparent",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => setSelectedId(ing.id)}
+                >
+                  <td
                     style={{
-                      background: active ? "#121212" : "transparent",
-                      borderBottom: "1px solid #141414",
-                      color: active ? "#f0f0f0" : "#cfcfcf",
+                      padding: "14px 12px",
+                      color: active ? COLOR.ink : COLOR.inkSoft,
+                      fontFamily: FONT.serif,
+                      fontSize: 16,
                     }}
                   >
-                    <span className="truncate">
-                      {ing.name}
-                      {ing.notes && (
-                        <span className="ml-2 text-[10px] uppercase tracking-[0.12em]" style={{ color: "#555" }}>
-                          house
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-right tabular-nums" style={{ color: "#777" }}>
-                      {ing.bottleSizeMl} ml
-                    </span>
-                    <span className="text-right tabular-nums">{fmt(ing.currentPrice)}</span>
-                    <span
-                      className="text-right tabular-nums"
-                      style={{ color: count > 0 ? "#c9a227" : "#333" }}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                </li>
+                    {ing.name}
+                  </td>
+                  <td
+                    style={{
+                      padding: "14px 12px",
+                      textAlign: "right",
+                      fontFamily: FONT.mono,
+                      color: COLOR.muted,
+                      fontSize: 12,
+                      whiteSpace: "nowrap",
+                      ...tabularNums,
+                    }}
+                  >
+                    {ing.bottleSizeMl}&nbsp;ml
+                  </td>
+                  <td
+                    style={{
+                      padding: "14px 12px",
+                      textAlign: "right",
+                      fontFamily: FONT.mono,
+                      color: COLOR.ink,
+                      ...tabularNums,
+                    }}
+                  >
+                    {fmt(ing.currentPrice)}
+                  </td>
+                  <td
+                    style={{
+                      padding: "14px 12px",
+                      textAlign: "right",
+                      fontFamily: FONT.mono,
+                      color: count > 0 ? COLOR.accent : COLOR.mutedLight,
+                      ...tabularNums,
+                    }}
+                  >
+                    {count}
+                  </td>
+                </tr>
               );
             })}
-          </ul>
-        </div>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={4} style={{ borderTop: `2px solid ${COLOR.ink}`, padding: 0, height: 2 }} />
+            </tr>
+          </tfoot>
+        </table>
       </section>
 
       {/* RIGHT — detail + impact preview */}
@@ -142,18 +191,50 @@ export default function IngredientsClient({ ingredients, priceHistory, usageCoun
           <IngredientDetail ingredient={selected} history={selectedHistory} />
         ) : (
           <div
-            className="rounded-xl p-10 text-center"
-            style={{ background: "#0a0a0a", border: "1px solid #1c1c1c" }}
+            style={{
+              borderTop: `1px solid ${COLOR.rule}`,
+              borderBottom: `1px solid ${COLOR.rule}`,
+              padding: "80px 24px",
+              textAlign: "center",
+            }}
           >
-            <div className="w-8 h-px mx-auto mb-6" style={{ background: "#c9a227" }} />
-            <p className="text-sm" style={{ color: "#555" }}>
-              Select an ingredient to see its history, the drinks that use it, and to model a price change.
+            <p
+              style={{
+                fontFamily: FONT.serif,
+                fontStyle: "italic",
+                fontSize: 16,
+                color: COLOR.muted,
+                maxWidth: 400,
+                margin: "0 auto",
+              }}
+            >
+              Select an ingredient to see its history, the drinks that use it, and to model a
+              price change.
             </p>
           </div>
         )}
       </section>
+
+      <style>{`
+        .ing-row:hover { background: ${COLOR.paperDeep}; }
+        @media (max-width: 900px) {
+          .ingredients-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
+        }
+      `}</style>
     </div>
   );
+}
+
+function thStyle(align: "left" | "right" | "center") {
+  return {
+    padding: "12px 12px",
+    textAlign: align,
+    fontSize: 10,
+    color: COLOR.muted,
+    fontWeight: 500,
+    whiteSpace: "nowrap" as const,
+    ...smallCaps,
+  };
 }
 
 function IngredientDetail({
@@ -179,9 +260,10 @@ function IngredientDetail({
 
   const ppmCurrent = pricePerMl(ingredient);
   const ppmNew = newPriceValid ? newPrice / ingredient.bottleSizeMl : ppmCurrent;
-  const deltaPct = ingredient.currentPrice > 0
-    ? ((newPrice - ingredient.currentPrice) / ingredient.currentPrice) * 100
-    : 0;
+  const deltaPct =
+    ingredient.currentPrice > 0
+      ? ((newPrice - ingredient.currentPrice) / ingredient.currentPrice) * 100
+      : 0;
 
   function handleSave() {
     if (!changed || !newPriceValid) return;
@@ -189,7 +271,10 @@ function IngredientDetail({
     startTransition(async () => {
       const res = await updateIngredientPrice(ingredient.id, newPrice, note);
       if (res.ok) {
-        setFeedback({ kind: "ok", msg: "Saved to git. The site will redeploy in ~30s with the new price." });
+        setFeedback({
+          kind: "ok",
+          msg: "Saved to git. The site will redeploy in ~30s with the new price.",
+        });
         setNote("");
       } else {
         setFeedback({ kind: "err", msg: res.error });
@@ -198,44 +283,58 @@ function IngredientDetail({
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header card */}
-      <div
-        className="rounded-xl p-6"
-        style={{ background: "#0a0a0a", border: "1px solid #1c1c1c" }}
-      >
-        <div className="w-8 h-px mb-5" style={{ background: "#c9a227" }} />
+    <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+      {/* Header */}
+      <header style={{ borderTop: `2px solid ${COLOR.ink}`, paddingTop: 20 }}>
         <h2
-          className="text-2xl font-bold mb-1"
-          style={{ color: "#f0f0f0", letterSpacing: "-0.01em" }}
+          style={{
+            fontFamily: FONT.serif,
+            fontSize: 36,
+            fontWeight: 400,
+            letterSpacing: "-0.02em",
+            lineHeight: 1.1,
+            color: COLOR.ink,
+            marginBottom: 8,
+          }}
         >
           {ingredient.name}
         </h2>
-        <p className="text-xs uppercase tracking-[0.15em]" style={{ color: "#c9a227" }}>
-          {ingredient.bottleSizeMl} ml · {fmt(ingredient.currentPrice)} · set {fmtDate(ingredient.currentPriceSetAt)}
+        <p style={{ fontSize: 11, color: COLOR.accent, ...smallCaps }}>
+          {ingredient.bottleSizeMl} ml · {fmt(ingredient.currentPrice)} · set{" "}
+          {fmtDate(ingredient.currentPriceSetAt)}
         </p>
         {ingredient.notes && (
-          <p className="text-xs mt-3" style={{ color: "#555" }}>
+          <p
+            style={{
+              fontFamily: FONT.serif,
+              fontStyle: "italic",
+              fontSize: 14,
+              color: COLOR.muted,
+              marginTop: 8,
+              lineHeight: 1.5,
+            }}
+          >
             {ingredient.notes}
           </p>
         )}
-      </div>
+      </header>
 
       {/* Scenario editor */}
-      <div
-        className="rounded-xl p-6"
-        style={{ background: "#0a0a0a", border: "1px solid #1c1c1c" }}
-      >
-        <p
-          className="text-[10px] uppercase tracking-[0.15em] font-semibold mb-4"
-          style={{ color: "#555" }}
-        >
+      <section>
+        <p style={{ fontSize: 10, color: COLOR.muted, marginBottom: 16, ...smallCaps }}>
           Model a price change
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-3 mb-5">
-          <label className="flex-1">
-            <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "#666" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 16,
+            flexWrap: "wrap",
+            marginBottom: 20,
+          }}
+        >
+          <label style={{ flex: 1, minWidth: 200 }}>
+            <span style={{ fontSize: 10, color: COLOR.muted, ...smallCaps }}>
               New price (per {ingredient.bottleSizeMl} ml bottle)
             </span>
             <input
@@ -244,16 +343,11 @@ function IngredientDetail({
               min="0"
               value={newPriceStr}
               onChange={(e) => setNewPriceStr(e.target.value)}
-              className="w-full mt-1 px-3 py-2 rounded-lg text-sm outline-none tabular-nums"
-              style={{
-                background: "#111",
-                border: "1px solid #222",
-                color: "#f0f0f0",
-              }}
+              style={inputStyle()}
             />
           </label>
-          <label className="flex-[1.4]">
-            <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "#666" }}>
+          <label style={{ flex: 1.4, minWidth: 240 }}>
+            <span style={{ fontSize: 10, color: COLOR.muted, ...smallCaps }}>
               Note (optional — shows up in history)
             </span>
             <input
@@ -261,174 +355,286 @@ function IngredientDetail({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="e.g. Supplier price increase Q2"
-              className="w-full mt-1 px-3 py-2 rounded-lg text-sm outline-none"
-              style={{
-                background: "#111",
-                border: "1px solid #222",
-                color: "#f0f0f0",
-              }}
+              style={inputStyle()}
             />
           </label>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 text-sm tabular-nums">
-          <Stat
-            label="Current £/ml"
-            value={`£${ppmCurrent.toFixed(5)}`}
-          />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 20,
+            borderTop: `1px solid ${COLOR.rule}`,
+            borderBottom: `1px solid ${COLOR.rule}`,
+            padding: "16px 0",
+            marginBottom: 20,
+          }}
+        >
+          <Stat label="Current £/ml" value={`£${ppmCurrent.toFixed(5)}`} />
           <Stat
             label="New £/ml"
             value={`£${ppmNew.toFixed(5)}`}
-            color={changed ? "#c9a227" : undefined}
+            color={changed ? COLOR.accent : undefined}
           />
           <Stat
             label="Change"
             value={changed ? `${deltaPct > 0 ? "+" : ""}${deltaPct.toFixed(1)}%` : "—"}
-            color={changed ? (deltaPct >= 0 ? "#e07a5f" : "#4fae8f") : undefined}
+            color={changed ? (deltaPct >= 0 ? COLOR.flag : COLOR.positive) : undefined}
           />
         </div>
 
-        <div className="flex items-center gap-3 mt-5">
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <button
             disabled={!changed || isPending}
             onClick={handleSave}
-            className="px-4 py-2 rounded-lg text-xs uppercase tracking-[0.12em] font-semibold transition-opacity disabled:opacity-30"
             style={{
-              background: "#c9a227",
-              color: "#080808",
+              background: changed && !isPending ? COLOR.ink : COLOR.rule,
+              color: COLOR.paper,
+              border: "none",
+              padding: "10px 20px",
+              fontSize: 11,
+              cursor: changed && !isPending ? "pointer" : "default",
+              opacity: !changed ? 0.5 : 1,
+              ...smallCaps,
             }}
           >
             {isPending ? "Saving…" : "Save price change"}
           </button>
           {feedback && (
             <span
-              className="text-xs"
-              style={{ color: feedback.kind === "ok" ? "#4fae8f" : "#e07a5f" }}
+              style={{
+                fontFamily: FONT.serif,
+                fontStyle: "italic",
+                fontSize: 14,
+                color: feedback.kind === "ok" ? COLOR.accent : COLOR.flag,
+              }}
             >
               {feedback.msg}
             </span>
           )}
         </div>
-      </div>
+      </section>
 
       {/* Impact preview */}
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ background: "#0a0a0a", border: "1px solid #1c1c1c" }}
-      >
-        <div className="px-6 py-4" style={{ borderBottom: "1px solid #1c1c1c" }}>
-          <p
-            className="text-[10px] uppercase tracking-[0.15em] font-semibold"
-            style={{ color: "#555" }}
-          >
-            Impact on MFC drinks
-          </p>
-          <p className="text-xs mt-1" style={{ color: "#777" }}>
-            {impact.length === 0
-              ? "No MFC recipes use this ingredient yet."
-              : `${impact.length} recipe${impact.length === 1 ? "" : "s"} — sorted by biggest 500 ml impact`}
-          </p>
-        </div>
+      <section>
+        <p style={{ fontSize: 10, color: COLOR.muted, marginBottom: 4, ...smallCaps }}>
+          Impact on MFC drinks
+        </p>
+        <p
+          style={{
+            fontFamily: FONT.serif,
+            fontStyle: "italic",
+            fontSize: 14,
+            color: COLOR.muted,
+            marginBottom: 16,
+          }}
+        >
+          {impact.length === 0
+            ? "No MFC recipes use this ingredient yet."
+            : `${impact.length} recipe${impact.length === 1 ? "" : "s"} — sorted by biggest 500 ml impact`}
+        </p>
 
         {impact.length > 0 && (
-          <>
-            <div
-              className="grid grid-cols-[1.4fr_0.5fr_0.7fr_0.7fr_0.6fr] gap-2 px-6 py-3 text-[10px] uppercase tracking-[0.12em] font-semibold"
-              style={{ color: "#555", borderBottom: "1px solid #141414" }}
-            >
-              <span>Drink</span>
-              <span className="text-right">ml / 500</span>
-              <span className="text-right">Current</span>
-              <span className="text-right">New</span>
-              <span className="text-right">Δ / 500</span>
-            </div>
-            <ul>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+            <thead>
+              <tr
+                style={{
+                  borderTop: `2px solid ${COLOR.ink}`,
+                  borderBottom: `1px solid ${COLOR.ruleBold}`,
+                }}
+              >
+                <th style={thStyle("left")}>Drink</th>
+                <th style={thStyle("right")}>ml / 500</th>
+                <th style={thStyle("right")}>Current</th>
+                <th style={thStyle("right")}>New</th>
+                <th style={thStyle("right")}>Δ / 500</th>
+              </tr>
+            </thead>
+            <tbody>
               {impact.map((row) => (
-                <li
+                <tr
                   key={row.recipeName}
-                  className="grid grid-cols-[1.4fr_0.5fr_0.7fr_0.7fr_0.6fr] gap-2 px-6 py-3 text-sm tabular-nums"
-                  style={{ borderBottom: "1px solid #141414", color: "#cfcfcf" }}
+                  style={{ borderBottom: `1px solid ${COLOR.rule}` }}
                 >
-                  <span className="truncate">{row.recipeName}</span>
-                  <span className="text-right" style={{ color: "#777" }}>
-                    {fmtMl(row.mlPerBottle500)}
-                  </span>
-                  <span className="text-right">{fmt(row.currentCostPer500)}</span>
-                  <span className="text-right" style={{ color: changed ? "#c9a227" : "#cfcfcf" }}>
-                    {fmt(row.newCostPer500)}
-                  </span>
-                  <span
-                    className="text-right font-semibold"
+                  <td
                     style={{
+                      padding: "12px 12px",
+                      fontFamily: FONT.serif,
+                      fontSize: 15,
+                      color: COLOR.ink,
+                    }}
+                  >
+                    {row.recipeName}
+                  </td>
+                  <td
+                    style={{
+                      padding: "12px 12px",
+                      textAlign: "right",
+                      fontFamily: FONT.mono,
+                      color: COLOR.muted,
+                      ...tabularNums,
+                    }}
+                  >
+                    {fmtMl(row.mlPerBottle500)}
+                  </td>
+                  <td
+                    style={{
+                      padding: "12px 12px",
+                      textAlign: "right",
+                      fontFamily: FONT.mono,
+                      color: COLOR.inkSoft,
+                      ...tabularNums,
+                    }}
+                  >
+                    {fmt(row.currentCostPer500)}
+                  </td>
+                  <td
+                    style={{
+                      padding: "12px 12px",
+                      textAlign: "right",
+                      fontFamily: FONT.mono,
+                      color: changed ? COLOR.accent : COLOR.inkSoft,
+                      fontWeight: changed ? 600 : 400,
+                      ...tabularNums,
+                    }}
+                  >
+                    {fmt(row.newCostPer500)}
+                  </td>
+                  <td
+                    style={{
+                      padding: "12px 12px",
+                      textAlign: "right",
+                      fontFamily: FONT.mono,
+                      fontWeight: 600,
                       color: !changed
-                        ? "#444"
+                        ? COLOR.mutedLight
                         : row.deltaPer500 > 0.005
-                        ? "#e07a5f"
+                        ? COLOR.flag
                         : row.deltaPer500 < -0.005
-                        ? "#4fae8f"
-                        : "#444",
+                        ? COLOR.positive
+                        : COLOR.mutedLight,
+                      ...tabularNums,
                     }}
                   >
                     {changed ? fmtDelta(row.deltaPer500) : "—"}
-                  </span>
-                </li>
+                  </td>
+                </tr>
               ))}
-            </ul>
-          </>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={5} style={{ borderTop: `2px solid ${COLOR.ink}`, padding: 0, height: 2 }} />
+              </tr>
+            </tfoot>
+          </table>
         )}
-      </div>
+      </section>
 
       {/* Price history */}
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ background: "#0a0a0a", border: "1px solid #1c1c1c" }}
-      >
-        <div className="px-6 py-4" style={{ borderBottom: "1px solid #1c1c1c" }}>
-          <p
-            className="text-[10px] uppercase tracking-[0.15em] font-semibold"
-            style={{ color: "#555" }}
-          >
-            Price history
-          </p>
-        </div>
+      <section>
+        <p style={{ fontSize: 10, color: COLOR.muted, marginBottom: 16, ...smallCaps }}>
+          Price history
+        </p>
         {history.length === 0 ? (
-          <p className="px-6 py-6 text-xs" style={{ color: "#555" }}>
+          <p
+            style={{
+              fontFamily: FONT.serif,
+              fontStyle: "italic",
+              fontSize: 14,
+              color: COLOR.muted,
+            }}
+          >
             No history recorded.
           </p>
         ) : (
-          <ul>
-            {history.map((h, idx) => (
-              <li
-                key={`${h.date}-${idx}`}
-                className="grid grid-cols-[1fr_auto_auto] gap-4 px-6 py-3 text-sm"
-                style={{ borderBottom: "1px solid #141414", color: "#cfcfcf" }}
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+            <thead>
+              <tr
+                style={{
+                  borderTop: `2px solid ${COLOR.ink}`,
+                  borderBottom: `1px solid ${COLOR.ruleBold}`,
+                }}
               >
-                <span className="truncate" style={{ color: "#777" }}>
-                  {h.note ?? "—"}
-                </span>
-                <span className="text-xs tabular-nums" style={{ color: "#555" }}>
-                  {fmtDate(h.date)}
-                </span>
-                <span className="tabular-nums">{fmt(h.price)}</span>
-              </li>
-            ))}
-          </ul>
+                <th style={thStyle("left")}>Note</th>
+                <th style={thStyle("right")}>Date</th>
+                <th style={thStyle("right")}>Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((h, idx) => (
+                <tr key={`${h.date}-${idx}`} style={{ borderBottom: `1px solid ${COLOR.rule}` }}>
+                  <td
+                    style={{
+                      padding: "12px 12px",
+                      fontFamily: FONT.serif,
+                      fontStyle: h.note ? "normal" : "italic",
+                      color: h.note ? COLOR.inkSoft : COLOR.mutedLight,
+                    }}
+                  >
+                    {h.note ?? "—"}
+                  </td>
+                  <td
+                    style={{
+                      padding: "12px 12px",
+                      textAlign: "right",
+                      fontFamily: FONT.mono,
+                      fontSize: 12,
+                      color: COLOR.muted,
+                      ...tabularNums,
+                    }}
+                  >
+                    {fmtDate(h.date)}
+                  </td>
+                  <td
+                    style={{
+                      padding: "12px 12px",
+                      textAlign: "right",
+                      fontFamily: FONT.mono,
+                      color: COLOR.ink,
+                      ...tabularNums,
+                    }}
+                  >
+                    {fmt(h.price)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
-      </div>
+      </section>
     </div>
   );
 }
 
+function inputStyle(): React.CSSProperties {
+  return {
+    width: "100%",
+    marginTop: 6,
+    padding: "8px 12px",
+    fontSize: 14,
+    outline: "none",
+    background: "transparent",
+    border: `1px solid ${COLOR.rule}`,
+    color: COLOR.ink,
+    fontFamily: FONT.sans,
+    ...tabularNums,
+  };
+}
+
 function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div
-      className="rounded-lg px-3 py-2"
-      style={{ background: "#111", border: "1px solid #1a1a1a" }}
-    >
-      <p className="text-[9px] uppercase tracking-[0.12em]" style={{ color: "#555" }}>
-        {label}
-      </p>
-      <p className="mt-0.5 text-sm font-semibold" style={{ color: color ?? "#f0f0f0" }}>
+    <div>
+      <p style={{ fontSize: 10, color: COLOR.muted, marginBottom: 6, ...smallCaps }}>{label}</p>
+      <p
+        style={{
+          fontFamily: FONT.mono,
+          fontSize: 18,
+          fontWeight: 500,
+          color: color ?? COLOR.ink,
+          ...tabularNums,
+        }}
+      >
         {value}
       </p>
     </div>

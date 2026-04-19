@@ -5,6 +5,7 @@ import { MASTER_INGREDIENTS } from "@/data/ingredients";
 import { RECIPES } from "@/data/recipes";
 import { useSettings } from "@/hooks/useSettings";
 import { IngredientType, Client, RecipeIngredient } from "@/types";
+import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
 
 const CLIENTS: Client[] = [
   "Myatt's Fields",
@@ -23,30 +24,31 @@ const TYPE_LABELS: Record<IngredientType, string> = {
 };
 
 export default function SettingsPanel() {
-  const { settings, updateBottleSize, updateIngredientType, saveSettings } = useSettings();
+  const { settings, updateBottleSize, updateIngredientType } = useSettings();
   const [activeTab, setActiveTab] = useState<"ingredients" | "recipes">("ingredients");
   const [recipeFilter, setRecipeFilter] = useState<Client | "all">("all");
   const [editingRecipeIdx, setEditingRecipeIdx] = useState<number | null>(null);
-
-  // Local copy of recipes for editing
   const [localRecipes, setLocalRecipes] = useState(RECIPES);
-
-  // Ingredient search
   const [search, setSearch] = useState("");
+
   const filtered = MASTER_INGREDIENTS.filter((i) =>
-    i.name.toLowerCase().includes(search.toLowerCase())
+    i.name.toLowerCase().includes(search.toLowerCase()),
   );
 
   function resolvedType(name: string): IngredientType {
-    return settings.ingredientOverrides[name]?.type ??
+    return (
+      settings.ingredientOverrides[name]?.type ??
       MASTER_INGREDIENTS.find((i) => i.name === name)?.type ??
-      "bottle";
+      "bottle"
+    );
   }
 
   function resolvedBottleSize(name: string): number {
-    return settings.ingredientOverrides[name]?.bottleSize ??
+    return (
+      settings.ingredientOverrides[name]?.bottleSize ??
       MASTER_INGREDIENTS.find((i) => i.name === name)?.bottleSize ??
-      700;
+      700
+    );
   }
 
   const displayedRecipes =
@@ -56,81 +58,116 @@ export default function SettingsPanel() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "#f0f0f0" }}>
-          Settings
-        </h1>
-        <p className="mt-1 text-sm" style={{ color: "#6b7280" }}>
-          Manage ingredient types, bottle sizes, and view recipes.
-        </p>
-      </div>
-
       {/* Tabs */}
       <div
-        className="flex gap-1 p-1 rounded-xl mb-8"
-        style={{ background: "#141414" }}
+        style={{
+          display: "flex",
+          gap: 24,
+          borderBottom: `1px solid ${COLOR.rule}`,
+          marginBottom: 32,
+        }}
       >
-        {(["ingredients", "recipes"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className="flex-1 py-2 rounded-lg text-sm font-semibold transition-all duration-150"
-            style={{
-              background: activeTab === tab ? "#2d6a4f" : "transparent",
-              color: activeTab === tab ? "#fff" : "#6b7280",
-            }}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
+        {(["ingredients", "recipes"] as const).map((tab) => {
+          const active = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                padding: "10px 0",
+                fontSize: 13,
+                background: "none",
+                border: "none",
+                borderBottom: active ? `2px solid ${COLOR.accent}` : "2px solid transparent",
+                marginBottom: -1,
+                color: active ? COLOR.accent : COLOR.muted,
+                cursor: "pointer",
+                fontFamily: FONT.sans,
+                ...smallCaps,
+              }}
+            >
+              {tab}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Ingredients tab */}
       {activeTab === "ingredients" && (
         <div>
-          <div className="mb-4">
-            <input
-              type="text"
-              placeholder="Search ingredients..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl px-4 py-2.5 text-sm border outline-none"
-              style={{
-                background: "#141414",
-                borderColor: "#2d2d2d",
-                color: "#f0f0f0",
-              }}
-            />
-          </div>
+          <input
+            type="text"
+            placeholder="Search ingredients…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "10px 14px",
+              fontSize: 14,
+              outline: "none",
+              background: "transparent",
+              border: `1px solid ${COLOR.rule}`,
+              color: COLOR.ink,
+              fontFamily: FONT.sans,
+              marginBottom: 20,
+            }}
+          />
 
-          <div className="space-y-2">
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
             {filtered.map((ingredient) => {
               const type = resolvedType(ingredient.name);
               const size = resolvedBottleSize(ingredient.name);
+              const edited =
+                settings.ingredientOverrides[ingredient.name]?.type !== undefined ||
+                settings.ingredientOverrides[ingredient.name]?.bottleSize !== undefined;
               return (
                 <div
                   key={ingredient.name}
-                  className="flex flex-wrap items-center gap-3 rounded-xl px-4 py-3 border"
-                  style={{ background: "#141414", borderColor: "#2d2d2d" }}
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: 14,
+                    padding: "12px 0",
+                    borderBottom: `1px solid ${COLOR.rule}`,
+                  }}
                 >
-                  <span className="flex-1 text-sm font-medium text-white min-w-0">
+                  <span
+                    style={{
+                      flex: 1,
+                      fontFamily: FONT.serif,
+                      fontSize: 16,
+                      color: COLOR.ink,
+                      minWidth: 180,
+                    }}
+                  >
                     {ingredient.name}
+                    {edited && (
+                      <span
+                        style={{
+                          marginLeft: 10,
+                          fontSize: 10,
+                          color: COLOR.accent,
+                          ...smallCaps,
+                        }}
+                      >
+                        edited
+                      </span>
+                    )}
                   </span>
 
-                  {/* Type selector */}
                   <select
                     value={type}
                     onChange={(e) =>
-                      updateIngredientType(
-                        ingredient.name,
-                        e.target.value as IngredientType
-                      )
+                      updateIngredientType(ingredient.name, e.target.value as IngredientType)
                     }
-                    className="rounded-lg px-2 py-1.5 text-xs border outline-none"
                     style={{
-                      background: "#1e1e1e",
-                      borderColor: "#2d2d2d",
-                      color: "#d1d5db",
+                      padding: "6px 10px",
+                      fontSize: 12,
+                      outline: "none",
+                      background: "transparent",
+                      border: `1px solid ${COLOR.rule}`,
+                      color: COLOR.inkSoft,
+                      fontFamily: FONT.sans,
                     }}
                   >
                     {(["jerry-can", "bottle", "house-made", "dashes"] as IngredientType[]).map(
@@ -138,13 +175,12 @@ export default function SettingsPanel() {
                         <option key={t} value={t}>
                           {TYPE_LABELS[t]}
                         </option>
-                      )
+                      ),
                     )}
                   </select>
 
-                  {/* Bottle size (only if type = bottle) */}
                   {type === "bottle" && (
-                    <div className="flex items-center gap-1">
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <input
                         type="number"
                         value={size}
@@ -154,26 +190,21 @@ export default function SettingsPanel() {
                         onChange={(e) =>
                           updateBottleSize(ingredient.name, parseInt(e.target.value) || 700)
                         }
-                        className="w-20 rounded-lg px-2 py-1.5 text-xs border outline-none text-right"
                         style={{
-                          background: "#1e1e1e",
-                          borderColor: "#2d2d2d",
-                          color: "#d1d5db",
+                          width: 72,
+                          padding: "6px 8px",
+                          fontSize: 12,
+                          textAlign: "right",
+                          outline: "none",
+                          background: "transparent",
+                          border: `1px solid ${COLOR.rule}`,
+                          color: COLOR.inkSoft,
+                          fontFamily: FONT.mono,
+                          ...tabularNums,
                         }}
                       />
-                      <span className="text-xs" style={{ color: "#6b7280" }}>ml</span>
+                      <span style={{ fontSize: 11, color: COLOR.muted }}>ml</span>
                     </div>
-                  )}
-
-                  {/* Badge for default overridden */}
-                  {(settings.ingredientOverrides[ingredient.name]?.type ||
-                    settings.ingredientOverrides[ingredient.name]?.bottleSize) && (
-                    <span
-                      className="text-xs px-1.5 py-0.5 rounded"
-                      style={{ background: "#1a3d29", color: "#52b788" }}
-                    >
-                      edited
-                    </span>
                   )}
                 </div>
               );
@@ -182,11 +213,9 @@ export default function SettingsPanel() {
         </div>
       )}
 
-      {/* Recipes tab */}
       {activeTab === "recipes" && (
         <div>
-          {/* Client filter */}
-          <div className="flex flex-wrap gap-2 mb-6">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
             <FilterChip
               label="All"
               active={recipeFilter === "all"}
@@ -202,47 +231,63 @@ export default function SettingsPanel() {
             ))}
           </div>
 
-          <div className="space-y-3">
-            {displayedRecipes.map((recipe, idx) => {
+          <div>
+            {displayedRecipes.map((recipe) => {
               const globalIdx = localRecipes.indexOf(recipe);
               const isEditing = editingRecipeIdx === globalIdx;
               return (
                 <div
                   key={recipe.name}
-                  className="rounded-xl border overflow-hidden"
-                  style={{ background: "#141414", borderColor: "#2d2d2d" }}
+                  style={{
+                    borderBottom: `1px solid ${COLOR.rule}`,
+                  }}
                 >
-                  {/* Recipe header */}
                   <button
-                    className="w-full flex items-start justify-between gap-4 px-5 py-4"
-                    onClick={() =>
-                      setEditingRecipeIdx(isEditing ? null : globalIdx)
-                    }
+                    style={{
+                      width: "100%",
+                      background: "none",
+                      border: "none",
+                      padding: "16px 0",
+                      display: "flex",
+                      alignItems: "baseline",
+                      justifyContent: "space-between",
+                      gap: 16,
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                    onClick={() => setEditingRecipeIdx(isEditing ? null : globalIdx)}
                   >
-                    <div className="text-left">
-                      <p className="font-semibold text-sm text-white">{recipe.name}</p>
-                      <p className="text-xs mt-0.5" style={{ color: "#6b7280" }}>
+                    <div>
+                      <p
+                        style={{
+                          fontFamily: FONT.serif,
+                          fontSize: 18,
+                          fontWeight: 500,
+                          color: COLOR.ink,
+                          marginBottom: 4,
+                        }}
+                      >
+                        {recipe.name}
+                      </p>
+                      <p style={{ fontSize: 11, color: COLOR.muted, ...smallCaps }}>
                         {recipe.clients.join(", ")}
                       </p>
                     </div>
-                    <svg
-                      className={`w-4 h-4 flex-shrink-0 mt-0.5 transition-transform ${isEditing ? "rotate-180" : ""}`}
-                      style={{ color: "#6b7280" }}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: COLOR.muted,
+                        transform: isEditing ? "rotate(180deg)" : "none",
+                        transition: "transform 120ms",
+                      }}
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                      ▾
+                    </span>
                   </button>
 
-                  {/* Expanded view */}
                   {isEditing && (
-                    <div
-                      className="px-5 pb-5 border-t"
-                      style={{ borderColor: "#2d2d2d" }}
-                    >
-                      <div className="pt-4 space-y-2">
+                    <div style={{ paddingBottom: 20 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         {recipe.ingredients.map((ing, iIdx) => (
                           <RecipeIngredientRow
                             key={ing.ingredientName}
@@ -260,7 +305,7 @@ export default function SettingsPanel() {
                             onRemove={() => {
                               const newRecipes = [...localRecipes];
                               const newIngredients = newRecipes[globalIdx].ingredients.filter(
-                                (_, i) => i !== iIdx
+                                (_, i) => i !== iIdx,
                               );
                               newRecipes[globalIdx] = {
                                 ...newRecipes[globalIdx],
@@ -271,8 +316,19 @@ export default function SettingsPanel() {
                           />
                         ))}
                         <button
-                          className="mt-2 text-xs px-3 py-1.5 rounded-lg border transition-all"
-                          style={{ borderColor: "#2d6a4f", color: "#52b788", background: "transparent" }}
+                          style={{
+                            marginTop: 8,
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            fontSize: 11,
+                            color: COLOR.accent,
+                            cursor: "pointer",
+                            textDecoration: "underline",
+                            textUnderlineOffset: 3,
+                            alignSelf: "flex-start",
+                            ...smallCaps,
+                          }}
                           onClick={() => {
                             const newRecipes = [...localRecipes];
                             newRecipes[globalIdx] = {
@@ -295,9 +351,18 @@ export default function SettingsPanel() {
             })}
           </div>
 
-          <p className="mt-6 text-xs" style={{ color: "#6b7280" }}>
-            Note: Recipe edits here are display-only in this session. To permanently save
-            changes, update <code className="text-xs" style={{ color: "#52b788" }}>src/data/recipes.ts</code>.
+          <p
+            style={{
+              marginTop: 32,
+              fontSize: 13,
+              fontFamily: FONT.serif,
+              fontStyle: "italic",
+              color: COLOR.muted,
+              lineHeight: 1.55,
+            }}
+          >
+            Note — recipe edits here are display-only in this session. To persist,
+            update <code style={{ fontFamily: FONT.mono, fontSize: 12, color: COLOR.accent }}>src/data/recipes.ts</code>.
           </p>
         </div>
       )}
@@ -317,11 +382,15 @@ function FilterChip({
   return (
     <button
       onClick={onClick}
-      className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-all"
       style={{
-        background: active ? "#2d6a4f" : "#141414",
-        borderColor: active ? "#52b788" : "#2d2d2d",
-        color: active ? "#fff" : "#9ca3af",
+        padding: "5px 12px",
+        fontSize: 11,
+        background: active ? COLOR.ink : "transparent",
+        border: `1px solid ${active ? COLOR.ink : COLOR.rule}`,
+        color: active ? COLOR.paper : COLOR.inkSoft,
+        cursor: "pointer",
+        fontFamily: FONT.sans,
+        ...smallCaps,
       }}
     >
       {label}
@@ -339,27 +408,55 @@ function RecipeIngredientRow({
   onRemove: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <input
         type="text"
         value={ingredient.ingredientName}
         onChange={(e) => onUpdate({ ...ingredient, ingredientName: e.target.value })}
-        className="flex-1 rounded-lg px-3 py-1.5 text-sm border outline-none"
-        style={{ background: "#1e1e1e", borderColor: "#2d2d2d", color: "#f0f0f0" }}
+        style={{
+          flex: 1,
+          padding: "6px 10px",
+          fontSize: 13,
+          outline: "none",
+          background: "transparent",
+          border: `1px solid ${COLOR.rule}`,
+          color: COLOR.ink,
+          fontFamily: FONT.serif,
+        }}
         placeholder="Ingredient name"
       />
       <input
         type="number"
         value={ingredient.parts ?? ""}
         onChange={(e) => onUpdate({ ...ingredient, parts: parseFloat(e.target.value) || 0 })}
-        className="w-20 rounded-lg px-3 py-1.5 text-sm border outline-none text-right"
-        style={{ background: "#1e1e1e", borderColor: "#2d2d2d", color: "#f0f0f0" }}
+        style={{
+          width: 80,
+          padding: "6px 10px",
+          fontSize: 13,
+          textAlign: "right",
+          outline: "none",
+          background: "transparent",
+          border: `1px solid ${COLOR.rule}`,
+          color: COLOR.ink,
+          fontFamily: FONT.mono,
+          ...tabularNums,
+        }}
         placeholder="parts"
       />
       <button
         onClick={onRemove}
-        className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-        style={{ background: "#2d1515", color: "#f87171" }}
+        style={{
+          width: 28,
+          height: 28,
+          border: `1px solid ${COLOR.flagSoft}`,
+          background: "transparent",
+          color: COLOR.flag,
+          cursor: "pointer",
+          fontSize: 14,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
       >
         ×
       </button>

@@ -1,32 +1,67 @@
 import Nav from "@/components/Nav";
+import { COLOR, FONT, smallCaps } from "@/lib/design";
 
 export default function RecipesPage() {
   return (
-    <div className="min-h-screen" style={{ background: "#080808" }}>
+    <div style={{ background: COLOR.paper, color: COLOR.ink, minHeight: "100vh" }}>
       <Nav />
-      <main className="max-w-5xl mx-auto px-6 py-16">
-        <div className="mb-10">
-          <p
-            className="text-xs uppercase tracking-[0.6em] mb-3 font-medium"
-            style={{ color: "#c9a227" }}
-          >
-            Myatt&apos;s Fields
-          </p>
-          <h1
-            className="text-3xl font-bold tracking-tight"
-            style={{ color: "#f0f0f0", letterSpacing: "-0.02em" }}
-          >
-            Recipes
-          </h1>
-        </div>
+      <main style={{ maxWidth: 880, margin: "0 auto", padding: "64px 40px 120px" }}>
+        <p style={{ fontSize: 10, color: COLOR.muted, marginBottom: 20, ...smallCaps }}>
+          Drinks · Recipes
+        </p>
+        <h1
+          style={{
+            fontFamily: FONT.serif,
+            fontSize: "clamp(44px, 6vw, 56px)",
+            fontWeight: 400,
+            letterSpacing: "-0.025em",
+            lineHeight: 1.02,
+            marginBottom: 18,
+            color: COLOR.ink,
+          }}
+        >
+          Recipes
+        </h1>
+        <p
+          style={{
+            fontFamily: FONT.serif,
+            fontStyle: "italic",
+            fontSize: 19,
+            color: COLOR.inkSoft,
+            lineHeight: 1.55,
+            maxWidth: 640,
+            fontWeight: 300,
+            marginBottom: 48,
+          }}
+        >
+          Browse and edit the canonical spec for every cocktail — ratios, production
+          notes, and the drinks available to each client.
+        </p>
 
         <div
-          className="rounded-xl p-10 text-center"
-          style={{ background: "#0f0f0f", border: "1px solid #1c1c1c" }}
+          style={{
+            borderTop: `1px solid ${COLOR.rule}`,
+            borderBottom: `1px solid ${COLOR.rule}`,
+            padding: "48px 24px",
+            textAlign: "center",
+          }}
         >
-          <div className="w-8 h-px mx-auto mb-8" style={{ background: "#c9a227" }} />
-          <p className="text-sm uppercase tracking-[0.15em] font-medium" style={{ color: "#333" }}>
-            Coming soon
+          <p style={{ fontSize: 11, color: COLOR.accent, marginBottom: 8, ...smallCaps }}>
+            Planned
+          </p>
+          <p
+            style={{
+              fontFamily: FONT.serif,
+              fontStyle: "italic",
+              fontSize: 16,
+              color: COLOR.muted,
+              maxWidth: 400,
+              margin: "0 auto",
+              lineHeight: 1.55,
+            }}
+          >
+            The recipe browser is on the list. Batch quantities for every drink are
+            already live in the Batch calculator.
           </p>
         </div>
       </main>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { fmt, fmtShort, pct, KpiCard, Section, PeriodPills } from "./_shared";
+import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
 
 type YearData = {
   totalIncome: number;
@@ -45,64 +46,67 @@ export default function RevenueClient({
     (data?.incomeByAccount?.["Sales - retail"] ?? 0);
 
   const dtcValue = isCurrent && shopify ? shopify.totalRevenue : qbShopify + qbAmazon;
-  const dtcSub = isCurrent && shopify
-    ? `${shopify.orderCount} orders (live)`
-    : "From QB";
+  const dtcSub = isCurrent && shopify ? `${shopify.orderCount} orders (live)` : "From QB";
 
-  const totalLabel = isCurrent ? `${selectedYear} Total YTD` : `${selectedYear} Total`;
+  const totalLabel = isCurrent ? `${selectedYear} total YTD` : `${selectedYear} total`;
   const totalSub = isCurrent
     ? `From QuickBooks · Updated ${lastUpdated}`
     : "Full year · From QuickBooks";
 
   const yearPicker = (
-    <PeriodPills
-      values={availableYears}
-      selected={selectedYear}
-      onChange={setSelectedYear}
-    />
+    <PeriodPills values={availableYears} selected={selectedYear} onChange={setSelectedYear} />
   );
 
   return (
     <>
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-        <p className="text-[10px] uppercase tracking-[0.15em] font-semibold" style={{ color: "#555" }}>
-          Revenue Period
-        </p>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          gap: 16,
+          marginBottom: 20,
+          flexWrap: "wrap",
+          rowGap: 8,
+        }}
+      >
+        <p style={{ fontSize: 11, color: COLOR.muted, ...smallCaps }}>Revenue period</p>
         {yearPicker}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-10">
-        <KpiCard
-          label={totalLabel}
-          value={fmtShort(data?.totalIncome ?? 0)}
-          sub={totalSub}
-          accent
-        />
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          gap: 40,
+          borderTop: `1px solid ${COLOR.rule}`,
+          borderBottom: `1px solid ${COLOR.rule}`,
+          padding: "24px 0",
+          marginBottom: 48,
+        }}
+      >
+        <KpiCard label={totalLabel} value={fmtShort(data?.totalIncome ?? 0)} sub={totalSub} accent />
         <KpiCard
           label="Wholesale"
           value={fmtShort(qbWholesale)}
           sub="Product + channel + retail"
         />
+        <KpiCard label="Amazon" value={fmtShort(qbAmazon)} sub="FBA sales" />
+        <KpiCard label="Shopify" value={fmtShort(dtcValue)} sub={dtcSub} />
         <KpiCard
-          label="Amazon"
-          value={fmtShort(qbAmazon)}
-          sub="FBA sales"
-        />
-        <KpiCard
-          label="Shopify"
-          value={fmtShort(dtcValue)}
-          sub={dtcSub}
-        />
-        <KpiCard
-          label="Net Income"
+          label="Net income"
           value={fmtShort(data?.netIncome ?? 0)}
           sub="After all expenses"
           warning={(data?.netIncome ?? 0) < 0}
         />
-      </div>
+      </section>
 
-      <Section title="Annual Revenue (QuickBooks)" badge="QB">
-        <QBRevenueTable years={years} selectedYear={selectedYear} currentYear={currentYear} />
+      <Section title="Annual revenue (QuickBooks)" badge="QB">
+        <QBRevenueTable
+          years={years}
+          selectedYear={selectedYear}
+          currentYear={currentYear}
+        />
       </Section>
     </>
   );
@@ -122,61 +126,135 @@ function QBRevenueTable({
     .sort((a, b) => b.year.localeCompare(a.year));
 
   return (
-    <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
-      <thead>
-        <tr>
-          {["Year", "Total Income", "Gross Profit", "Expenses", "Net Income", "YoY"].map((col) => (
-            <th
-              key={col}
-              className="px-3 py-2 text-[10px] uppercase tracking-[0.1em] font-semibold"
-              style={{
-                textAlign: col === "Year" ? "left" : "right",
-                color: "#555",
-                borderBottom: "1px solid #1c1c1c",
-              }}
-            >
-              {col}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, i) => {
-          const prev = rows[i + 1]?.totalIncome ?? null;
-          const yoyPct = prev ? ((row.totalIncome - prev) / prev) * 100 : null;
-          const yearNum = Number(row.year);
-          const isCurrent = yearNum === currentYear;
-          const isSelected = yearNum === selectedYear;
-          return (
-            <tr
-              key={row.year}
-              style={{
-                borderBottom: "1px solid #141414",
-                background: isSelected ? "rgba(201,162,39,0.04)" : "transparent",
-              }}
-            >
-              <td className="px-3 py-3" style={{ color: isSelected ? "#c9a227" : "#cfcfcf", fontWeight: isSelected ? 600 : 400 }}>
-                {row.year}{isCurrent ? " YTD" : ""}
-              </td>
-              <td className="px-3 py-3 text-right tabular-nums font-semibold" style={{ color: "#f0f0f0" }}>
-                {fmt(row.totalIncome)}
-              </td>
-              <td className="px-3 py-3 text-right tabular-nums" style={{ color: "#cfcfcf" }}>
-                {fmt(row.grossProfit)}
-              </td>
-              <td className="px-3 py-3 text-right tabular-nums" style={{ color: "#777" }}>
-                {fmt(row.totalExpenses)}
-              </td>
-              <td className="px-3 py-3 text-right tabular-nums" style={{ color: row.netIncome >= 0 ? "#4fae8f" : "#e07a5f", fontWeight: 600 }}>
-                {fmt(row.netIncome)}
-              </td>
-              <td className="px-3 py-3 text-right tabular-nums text-xs" style={{ color: yoyPct === null ? "#333" : yoyPct >= 0 ? "#4fae8f" : "#e07a5f" }}>
-                {yoyPct === null ? "—" : pct(yoyPct)}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+        <thead>
+          <tr
+            style={{
+              borderTop: `2px solid ${COLOR.ink}`,
+              borderBottom: `1px solid ${COLOR.ruleBold}`,
+            }}
+          >
+            {["Year", "Total income", "Gross profit", "Expenses", "Net income", "YoY"].map(
+              (col, i) => (
+                <th
+                  key={col}
+                  style={{
+                    padding: "12px 12px",
+                    textAlign: i === 0 ? "left" : "right",
+                    fontSize: 10,
+                    color: COLOR.muted,
+                    fontWeight: 500,
+                    whiteSpace: "nowrap",
+                    ...smallCaps,
+                  }}
+                >
+                  {col}
+                </th>
+              ),
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => {
+            const prev = rows[i + 1]?.totalIncome ?? null;
+            const yoyPct = prev ? ((row.totalIncome - prev) / prev) * 100 : null;
+            const yearNum = Number(row.year);
+            const isCurrent = yearNum === currentYear;
+            const isSelected = yearNum === selectedYear;
+            return (
+              <tr
+                key={row.year}
+                style={{
+                  borderBottom: `1px solid ${COLOR.rule}`,
+                  background: isSelected ? COLOR.paperDeep : "transparent",
+                }}
+              >
+                <td
+                  style={{
+                    padding: "14px 12px",
+                    fontFamily: FONT.serif,
+                    fontSize: 16,
+                    color: isSelected ? COLOR.accent : COLOR.ink,
+                    fontWeight: isSelected ? 500 : 400,
+                  }}
+                >
+                  {row.year}
+                  {isCurrent ? " YTD" : ""}
+                </td>
+                <td
+                  style={{
+                    padding: "14px 12px",
+                    textAlign: "right",
+                    fontFamily: FONT.mono,
+                    color: COLOR.ink,
+                    fontWeight: 600,
+                    ...tabularNums,
+                  }}
+                >
+                  {fmt(row.totalIncome)}
+                </td>
+                <td
+                  style={{
+                    padding: "14px 12px",
+                    textAlign: "right",
+                    fontFamily: FONT.mono,
+                    color: COLOR.inkSoft,
+                    ...tabularNums,
+                  }}
+                >
+                  {fmt(row.grossProfit)}
+                </td>
+                <td
+                  style={{
+                    padding: "14px 12px",
+                    textAlign: "right",
+                    fontFamily: FONT.mono,
+                    color: COLOR.muted,
+                    ...tabularNums,
+                  }}
+                >
+                  {fmt(row.totalExpenses)}
+                </td>
+                <td
+                  style={{
+                    padding: "14px 12px",
+                    textAlign: "right",
+                    fontFamily: FONT.mono,
+                    color: row.netIncome >= 0 ? COLOR.positive : COLOR.flag,
+                    fontWeight: 600,
+                    ...tabularNums,
+                  }}
+                >
+                  {fmt(row.netIncome)}
+                </td>
+                <td
+                  style={{
+                    padding: "14px 12px",
+                    textAlign: "right",
+                    fontFamily: FONT.mono,
+                    fontSize: 12,
+                    color:
+                      yoyPct === null
+                        ? COLOR.mutedLight
+                        : yoyPct >= 0
+                        ? COLOR.positive
+                        : COLOR.flag,
+                    ...tabularNums,
+                  }}
+                >
+                  {yoyPct === null ? "—" : pct(yoyPct)}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={6} style={{ borderTop: `2px solid ${COLOR.ink}`, padding: 0, height: 2 }} />
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   );
 }

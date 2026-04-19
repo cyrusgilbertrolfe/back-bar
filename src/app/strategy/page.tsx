@@ -1,5 +1,7 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
+import Nav from '@/components/Nav'
+import { COLOR, FONT, smallCaps, tabularNums } from '@/lib/design'
 
 export const metadata: Metadata = {
   title: 'Strategy & Targets — The Back Bar',
@@ -22,180 +24,180 @@ interface Section {
 
 const S = {
   page: {
-    background: '#0a0a0a',
+    background: COLOR.paper,
     minHeight: '100vh',
-    color: '#fff',
-    fontFamily: 'system-ui, -apple-system, Arial, sans-serif',
-  },
-  topBar: {
-    borderBottom: '1px solid #1a1a1a',
-    padding: '20px 48px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  backLink: {
-    fontSize: 12,
-    color: '#555',
-    textDecoration: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    letterSpacing: 0.3,
-  },
-  pageTitle: {
-    fontSize: 11,
-    letterSpacing: 3,
-    color: '#C9A84C',
-    textTransform: 'uppercase' as const,
-    fontWeight: 600,
-  },
-  updatedNote: {
-    fontSize: 11,
-    color: '#444',
+    color: COLOR.ink,
+    fontFamily: FONT.sans,
   },
   layout: {
     display: 'grid',
-    gridTemplateColumns: '220px 1fr',
-    minHeight: 'calc(100vh - 65px)',
+    gridTemplateColumns: '240px 1fr',
+    maxWidth: 1200,
+    margin: '0 auto',
   },
   sidebar: {
-    borderRight: '1px solid #1a1a1a',
-    padding: '32px 0',
+    padding: '56px 28px 56px 40px',
     position: 'sticky' as const,
-    top: 0,
-    height: 'calc(100vh - 65px)',
+    top: 60,
+    height: 'calc(100vh - 60px)',
     overflowY: 'auto' as const,
+    borderRight: `1px solid ${COLOR.rule}`,
   },
   sidebarLabel: {
     fontSize: 10,
-    letterSpacing: 2,
-    color: '#444',
-    textTransform: 'uppercase' as const,
-    padding: '0 24px',
-    marginBottom: 12,
-    fontWeight: 600,
+    color: COLOR.muted,
+    marginBottom: 14,
+    fontWeight: 500,
+    ...smallCaps,
   },
   sidebarLink: (active: boolean) => ({
     display: 'block',
-    padding: '9px 24px',
-    fontSize: 12,
-    color: active ? '#C9A84C' : '#666',
+    padding: '8px 0',
+    fontSize: 13,
+    color: active ? COLOR.accent : COLOR.inkSoft,
     textDecoration: 'none',
-    borderLeft: active ? '2px solid #C9A84C' : '2px solid transparent',
-    fontWeight: active ? 600 : 400,
-    background: active ? '#111' : 'transparent',
-    transition: 'color 0.1s',
+    fontWeight: active ? 500 : 400,
+    fontFamily: FONT.serif,
   }),
   main: {
-    padding: '48px 64px',
+    padding: '56px 48px 96px',
     maxWidth: 820,
   },
+  intro: {
+    borderBottom: `1px solid ${COLOR.rule}`,
+    paddingBottom: 40,
+    marginBottom: 48,
+  },
+  eyebrow: {
+    fontSize: 10,
+    color: COLOR.muted,
+    marginBottom: 18,
+    ...smallCaps,
+  },
+  pageHeading: {
+    fontFamily: FONT.serif,
+    fontSize: 'clamp(44px, 6vw, 56px)',
+    fontWeight: 400,
+    letterSpacing: '-0.025em',
+    lineHeight: 1.02,
+    marginBottom: 18,
+    color: COLOR.ink,
+  },
+  pageSubtitle: {
+    fontFamily: FONT.serif,
+    fontStyle: 'italic' as const,
+    fontSize: 18,
+    color: COLOR.inkSoft,
+    lineHeight: 1.55,
+    maxWidth: 680,
+    fontWeight: 300,
+  },
   sectionBlock: {
-    marginBottom: 64,
-    paddingBottom: 64,
-    borderBottom: '1px solid #1a1a1a',
+    marginBottom: 80,
+    paddingBottom: 72,
+    borderBottom: `1px solid ${COLOR.rule}`,
   },
   sectionHeader: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   sectionMeta: {
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 10,
+    gap: 14,
+    marginBottom: 14,
+    flexWrap: 'wrap' as const,
   },
   sectionLabel: {
-    fontSize: 10,
-    letterSpacing: 2,
-    color: '#555',
-    textTransform: 'uppercase' as const,
-    fontWeight: 600,
+    fontFamily: FONT.mono,
+    fontSize: 11,
+    color: COLOR.muted,
+    letterSpacing: '0.08em',
   },
   statusBadge: (status: string) => ({
     fontSize: 10,
-    letterSpacing: 1,
-    fontWeight: 600,
-    padding: '2px 8px',
-    borderRadius: 3,
-    background: status === 'live' ? '#1e4d2b' : status === 'draft' ? '#2a1e0a' : '#1a1a1a',
-    color: status === 'live' ? '#4caf50' : status === 'draft' ? '#FFC107' : '#555',
-    border: `1px solid ${status === 'live' ? '#2d7a3a' : status === 'draft' ? '#7a5a00' : '#2a2a2a'}`,
+    color:
+      status === 'live' ? COLOR.accent : status === 'draft' ? COLOR.accentSoft : COLOR.mutedLight,
+    ...smallCaps,
   }),
   dateBadge: {
     fontSize: 10,
-    color: '#444',
-    letterSpacing: 0.3,
+    color: COLOR.mutedLight,
+    ...smallCaps,
   },
   sectionTitle: {
-    fontSize: 24,
-    fontWeight: 700,
-    color: '#fff',
-    letterSpacing: '-0.3px',
-    lineHeight: 1.2,
+    fontFamily: FONT.serif,
+    fontSize: 32,
+    fontWeight: 500,
+    color: COLOR.ink,
+    letterSpacing: '-0.015em',
+    lineHeight: 1.15,
     marginBottom: 6,
   },
   sectionSubtitle: {
-    fontSize: 13,
-    color: '#666',
+    fontFamily: FONT.serif,
+    fontStyle: 'italic' as const,
+    fontSize: 15,
+    color: COLOR.muted,
+    lineHeight: 1.55,
   },
   body: {
-    fontSize: 15,
-    lineHeight: 1.8,
-    color: '#ccc',
+    fontFamily: FONT.serif,
+    fontSize: 17,
+    lineHeight: 1.75,
+    color: COLOR.inkSoft,
   },
   p: {
     marginBottom: 20,
   },
   highlight: {
-    background: '#161610',
-    border: '1px solid #2a2a1a',
-    borderLeft: '3px solid #C9A84C',
-    borderRadius: '0 6px 6px 0',
-    padding: '16px 20px',
-    margin: '24px 0',
-    fontSize: 14,
-    color: '#bbb',
+    borderLeft: `3px solid ${COLOR.accent}`,
+    padding: '8px 0 8px 18px',
+    margin: '28px 0',
+    fontFamily: FONT.serif,
+    fontSize: 16,
+    color: COLOR.inkSoft,
     lineHeight: 1.7,
+    fontStyle: 'italic' as const,
   },
   keyFact: {
     display: 'inline-block',
-    background: '#1a1a1a',
-    border: '1px solid #2a2a2a',
-    borderRadius: 6,
     padding: '12px 20px',
-    margin: '4px',
     textAlign: 'center' as const,
-    minWidth: 120,
+    minWidth: 100,
   },
   keyFactValue: {
-    fontSize: 22,
-    fontWeight: 700,
-    color: '#C9A84C',
+    fontFamily: FONT.serif,
+    fontSize: 28,
+    fontWeight: 400,
+    color: COLOR.ink,
     display: 'block',
     marginBottom: 2,
+    letterSpacing: '-0.01em',
+    ...tabularNums,
   },
   keyFactLabel: {
     fontSize: 10,
-    color: '#555',
-    letterSpacing: 1,
-    textTransform: 'uppercase' as const,
+    color: COLOR.muted,
+    ...smallCaps,
   },
   factsRow: {
     display: 'flex',
     flexWrap: 'wrap' as const,
-    gap: 8,
-    margin: '24px 0',
+    gap: 24,
+    margin: '32px 0',
+    borderTop: `1px solid ${COLOR.rule}`,
+    borderBottom: `1px solid ${COLOR.rule}`,
+    padding: '20px 0',
   },
   plannedBlock: {
-    background: '#0f0f0f',
-    border: '1px dashed #222',
-    borderRadius: 8,
-    padding: '32px',
+    borderTop: `1px solid ${COLOR.rule}`,
+    borderBottom: `1px solid ${COLOR.rule}`,
+    padding: '40px 24px',
     textAlign: 'center' as const,
-    color: '#444',
-    fontSize: 13,
+    color: COLOR.muted,
+    fontSize: 14,
+    fontFamily: FONT.serif,
+    fontStyle: 'italic' as const,
   },
 }
 
@@ -221,7 +223,7 @@ const SECTIONS: Section[] = [
 
         <p style={S.p}>
           In April 2026, we built a single source of truth for pricing. The approach is cost-forward: every
-          wholesale price is calculated as <strong style={{ color: '#C9A84C' }}>COGS × 1.40 + shipping</strong>,
+          wholesale price is calculated as <strong style={{ color: COLOR.accent }}>COGS × 1.40 + shipping</strong>,
           where COGS reflects the true ingredient cost of each bottled cocktail and shipping covers the per-unit
           fulfilment cost. The 40% markup on cost (equivalent to roughly 28% gross margin) is the minimum needed
           to make wholesale commercially viable, while leaving retailers sufficient room to price at their standard
@@ -229,7 +231,7 @@ const SECTIONS: Section[] = [
         </p>
 
         <div style={S.highlight}>
-          <strong style={{ color: '#C9A84C' }}>The retailer test:</strong> for any wholesale price to be viable,
+          <strong style={{ color: COLOR.accent }}>The retailer test:</strong> for any wholesale price to be viable,
           Wholesale × 1.30 (retailer margin) × 1.20 (VAT) must be ≤ RRP. If a retailer cannot mark our product
           up to their standard margin and still price it below our own RRP, they will not stock it — or they will
           discount it in ways that undercut us online.
@@ -308,20 +310,9 @@ export default function StrategyPage() {
 
   return (
     <div style={S.page}>
-      {/* Top bar */}
-      <div style={S.topBar}>
-        <Link href="/" style={S.backLink}>
-          ← The Back Bar
-        </Link>
-        <div style={S.pageTitle}>Strategy & Targets</div>
-        <div style={S.updatedNote}>
-          {liveCount} of {SECTIONS.length} sections written
-        </div>
-      </div>
-
-      <div style={S.layout}>
-        {/* Sidebar nav */}
-        <div style={S.sidebar}>
+      <Nav />
+      <div style={S.layout} className="strategy-layout">
+        <aside style={S.sidebar} className="strategy-sidebar">
           <div style={S.sidebarLabel}>Sections</div>
           {SECTIONS.map(section => (
             <a
@@ -331,19 +322,27 @@ export default function StrategyPage() {
             >
               {section.label}
               {section.status === 'live' && (
-                <span style={{ marginLeft: 6, fontSize: 9, color: '#4caf50' }}>●</span>
+                <span style={{ marginLeft: 8, fontSize: 9, color: COLOR.accent }}>●</span>
               )}
               {section.status === 'planned' && (
-                <span style={{ marginLeft: 6, fontSize: 9, color: '#333' }}>○</span>
+                <span style={{ marginLeft: 8, fontSize: 9, color: COLOR.mutedLight }}>○</span>
               )}
             </a>
           ))}
-        </div>
+        </aside>
 
-        {/* Main content */}
-        <div style={S.main}>
+        <main style={S.main} className="strategy-main">
+          <div style={S.intro}>
+            <p style={S.eyebrow}>Strategy & targets</p>
+            <h1 style={S.pageHeading}>Direction & goals</h1>
+            <p style={S.pageSubtitle}>
+              {liveCount} of {SECTIONS.length} sections written — how we are pricing,
+              growing wholesale, and getting to the 2027 rebrand.
+            </p>
+          </div>
+
           {SECTIONS.map((section, i) => (
-            <div
+            <section
               key={section.id}
               id={section.id}
               style={i < SECTIONS.length - 1 ? S.sectionBlock : { marginBottom: 0 }}
@@ -354,7 +353,11 @@ export default function StrategyPage() {
                     {String(i + 1).padStart(2, '0')}
                   </span>
                   <span style={S.statusBadge(section.status)}>
-                    {section.status === 'live' ? '● Live' : section.status === 'draft' ? '◑ Draft' : '○ Planned'}
+                    {section.status === 'live'
+                      ? 'Live'
+                      : section.status === 'draft'
+                      ? 'Draft'
+                      : 'Planned'}
                   </span>
                   <span style={S.dateBadge}>{section.updatedDate}</span>
                 </div>
@@ -367,10 +370,27 @@ export default function StrategyPage() {
                   This section will be added after we work through it together.
                 </div>
               )}
-            </div>
+            </section>
           ))}
-        </div>
+        </main>
       </div>
+
+      <style>{`
+        @media (max-width: 900px) {
+          .strategy-layout { grid-template-columns: 1fr !important; }
+          .strategy-sidebar {
+            position: static !important;
+            height: auto !important;
+            border-right: none !important;
+            border-bottom: 1px solid ${COLOR.rule} !important;
+            padding: 24px 20px !important;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+          }
+          .strategy-main { padding: 32px 20px 64px !important; }
+        }
+      `}</style>
     </div>
   )
 }

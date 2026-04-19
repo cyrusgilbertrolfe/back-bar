@@ -1,147 +1,286 @@
-import Nav from "@/components/Nav";
 import Link from "next/link";
-import Image from "next/image";
+import Nav from "@/components/Nav";
+import { COLOR, FONT, smallCaps } from "@/lib/design";
 
-const MODULES = [
+type ModuleEntry = {
+  number: string;
+  href: string;
+  title: string;
+  gloss: string;
+  status: "live" | "planned";
+};
+
+const MODULES: ModuleEntry[] = [
   {
+    number: "01",
     href: "/strategy",
-    label: "Strategy",
-    sublabel: "Direction & Goals",
-    description:
-      "Where we are going and how we plan to get there. Pricing, growth, wholesale, and the 2027 rebrand.",
+    title: "Strategy",
+    gloss:
+      "Where we are going and how we plan to get there — pricing, wholesale growth, and the 2027 rebrand.",
+    status: "live",
   },
   {
+    number: "02",
     href: "/finances",
-    label: "Finances",
-    sublabel: "Money in, money out",
-    description:
-      "Revenue, wholesale invoices, channel profitability, audit, and live Shopify and QuickBooks data.",
+    title: "Finances",
+    gloss:
+      "Revenue, wholesale pricing, channel profitability, audit — and the live read on where the business makes money.",
+    status: "live",
   },
   {
+    number: "03",
     href: "/production",
-    label: "Production",
-    sublabel: "Kitchen & fulfilment",
-    description:
-      "Batching, recipe ratios, inventory, and stock audits — the operational side of making cocktails.",
+    title: "Production",
+    gloss:
+      "Batching, recipe ratios, inventory, and stock audit — the operational side of making cocktails.",
+    status: "live",
   },
   {
+    number: "04",
     href: "/sales",
-    label: "Sales",
-    sublabel: "Customers & pipeline",
-    description:
-      "Wholesale accounts, caterers, Amazon, and the CRM we are about to build.",
+    title: "Sales",
+    gloss:
+      "Wholesale accounts, caterers, Amazon, and the CRM about to be built.",
+    status: "planned",
   },
   {
+    number: "05",
     href: "/drinks",
-    label: "Drinks",
-    sublabel: "Range & content",
-    description:
-      "Recipes, the cocktail master list, photo assets, content plan, and new product development.",
+    title: "Drinks",
+    gloss:
+      "Recipes, the active range, photography, content plan, and new product development.",
+    status: "planned",
   },
 ];
 
 export default function Home() {
   return (
-    <div className="min-h-screen" style={{ background: "#080808" }}>
+    <div style={{ background: COLOR.paper, color: COLOR.ink, minHeight: "100vh" }}>
       <Nav />
-
-      <main className="max-w-5xl mx-auto px-6 py-16 sm:py-24">
-        {/* Hero */}
-        <div className="mb-16 sm:mb-20">
-          <div className="flex items-center gap-4 mb-8">
-            <Image
-              src="/MFC Logo - Standard.png"
-              alt="Myatt's Fields Cocktails"
-              width={48}
-              height={48}
-              className="object-contain opacity-90"
-            />
-            <div
-              className="h-px flex-1"
-              style={{ background: "linear-gradient(to right, #1e1e1e, transparent)" }}
-            />
-          </div>
-
+      <main
+        className="home-main"
+        style={{ maxWidth: 1040, margin: "0 auto", padding: "72px 40px 120px" }}
+      >
+        {/* Masthead */}
+        <section
+          style={{
+            borderBottom: `1px solid ${COLOR.rule}`,
+            paddingBottom: 56,
+            marginBottom: 56,
+          }}
+        >
           <p
-            className="text-xs uppercase tracking-[0.6em] mb-3 font-medium"
-            style={{ color: "#c9a227" }}
+            style={{
+              fontSize: 10,
+              color: COLOR.accent,
+              marginBottom: 24,
+              ...smallCaps,
+            }}
           >
-            Myatt&apos;s Fields
+            Myatt&apos;s Fields Cocktails · Operations & Strategy
           </p>
           <h1
-            className="text-4xl sm:text-5xl font-bold tracking-tight mb-4"
-            style={{ color: "#f0f0f0", letterSpacing: "-0.02em", lineHeight: 1.1 }}
+            style={{
+              fontFamily: FONT.serif,
+              fontSize: "clamp(56px, 9vw, 112px)",
+              fontWeight: 400,
+              letterSpacing: "-0.035em",
+              lineHeight: 0.96,
+              marginBottom: 24,
+              color: COLOR.ink,
+            }}
           >
             The Back Bar
           </h1>
-          <p className="text-base max-w-md" style={{ color: "#4a4a4a" }}>
-            The operational and strategic hub for Myatt&apos;s Fields Cocktails.
+          <p
+            style={{
+              fontFamily: FONT.serif,
+              fontStyle: "italic",
+              fontSize: 22,
+              color: COLOR.inkSoft,
+              lineHeight: 1.5,
+              maxWidth: 640,
+              fontWeight: 300,
+            }}
+          >
+            A working journal of what Myatt&apos;s Fields makes, sells, and plans —
+            kept for the small number of people who run it.
           </p>
-        </div>
+        </section>
 
-        {/* Module grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {MODULES.map((mod) => (
-            <ModuleCard key={mod.href} {...mod} />
-          ))}
-        </div>
+        {/* Contents */}
+        <section>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              marginBottom: 28,
+              flexWrap: "wrap",
+              rowGap: 8,
+            }}
+          >
+            <h2 style={{ fontSize: 11, color: COLOR.muted, ...smallCaps }}>
+              In this issue — five sections
+            </h2>
+            <span style={{ fontSize: 11, color: COLOR.mutedLight, ...smallCaps }}>
+              Internal — not for circulation
+            </span>
+          </div>
+
+          <ol
+            style={{
+              borderTop: `2px solid ${COLOR.ink}`,
+              listStyle: "none",
+              padding: 0,
+              margin: 0,
+            }}
+          >
+            {MODULES.map((m) => (
+              <li key={m.href} style={{ borderBottom: `1px solid ${COLOR.rule}` }}>
+                <Link
+                  href={m.href}
+                  className="home-row"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "64px 1fr auto",
+                    alignItems: "baseline",
+                    gap: 28,
+                    padding: "28px 0 26px",
+                    textDecoration: "none",
+                    color: COLOR.ink,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: FONT.mono,
+                      fontSize: 12,
+                      color: COLOR.muted,
+                      letterSpacing: "0.08em",
+                      paddingTop: 10,
+                    }}
+                  >
+                    {m.number}
+                  </span>
+                  <div>
+                    <h3
+                      style={{
+                        fontFamily: FONT.serif,
+                        fontSize: 32,
+                        fontWeight: 500,
+                        letterSpacing: "-0.015em",
+                        lineHeight: 1.1,
+                        marginBottom: 8,
+                      }}
+                    >
+                      {m.title}
+                    </h3>
+                    <p
+                      style={{
+                        fontFamily: FONT.serif,
+                        fontStyle: "italic",
+                        fontSize: 17,
+                        color: COLOR.muted,
+                        lineHeight: 1.45,
+                        maxWidth: 640,
+                      }}
+                    >
+                      {m.gloss}
+                    </p>
+                  </div>
+                  <StatusTag status={m.status} />
+                </Link>
+              </li>
+            ))}
+          </ol>
+
+          <div
+            style={{
+              marginTop: 48,
+              display: "flex",
+              gap: 28,
+              fontSize: 12,
+              color: COLOR.muted,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <Dot filled />
+              <span style={smallCaps}>Live — in daily use</span>
+            </span>
+            <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <Dot />
+              <span style={smallCaps}>Planned — on the list, not yet built</span>
+            </span>
+          </div>
+        </section>
+
+        <footer
+          style={{
+            borderTop: `1px solid ${COLOR.rule}`,
+            marginTop: 80,
+            paddingTop: 32,
+            fontSize: 12,
+            color: COLOR.mutedLight,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            rowGap: 8,
+          }}
+        >
+          <span style={smallCaps}>Myatt&apos;s Fields Cocktails · London SE5</span>
+          <span style={{ fontFamily: FONT.serif, fontStyle: "italic" }}>
+            Internal — not for circulation.
+          </span>
+        </footer>
       </main>
+
+      <style>{`
+        @media (max-width: 720px) {
+          .home-main { padding: 40px 20px 80px !important; }
+          .home-row { grid-template-columns: 40px 1fr !important; gap: 14px !important; }
+          .home-row > :last-child { grid-column: 2 / -1; padding-top: 8px !important; }
+        }
+      `}</style>
     </div>
   );
 }
 
-function ModuleCard({
-  href,
-  label,
-  sublabel,
-  description,
-}: {
-  href: string;
-  label: string;
-  sublabel: string;
-  description: string;
-}) {
+function StatusTag({ status }: { status: "live" | "planned" }) {
+  const isLive = status === "live";
   return (
-    <Link
-      href={href}
-      className="group block rounded-xl p-8 transition-all duration-200 hover:bg-[#111] hover:border-[#2a2a2a]"
+    <span
       style={{
-        background: "#0f0f0f",
-        border: "1px solid #1c1c1c",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        fontSize: 11,
+        color: isLive ? COLOR.accent : COLOR.mutedLight,
+        paddingTop: 12,
+        whiteSpace: "nowrap",
+        ...smallCaps,
       }}
     >
-      <div className="w-8 h-px mb-8" style={{ background: "#c9a227" }} />
+      <Dot filled={isLive} />
+      {isLive ? "Live" : "Planned"}
+    </span>
+  );
+}
 
-      <p
-        className="text-xs uppercase tracking-[0.15em] mb-1 font-medium"
-        style={{ color: "#c9a227" }}
-      >
-        {sublabel}
-      </p>
-      <h2
-        className="text-xl font-bold mb-4"
-        style={{ color: "#f0f0f0", letterSpacing: "-0.01em" }}
-      >
-        {label}
-      </h2>
-      <p className="text-sm leading-relaxed mb-8" style={{ color: "#444" }}>
-        {description}
-      </p>
-
-      <div className="flex items-center gap-2">
-        <span
-          className="text-xs uppercase tracking-[0.12em] font-medium transition-colors duration-150 group-hover:text-[#c9a227]"
-          style={{ color: "#333" }}
-        >
-          Open
-        </span>
-        <span
-          className="text-sm transition-all duration-200 group-hover:translate-x-1 group-hover:text-[#c9a227]"
-          style={{ color: "#333" }}
-        >
-          →
-        </span>
-      </div>
-    </Link>
+function Dot({ filled = false }: { filled?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: "inline-block",
+        width: 6,
+        height: 6,
+        borderRadius: "50%",
+        background: filled ? COLOR.accent : "transparent",
+        border: `1px solid ${filled ? COLOR.accent : COLOR.ruleBold}`,
+      }}
+    />
   );
 }

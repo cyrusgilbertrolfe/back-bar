@@ -49,7 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${dmSans.variable} ${spectral.variable} ${inter.variable} ${jetbrainsMono.variable} h-full`}
     >
-      <body className="min-h-full" style={{ background: "#080808", color: "#f0f0f0" }}>
+      <body className="min-h-full" style={{ background: "#F5F1EA", color: "#1A1815" }}>
         {children}
       </body>
     </html>
