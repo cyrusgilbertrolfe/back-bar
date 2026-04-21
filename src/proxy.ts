@@ -4,7 +4,12 @@ import type { NextRequest } from 'next/server'
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  if (pathname === '/login' || pathname.startsWith('/api/dick')) {
+  if (
+    pathname === '/login' ||
+    pathname.startsWith('/api/dick') ||
+    pathname.startsWith('/api/choose-six') ||
+    pathname.startsWith('/choose-six-widget')
+  ) {
     return NextResponse.next()
   }
 
