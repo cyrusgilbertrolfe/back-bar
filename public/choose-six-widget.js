@@ -146,19 +146,20 @@
       properties['Drink ' + (i + 1)] = drink ? drink.name : handle
     })
 
-    // Gift-card line-item properties — only attach if the customer actually
-    // picked a card (the mfc-gc widget always seeds `_Gift card=Yes` at load
-    // but leaves the design empty until a choice is made).
-    if (state.parentForm) {
-      var design = state.parentForm.querySelector('input[name="properties[_Gift card design]"]')
-      if (design && design.value) {
-        properties['_Gift card'] = 'Yes'
-        properties['_Gift card design'] = design.value
-        var message = state.parentForm.querySelector('input[name="properties[_Gift card message]"]')
-        if (message && message.value) {
-          properties['_Gift card message'] = message.value
-        }
-      }
+    // Gift-card line-item properties — read directly from the mfc-gc UI
+    // rather than relying on the product form, since the boxset template
+    // doesn't seed the hidden property inputs the other product templates
+    // do. The chosen name element is only populated after the customer
+    // confirms a card in the modal.
+    var chosen = state.giftCardWrap && state.giftCardWrap.querySelector('.mfc-gc-chosen')
+    var designEl = state.giftCardWrap && state.giftCardWrap.querySelector('.mfc-gc-chosen__name')
+    var designName = designEl ? designEl.textContent.trim() : ''
+    if (chosen && !chosen.hasAttribute('hidden') && designName) {
+      var messageEl = document.querySelector('.mfc-gc-textarea')
+      var message = messageEl && messageEl.value ? messageEl.value.trim() : ''
+      properties['_Gift card'] = 'Yes'
+      properties['_Gift card design'] = designName
+      if (message) properties['_Gift card message'] = message
     }
 
     fetch('/cart/add.js', {
