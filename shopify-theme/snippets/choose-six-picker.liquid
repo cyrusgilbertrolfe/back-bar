@@ -1,17 +1,52 @@
 {%- comment -%}
-  Choose Six box builder — mfc.london/products/boxset
-  Renders the picker only on the boxset product. Widget JS/CSS and the
-  drink/preset data live in the companion Next.js app:
-    https://mfc-batch-calculator.vercel.app/choose-six-widget.js
-    https://mfc-batch-calculator.vercel.app/choose-six-widget.css
+  Choose Six box builder + gift-card light-theme fix
+  ---------------------------------------------------
+  Rendered on every product via main-product.liquid. The gift-card CSS
+  patch runs globally (it fixes white-on-white text on the light
+  editorial theme — the original mfc-gc styles were designed for dark
+  mode). The Choose Six widget mount + default-form hide are guarded
+  by product.handle == 'boxset'.
+
+  Widget JS/CSS and drink/preset data live in the companion Next.js app:
+    https://mfc-batch-calculator.vercel.app/choose-six-widget.{js,css}
     https://mfc-batch-calculator.vercel.app/api/choose-six/drinks
   Update the drink list / presets there (no theme edit needed) by editing
   src/data/choose-six-drinks.ts and redeploying.
 
-  This file is a mirror of the snippet that lives in the Shopify theme at
-  snippets/choose-six-picker.liquid. The theme file is the source of
-  truth — keep them in sync when changing.
+  This file mirrors the snippet that lives in the Shopify theme at
+  snippets/choose-six-picker.liquid — keep them in sync.
 {%- endcomment -%}
+
+<style>
+  /* Gift-card (mfc-gc) trigger + chosen state — light theme patch.
+     The modal itself (.mfc-gc-sheet) keeps its own dark background. */
+  .mfc-gc-trigger {
+    border-color: rgba(24, 24, 24, 0.18) !important;
+    color: #181818 !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+  }
+  .mfc-gc-trigger:hover { border-color: #181818 !important; color: #000 !important; }
+  .mfc-gc-trigger__icon { color: #181818 !important; font-size: 12px !important; }
+  .mfc-gc-trigger__price { color: rgba(24, 24, 24, 0.55) !important; }
+  .mfc-gc-trigger__arrow { color: rgba(24, 24, 24, 0.45) !important; }
+
+  .mfc-gc-chosen {
+    border-color: rgba(24, 24, 24, 0.2) !important;
+    background: rgba(24, 24, 24, 0.035) !important;
+  }
+  .mfc-gc-chosen__label { color: rgba(24, 24, 24, 0.55) !important; font-size: 12px !important; }
+  .mfc-gc-chosen__name { color: #181818 !important; font-size: 12px !important; }
+  .mfc-gc-chosen__edit {
+    border-color: rgba(24, 24, 24, 0.25) !important;
+    color: rgba(24, 24, 24, 0.75) !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+  }
+  .mfc-gc-chosen__edit:hover { border-color: #181818 !important; color: #181818 !important; }
+  .mfc-gc-chosen__remove { color: rgba(24, 24, 24, 0.4) !important; font-size: 14px !important; }
+  .mfc-gc-chosen__remove:hover { color: #181818 !important; }
+</style>
 
 {%- if product.handle == 'boxset' -%}
   <link rel="stylesheet" href="https://mfc-batch-calculator.vercel.app/choose-six-widget.css">
