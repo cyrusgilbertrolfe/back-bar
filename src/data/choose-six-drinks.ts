@@ -20,7 +20,6 @@ export type ChooseSixPreset = {
 }
 
 const CDN = '//cdn.shopify.com/s/files/1/2172/9393/files'
-const CDN_PRODUCTS = '//cdn.shopify.com/s/files/1/2172/9393/products'
 
 export const CHOOSE_SIX_DRINKS: ChooseSixDrink[] = [
   {
@@ -157,13 +156,6 @@ export const CHOOSE_SIX_DRINKS: ChooseSixDrink[] = [
     name: 'Rum Old Fashioned',
     tagline: 'Barbadian rum, cardamom, demerara, vanilla.',
     image: `${CDN}/ROF.webp?v=1742750324`,
-    categories: ['other'],
-  },
-  {
-    handle: 'limoncello',
-    name: 'Limoncello',
-    tagline: 'Ten times the lemons, half the sugar. The proper stuff.',
-    image: `${CDN_PRODUCTS}/limoncello-762570.jpg?v=1701037499`,
     categories: ['other'],
   },
 ]
