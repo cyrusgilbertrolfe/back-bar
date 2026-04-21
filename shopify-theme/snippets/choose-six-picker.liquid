@@ -1,0 +1,43 @@
+{%- comment -%}
+  Choose Six box builder — mfc.london/products/boxset
+  Renders the picker only on the boxset product. Widget JS/CSS and the
+  drink/preset data live in the companion Next.js app:
+    https://mfc-batch-calculator.vercel.app/choose-six-widget.js
+    https://mfc-batch-calculator.vercel.app/choose-six-widget.css
+    https://mfc-batch-calculator.vercel.app/api/choose-six/drinks
+  Update the drink list / presets there (no theme edit needed) by editing
+  src/data/choose-six-drinks.ts and redeploying.
+
+  This file is a mirror of the snippet that lives in the Shopify theme at
+  snippets/choose-six-picker.liquid. The theme file is the source of
+  truth — keep them in sync when changing.
+{%- endcomment -%}
+
+{%- if product.handle == 'boxset' -%}
+  <link rel="stylesheet" href="https://mfc-batch-calculator.vercel.app/choose-six-widget.css">
+
+  <section class="mfc-c6-host">
+    <div
+      id="mfc-c6-root"
+      data-variant-id="{{ product.selected_or_first_available_variant.id }}"
+      data-price-pence="{{ product.selected_or_first_available_variant.price }}"
+      data-data-url="https://mfc-batch-calculator.vercel.app/api/choose-six/drinks"
+    ></div>
+  </section>
+
+  <script src="https://mfc-batch-calculator.vercel.app/choose-six-widget.js" defer></script>
+
+  <style>
+    body.template-product-minis .product__media-wrapper,
+    body.template-product-minis .product-media-gallery,
+    body.template-product-minis .product__media,
+    body.template-product-minis .product__info,
+    body.template-product-minis .product__info-wrapper,
+    body.template-product-minis .product__info-container,
+    body.template-product-minis main .page-width.product__info-container,
+    body.template-product-minis form#product-form-template--25806555545984__main {
+      display: none !important;
+    }
+    body.template-product-minis .mfc-c6-host { padding-top: 2rem; }
+  </style>
+{%- endif -%}
