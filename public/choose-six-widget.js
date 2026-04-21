@@ -146,6 +146,21 @@
       properties['Drink ' + (i + 1)] = drink ? drink.name : handle
     })
 
+    // Gift-card line-item properties — only attach if the customer actually
+    // picked a card (the mfc-gc widget always seeds `_Gift card=Yes` at load
+    // but leaves the design empty until a choice is made).
+    if (state.parentForm) {
+      var design = state.parentForm.querySelector('input[name="properties[_Gift card design]"]')
+      if (design && design.value) {
+        properties['_Gift card'] = 'Yes'
+        properties['_Gift card design'] = design.value
+        var message = state.parentForm.querySelector('input[name="properties[_Gift card message]"]')
+        if (message && message.value) {
+          properties['_Gift card message'] = message.value
+        }
+      }
+    }
+
     fetch('/cart/add.js', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -194,6 +209,27 @@
     html += '</div>'
 
     root.innerHTML = html
+    relocateGiftCard(state, root)
+  }
+
+  // Move the theme's gift-card widget (rendered inside the now-hidden product
+  // form on the boxset page) into our slot so customers can add a card
+  // alongside Choose Six. The theme script binds handlers by element ID, so
+  // re-parenting doesn't break its behaviour; we re-run after every render
+  // because the outer innerHTML rewrite orphans the slot on each pass.
+  function relocateGiftCard(state, root) {
+    var slot = root.querySelector('.mfc-c6__giftcard-slot')
+    if (!slot) return
+    if (!state.giftCardWrap) {
+      var wrap = document.querySelector('.mfc-gc-wrap')
+      if (wrap) {
+        state.giftCardWrap = wrap
+        state.parentForm = wrap.closest('form')
+      }
+    }
+    if (state.giftCardWrap && state.giftCardWrap.parentElement !== slot) {
+      slot.appendChild(state.giftCardWrap)
+    }
   }
 
   function renderIntro() {
@@ -268,11 +304,11 @@
                 'Choose ' + (SLOT_COUNT - state.slots.filter(Boolean).length) + ' more to continue'
     var disabled = ready && !state.submitting ? '' : 'disabled'
     return (
+      '<div class="mfc-c6__giftcard-slot"></div>' +
       '<div class="mfc-c6__cta-row">' +
       '<button type="button" class="mfc-c6__cta" data-add-to-cart ' + disabled + '>' + escape(label) + '</button>' +
       '<button type="button" class="mfc-c6__clear" data-clear>Clear</button>' +
-      '</div>' +
-      '<p class="mfc-c6__footnote">Each box is packed to order in Myatt’s Fields, Brixton.</p>'
+      '</div>'
     )
   }
 

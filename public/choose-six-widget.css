@@ -217,6 +217,17 @@
 .mfc-c6__slot[data-filled="true"] .mfc-c6__slot-remove { display: block; }
 .mfc-c6__slot-remove:hover { color: var(--mfc-c6-accent); }
 
+/* GIFT CARD (moved in from theme) */
+.mfc-c6__giftcard-slot {
+  margin: 0 0 12px;
+}
+.mfc-c6__giftcard-slot .mfc-gc-trigger {
+  margin: 0 !important;
+}
+.mfc-c6__giftcard-slot .mfc-gc-chosen {
+  margin: 0 !important;
+}
+
 /* CTA */
 .mfc-c6__cta-row {
   display: flex;
