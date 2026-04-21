@@ -8,6 +8,7 @@ export function proxy(request: NextRequest) {
     pathname === '/login' ||
     pathname.startsWith('/api/dick') ||
     pathname.startsWith('/api/choose-six') ||
+    pathname.startsWith('/api/shopify/theme-asset') ||
     pathname.startsWith('/choose-six-widget')
   ) {
     return NextResponse.next()
