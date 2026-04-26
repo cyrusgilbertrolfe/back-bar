@@ -1,0 +1,828 @@
+{%- comment -%}
+  Dick — AI Bartender widget for Myatt's Fields Cocktails
+
+  Visual system: Brand Kit v1.2
+    Myatt's Green ground (#2D3F36)
+    Camberwell Earth callouts (#B0795B)
+    Bone type (#EAE6DD)
+    Brass hairlines (#A8864C)
+    Park Ink type on light surfaces (#111111)
+
+  Functional behaviour matches the existing implementation. The chat hits
+  https://mfc-batch-calculator.vercel.app/api/dick (system prompt lives in
+  src/app/api/dick/route.ts in the Vercel project).
+
+  Render with: {% render 'dick-bartender' %}
+
+  Typography: Söhne (Klim Type Foundry), licensed and self-hosted.
+  WOFF2 files live in the Shopify theme Assets folder:
+    soehne-leicht.woff2       (300, display weight)
+    soehne-buch.woff2         (400, body)
+    soehne-buch-kursiv.woff2  (400 italic, botanical Latin / provenance only)
+    soehne-kraftig.woff2      (500, considered moments + small caps)
+  See the @font-face block at the top of the <style> tag.
+{%- endcomment -%}
+
+<style>
+  /* ========================================================================
+     Söhne — Klim Type Foundry
+     Loaded from Shopify Assets (assets/soehne-*.woff2)
+     ======================================================================== */
+
+  @font-face {
+    font-family: 'Söhne';
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+    src: url('{{ "soehne-leicht.woff2" | asset_url }}') format('woff2');
+  }
+  @font-face {
+    font-family: 'Söhne';
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    src: url('{{ "soehne-buch.woff2" | asset_url }}') format('woff2');
+  }
+  @font-face {
+    font-family: 'Söhne';
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+    src: url('{{ "soehne-buch-kursiv.woff2" | asset_url }}') format('woff2');
+  }
+  @font-face {
+    font-family: 'Söhne';
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+    src: url('{{ "soehne-kraftig.woff2" | asset_url }}') format('woff2');
+  }
+</style>
+
+<style>
+  /* ========================================================================
+     Dick — AI Bartender
+     Myatt's Fields Brand Kit v1.2
+     ======================================================================== */
+
+  #mfc-dick-root,
+  #mfc-dick-root *,
+  #mfc-dick-root *::before,
+  #mfc-dick-root *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  #mfc-dick-root {
+    --mfc-green:       #2D3F36;
+    --mfc-green-lift:  #36493E; /* one paint coat lighter, for inset surfaces */
+    --mfc-earth:       #B0795B;
+    --mfc-earth-hover: #BC8567;
+    --mfc-bone:        #EAE6DD;
+    --mfc-bone-soft:   #F0ECE3;
+    --mfc-bone-mute:   rgba(234, 230, 221, 0.7);
+    --mfc-brass:       #A8864C;
+    --mfc-brass-mute:  rgba(168, 134, 76, 0.45);
+    --mfc-ink:         #111111;
+    --mfc-font:        'Söhne', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --mfc-radius:      3px;
+    --mfc-smcp:        "smcp" 1, "c2sc" 1, "calt" 1;
+  }
+
+  /* ========================================================================
+     Launcher
+     ======================================================================== */
+  #mfc-dick-launcher {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 2147483647;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--mfc-font);
+  }
+
+  /* CTA pill — museum label tag */
+  #mfc-dick-cta {
+    background: var(--mfc-bone);
+    color: var(--mfc-ink);
+    border: 1px solid var(--mfc-brass);
+    border-radius: 100px;
+    padding: 9px 18px;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: 0.005em;
+    cursor: pointer;
+    user-select: none;
+    animation: mfcCtaIn 0.5s ease 1.8s both;
+    transition: background 0.18s ease, transform 0.18s ease;
+  }
+  #mfc-dick-cta:hover {
+    background: var(--mfc-bone-soft);
+    transform: translateY(-1px);
+  }
+  #mfc-dick-cta.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(8px);
+  }
+  /* Online dot retired in v1.2; class kept so existing JS DOM is preserved */
+  #mfc-dick-cta .dick-cta-dot { display: none; }
+
+  @keyframes mfcCtaIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  /* Brand-mark bubble */
+  #mfc-dick-bubble {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--mfc-green);
+    border: 1px solid var(--mfc-brass);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--mfc-brass);
+    font-family: var(--mfc-font);
+    transition: background 0.2s ease, transform 0.2s ease;
+    padding: 0;
+    overflow: hidden;
+  }
+  #mfc-dick-bubble:hover {
+    background: var(--mfc-green-lift);
+    transform: scale(1.04);
+  }
+  #mfc-dick-bubble:active { transform: scale(0.97); }
+
+  #mfc-dick-bubble .dick-chat-icon,
+  #mfc-dick-bubble .dick-close-icon {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  #mfc-dick-bubble .dick-close-icon { display: none; }
+  #mfc-dick-bubble.is-open .dick-chat-icon { display: none; }
+  #mfc-dick-bubble.is-open .dick-close-icon { display: block; }
+
+  /* ========================================================================
+     Chat window — picture frame on the wall
+     ======================================================================== */
+  #mfc-dick-window {
+    position: fixed;
+    bottom: 100px;
+    right: 24px;
+    z-index: 2147483646;
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    height: 580px;
+    max-height: calc(100vh - 130px);
+    background: var(--mfc-green);
+    border: 1px solid var(--mfc-brass);
+    border-radius: var(--mfc-radius);
+    display: flex;
+    flex-direction: column;
+    font-family: var(--mfc-font);
+    color: var(--mfc-bone);
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity 0.28s ease, transform 0.28s ease;
+  }
+  #mfc-dick-window.is-open {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  /* ========================================================================
+     Header
+     ======================================================================== */
+  .dick-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 30px 34px;
+    border-bottom: 1px solid var(--mfc-brass-mute);
+    flex-shrink: 0;
+  }
+
+  .dick-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--mfc-ink);
+    border: 1px solid var(--mfc-brass);
+  }
+  .dick-avatar svg,
+  .dick-avatar img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .dick-header-text { flex: 1; min-width: 0; }
+
+  .dick-header-name {
+    color: var(--mfc-bone);
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.005em;
+  }
+
+  .dick-header-sub {
+    margin-top: 3px;
+    color: var(--mfc-brass);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    font-variant-caps: all-small-caps;
+    font-synthesis-small-caps: none;
+    letter-spacing: 0.18em;
+  }
+
+  /* Online dot retired */
+  .dick-header-dot { display: none; }
+
+  .dick-header-close {
+    background: none;
+    border: none;
+    color: var(--mfc-brass);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 8px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    font-family: var(--mfc-font);
+    font-weight: 300;
+    transition: color 0.15s ease, background 0.15s ease;
+    display: none;
+  }
+  .dick-header-close:hover {
+    color: var(--mfc-bone);
+    background: rgba(168, 134, 76, 0.12);
+  }
+
+  /* ========================================================================
+     Messages
+     ======================================================================== */
+  .dick-messages {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 30px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--mfc-brass-mute) transparent;
+  }
+  .dick-messages::-webkit-scrollbar { width: 3px; }
+  .dick-messages::-webkit-scrollbar-track { background: transparent; }
+  .dick-messages::-webkit-scrollbar-thumb {
+    background: var(--mfc-brass-mute);
+    border-radius: 0;
+  }
+
+  .dick-msg {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 88%;
+    animation: mfcFadeIn 0.22s ease;
+  }
+  @keyframes mfcFadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .dick-msg.from-dick {
+    align-self: flex-start;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 9px;
+    max-width: 80%;
+  }
+  .dick-msg.from-user { align-self: flex-end; max-width: 80%; }
+
+  .dick-msg-bubble {
+    padding: 14px 18px;
+    word-wrap: break-word;
+    border-radius: var(--mfc-radius);
+    font-family: var(--mfc-font);
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 1.55;
+    letter-spacing: 0.003em;
+  }
+  /* Dick: the wall, slightly lifted */
+  .from-dick .dick-msg-bubble {
+    background: var(--mfc-green-lift);
+    color: var(--mfc-bone);
+  }
+  /* User: museum label card */
+  .from-user .dick-msg-bubble {
+    background: var(--mfc-bone);
+    color: var(--mfc-ink);
+  }
+
+  /* Per-message avatar — small portrait medallion */
+  .dick-msg-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    overflow: hidden;
+    background: var(--mfc-ink);
+    border: 1px solid var(--mfc-brass);
+  }
+  .dick-msg-avatar svg { display: block; width: 100%; height: 100%; }
+
+  /* ========================================================================
+     Product card — warm callout panel
+     ======================================================================== */
+  .dick-card {
+    background: var(--mfc-earth);
+    border: 1px solid var(--mfc-brass);
+    border-radius: var(--mfc-radius);
+    padding: 14px 16px 13px;
+    text-decoration: none;
+    display: block;
+    color: var(--mfc-ink);
+    transition: background 0.15s ease;
+    margin-top: 4px;
+  }
+  .dick-card:hover { background: var(--mfc-earth-hover); }
+
+  .dick-card-name {
+    font-family: var(--mfc-font);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--mfc-ink);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-variant-caps: all-small-caps;
+    font-synthesis-small-caps: none;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--mfc-brass);
+  }
+
+  .dick-card-price {
+    margin-top: 8px;
+    font-family: var(--mfc-font);
+    font-size: 12px;
+    color: var(--mfc-ink);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  .dick-card-tagline {
+    margin-top: 6px;
+    font-family: var(--mfc-font);
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--mfc-ink);
+    font-weight: 400;
+  }
+
+  .dick-card-cta {
+    margin-top: 10px;
+    font-family: var(--mfc-font);
+    font-size: 11px;
+    color: var(--mfc-ink);
+    font-weight: 500;
+    text-transform: uppercase;
+    font-variant-caps: all-small-caps;
+    font-synthesis-small-caps: none;
+    letter-spacing: 0.18em;
+  }
+
+  /* ========================================================================
+     Typing — three Brass dots, no surrounding bubble
+     ======================================================================== */
+  .dick-typing {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 4px;
+    align-self: flex-start;
+  }
+  .dick-typing span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--mfc-brass);
+    animation: mfcDot 1.2s ease infinite;
+  }
+  .dick-typing span:nth-child(2) { animation-delay: 0.18s; }
+  .dick-typing span:nth-child(3) { animation-delay: 0.36s; }
+  @keyframes mfcDot {
+    0%, 60%, 100% { opacity: 0.3; transform: scale(0.85); }
+    30%           { opacity: 1;   transform: scale(1.05); }
+  }
+
+  /* ========================================================================
+     Error
+     ======================================================================== */
+  .dick-error {
+    font-family: var(--mfc-font);
+    font-size: 13px;
+    color: var(--mfc-ink);
+    background: var(--mfc-bone);
+    border: 1px solid var(--mfc-brass);
+    border-radius: var(--mfc-radius);
+    padding: 10px 14px;
+    align-self: flex-start;
+    max-width: 88%;
+    line-height: 1.45;
+  }
+
+  /* ========================================================================
+     Input area
+     ======================================================================== */
+  .dick-input-area {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    padding: 18px 26px;
+    border-top: 1px solid var(--mfc-brass-mute);
+    flex-shrink: 0;
+  }
+
+  .dick-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--mfc-bone-mute);
+    border-radius: 0;
+    padding: 9px 0 8px;
+    font-family: var(--mfc-font);
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--mfc-bone);
+    resize: none;
+    outline: none;
+    min-height: 38px;
+    max-height: 120px;
+    transition: border-color 0.15s ease;
+  }
+  .dick-input::placeholder { color: var(--mfc-bone-mute); }
+  .dick-input:focus { border-bottom-color: var(--mfc-brass); }
+
+  .dick-send {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--mfc-radius);
+    background: transparent;
+    border: 1px solid var(--mfc-brass);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--mfc-brass);
+    transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+  }
+  .dick-send:hover {
+    background: var(--mfc-brass);
+    color: var(--mfc-green);
+  }
+  .dick-send:active { transform: scale(0.94); }
+  .dick-send:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    background: transparent;
+    color: var(--mfc-brass);
+  }
+  .dick-send svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+  }
+
+  /* ========================================================================
+     Mobile
+     ======================================================================== */
+  @media (max-width: 480px) {
+    #mfc-dick-window {
+      bottom: 8px;
+      right: 8px;
+      left: 8px;
+      width: calc(100% - 16px);
+      max-width: calc(100% - 16px);
+      height: calc(80dvh - 16px);
+      height: calc(80vh - 16px);
+      max-height: calc(80dvh - 16px);
+      max-height: calc(80vh - 16px);
+    }
+    .dick-input-area {
+      padding-bottom: max(14px, env(safe-area-inset-bottom));
+    }
+    #mfc-dick-launcher {
+      bottom: max(16px, calc(env(safe-area-inset-bottom) + 8px));
+      right: 16px;
+    }
+    #mfc-dick-cta {
+      font-size: 13px;
+      padding: 8px 14px;
+    }
+    .dick-header-close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #mfc-dick-launcher.chat-is-open { display: none !important; }
+  }
+</style>
+
+<div id="mfc-dick-root">
+
+  <!-- Launcher -->
+  <div id="mfc-dick-launcher">
+    <div id="mfc-dick-cta" role="button" tabindex="0" aria-label="Chat with Dick, our bartender">
+      <span class="dick-cta-dot"></span>
+      Chat with Dick
+    </div>
+    <button id="mfc-dick-bubble" aria-label="Chat with Dick, our bartender" aria-expanded="false">
+      <!-- Brand mark: D in Brass on Myatt's Green -->
+      <svg class="dick-chat-icon" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <text x="28" y="29" text-anchor="middle" dominant-baseline="central"
+              fill="currentColor"
+              font-family="'Söhne','Inter','Helvetica Neue',Arial,sans-serif"
+              font-size="22" font-weight="500">D</text>
+      </svg>
+      <!-- Close glyph -->
+      <svg class="dick-close-icon" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <text x="28" y="29" text-anchor="middle" dominant-baseline="central"
+              fill="currentColor"
+              font-family="'Söhne','Inter','Helvetica Neue',Arial,sans-serif"
+              font-size="26" font-weight="300">×</text>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Chat window -->
+  <div id="mfc-dick-window" role="dialog" aria-label="Dick, Myatt's Fields Cocktails Bartender" aria-hidden="true">
+    <div class="dick-header">
+      <div class="dick-avatar">
+        <svg viewBox="0 0 42 42" xmlns="http://www.w3.org/2000/svg" aria-label="Dick the Bartender" role="img">
+          <rect width="42" height="42" rx="21" fill="#111111"/>
+          <text x="21" y="22" text-anchor="middle" dominant-baseline="central"
+                fill="#A8864C"
+                font-family="'Söhne','Inter','Helvetica Neue',Arial,sans-serif"
+                font-size="20" font-weight="500">D</text>
+        </svg>
+      </div>
+      <div class="dick-header-text">
+        <div class="dick-header-name">Dick</div>
+        <div class="dick-header-sub">bartender</div>
+      </div>
+      <div class="dick-header-dot" title="Online"></div>
+      <button class="dick-header-close" id="mfc-dick-close-btn" aria-label="Close chat">×</button>
+    </div>
+
+    <div class="dick-messages" id="mfc-dick-messages" aria-live="polite" aria-label="Chat messages"></div>
+
+    <div class="dick-input-area">
+      <textarea
+        id="mfc-dick-input"
+        class="dick-input"
+        placeholder="What are you in the mood for?"
+        rows="1"
+        aria-label="Message Dick"
+      ></textarea>
+      <button class="dick-send" id="mfc-dick-send" aria-label="Send message" disabled>
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const ENDPOINT = 'https://mfc-batch-calculator.vercel.app/api/dick';
+  const GREETING = "Evening. What are you drinking tonight, or are you still deciding?";
+
+  const launcher = document.getElementById('mfc-dick-launcher');
+  const bubble   = document.getElementById('mfc-dick-bubble');
+  const ctaEl    = document.getElementById('mfc-dick-cta');
+  const window_  = document.getElementById('mfc-dick-window');
+  const messages = document.getElementById('mfc-dick-messages');
+  const input    = document.getElementById('mfc-dick-input');
+  const sendBtn  = document.getElementById('mfc-dick-send');
+
+  let history   = [];
+  let isOpen    = false;
+  let isWaiting = false;
+  let greeted   = false;
+
+  // Open / close
+  function openChat() {
+    isOpen = true;
+    bubble.classList.add('is-open');
+    bubble.setAttribute('aria-expanded', 'true');
+    window_.classList.add('is-open');
+    window_.setAttribute('aria-hidden', 'false');
+    if (ctaEl) ctaEl.classList.add('is-hidden');
+    if (!('ontouchstart' in window)) input.focus();
+    launcher.classList.add('chat-is-open');
+
+    if (!greeted) {
+      greeted = true;
+      appendMessage('assistant', GREETING);
+      history.push({ role: 'assistant', content: GREETING });
+    }
+  }
+
+  function closeChat() {
+    isOpen = false;
+    bubble.classList.remove('is-open');
+    bubble.setAttribute('aria-expanded', 'false');
+    window_.classList.remove('is-open');
+    window_.setAttribute('aria-hidden', 'true');
+    if (ctaEl) ctaEl.classList.remove('is-hidden');
+    launcher.classList.remove('chat-is-open');
+  }
+
+  bubble.addEventListener('click', () => isOpen ? closeChat() : openChat());
+  if (ctaEl) {
+    ctaEl.addEventListener('click', () => isOpen ? closeChat() : openChat());
+    ctaEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); isOpen ? closeChat() : openChat(); }
+    });
+  }
+  const closeBtn = document.getElementById('mfc-dick-close-btn');
+  if (closeBtn) closeBtn.addEventListener('click', closeChat);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isOpen) closeChat();
+  });
+
+  // Input handling
+  input.addEventListener('input', () => {
+    sendBtn.disabled = input.value.trim() === '' || isWaiting;
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!sendBtn.disabled) sendMessage();
+    }
+  });
+  sendBtn.addEventListener('click', sendMessage);
+
+  // Send message
+  async function sendMessage() {
+    const text = input.value.trim();
+    if (!text || isWaiting) return;
+
+    input.value = '';
+    input.style.height = 'auto';
+    sendBtn.disabled = true;
+    isWaiting = true;
+
+    appendMessage('user', text);
+    history.push({ role: 'user', content: text });
+
+    const typingEl = appendTyping();
+
+    try {
+      const res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: history }),
+      });
+      typingEl.remove();
+      if (!res.ok) {
+        appendError("Sorry, something went wrong at the bar. Try again in a moment.");
+        return;
+      }
+      const data = await res.json();
+      const reply = data.reply || '';
+      history.push({ role: 'assistant', content: reply });
+      renderReply(reply);
+    } catch (err) {
+      typingEl.remove();
+      appendError("Can't reach the bar right now. Check your connection and try again.");
+      console.error('[Dick]', err);
+    } finally {
+      isWaiting = false;
+      sendBtn.disabled = input.value.trim() === '';
+    }
+  }
+
+  // Render reply with optional product cards
+  function renderReply(raw) {
+    const cardRegex = /\[PRODUCT_CARD\]([\s\S]*?)\[\/PRODUCT_CARD\]/g;
+    const cards = [];
+    let match;
+    while ((match = cardRegex.exec(raw)) !== null) cards.push(parseCard(match[1]));
+    const prose = raw.replace(cardRegex, '').trim();
+    if (prose) appendMessage('assistant', prose);
+    cards.forEach((card) => { if (card.url) appendCard(card); });
+    scrollToBottom();
+  }
+
+  function parseCard(block) {
+    const card = {};
+    block.split('\n').forEach((line) => {
+      const colon = line.indexOf(':');
+      if (colon === -1) return;
+      card[line.slice(0, colon).trim()] = line.slice(colon + 1).trim();
+    });
+    return card;
+  }
+
+  // DOM helpers
+  const AVATAR_SVG = "<svg viewBox=\"0 0 26 26\" xmlns=\"http://www.w3.org/2000/svg\" aria-hidden=\"true\"><rect width=\"26\" height=\"26\" rx=\"13\" fill=\"#111111\"/><text x=\"13\" y=\"14\" text-anchor=\"middle\" dominant-baseline=\"central\" fill=\"#A8864C\" font-family=\"'Söhne','Inter','Helvetica Neue',Arial,sans-serif\" font-size=\"13\" font-weight=\"500\">D</text></svg>";
+
+  function appendMessage(role, text) {
+    const wrapper = document.createElement('div');
+    wrapper.className = `dick-msg ${role === 'user' ? 'from-user' : 'from-dick'}`;
+    if (role !== 'user') {
+      const av = document.createElement('div');
+      av.className = 'dick-msg-avatar';
+      av.innerHTML = AVATAR_SVG;
+      wrapper.appendChild(av);
+    }
+    const bub = document.createElement('div');
+    bub.className = 'dick-msg-bubble';
+    bub.textContent = text;
+    wrapper.appendChild(bub);
+    messages.appendChild(wrapper);
+    scrollToBottom();
+    return wrapper;
+  }
+
+  function appendCard(card) {
+    const url = card.url.startsWith('http') ? card.url : 'https://' + card.url;
+    const a = document.createElement('a');
+    a.className = 'dick-card';
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.setAttribute('aria-label', `View ${card.name}, ${card.price}`);
+    a.innerHTML = `
+      <div class="dick-card-name">${escHtml(card.name || '')}</div>
+      ${card.price   ? `<div class="dick-card-price">${escHtml(card.price)}</div>` : ''}
+      ${card.tagline ? `<div class="dick-card-tagline">${escHtml(card.tagline)}</div>` : ''}
+      <div class="dick-card-cta">→ View on mfc.london</div>
+    `;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'dick-msg from-dick';
+    wrapper.appendChild(a);
+    messages.appendChild(wrapper);
+    scrollToBottom();
+  }
+
+  function appendTyping() {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'dick-msg from-dick';
+    const av = document.createElement('div');
+    av.className = 'dick-msg-avatar';
+    av.innerHTML = AVATAR_SVG;
+    wrapper.appendChild(av);
+    const td = document.createElement('div');
+    td.className = 'dick-typing';
+    td.innerHTML = '<span></span><span></span><span></span>';
+    wrapper.appendChild(td);
+    messages.appendChild(wrapper);
+    scrollToBottom();
+    return wrapper;
+  }
+
+  function appendError(msg) {
+    const el = document.createElement('div');
+    el.className = 'dick-error';
+    el.textContent = msg;
+    messages.appendChild(el);
+    scrollToBottom();
+  }
+
+  function scrollToBottom() { messages.scrollTop = messages.scrollHeight; }
+
+  function escHtml(str) {
+    return str
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+})();
+</script>
