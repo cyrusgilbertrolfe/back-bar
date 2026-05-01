@@ -343,6 +343,19 @@ export default function PricingClient({
                 <tr key={p.id} style={{ borderBottom: `1px solid ${COLOR.rule}` }} className="pricing-row">
                   <td style={{ padding: "18px 12px", color: COLOR.ink, fontFamily: FONT.serif, fontSize: 17 }}>
                     {p.name}
+                    {p.gtin && (
+                      <div
+                        style={{
+                          fontFamily: FONT.mono,
+                          fontSize: 10,
+                          color: COLOR.mutedLight,
+                          marginTop: 4,
+                          letterSpacing: "0.02em",
+                        }}
+                      >
+                        {p.gtin}
+                      </div>
+                    )}
                   </td>
                   <td
                     style={{

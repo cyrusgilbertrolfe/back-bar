@@ -36,6 +36,7 @@ export interface Recipe {
   ingredients: RecipeIngredient[];
   abv?: number; // optional metadata
   notes?: string;
+  gtins?: { '250ml'?: string; '500ml'?: string }; // GS1 GTIN-13 per SKU size
 }
 
 // ——— Calculation output types ———

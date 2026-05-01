@@ -7,6 +7,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Baby Otis',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000345', '500ml': '5060665000031' },
     ingredients: [
       { ingredientName: 'Havana Club', parts: 50 },
       { ingredientName: 'Cocchi Vermouth di Torino', parts: 25 },
@@ -16,6 +17,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Cold Brew Negroni',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000369' },
     ingredients: [
       { ingredientName: 'Gin', parts: 33.3 },
       { ingredientName: 'Cocchi Vermouth di Torino', parts: 33.3 },
@@ -25,6 +27,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Corpse Reviver',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000444' },
     ingredients: [
       { ingredientName: 'Gin', parts: 25 },
       { ingredientName: 'Lillet', parts: 25 },
@@ -35,6 +38,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Dempsey',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000291', '500ml': '5060665000123' },
     ingredients: [
       { ingredientName: 'Gin', parts: 48 },
       { ingredientName: 'Calvados', parts: 48 },
@@ -45,6 +49,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Desert Negroni',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000314', '500ml': '5060665000048' },
     ingredients: [
       { ingredientName: 'Tequila', parts: 33.3 },
       { ingredientName: 'Cocchi Vermouth di Torino', parts: 33.3 },
@@ -54,6 +59,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Espresso Martini',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000246', '500ml': '5060665000017' },
     ingredients: [
       { ingredientName: 'Vodka', parts: 33.3 },
       { ingredientName: 'Kahlua', parts: 33.3 },
@@ -63,6 +69,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Gibson Martini',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000352' },
     ingredients: [
       { ingredientName: 'Gin', parts: 80, note: 'Infuse with one silverskin pickled onion per 700ml for two hours before production' },
       { ingredientName: 'Noilly Prat', parts: 10 },
@@ -72,6 +79,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Lychee Martini',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000406' },
     ingredients: [
       { ingredientName: 'Gin', parts: 52.2 },
       { ingredientName: 'Lychee', parts: 26.1 },
@@ -82,6 +90,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Manhattan',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000277', '500ml': '5060665000055' },
     ingredients: [
       { ingredientName: 'Rye', parts: 66 },
       { ingredientName: 'Carpano Antica Formula Vermouth', parts: 17 },
@@ -91,6 +100,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Margarita',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000390' },
     ingredients: [
       { ingredientName: 'Tequila', parts: 50 },
       { ingredientName: 'Sours', parts: 22.5 },
@@ -101,6 +111,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Naked & Famous',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000437' },
     ingredients: [
       { ingredientName: 'Mezcal', parts: 25 },
       { ingredientName: 'Yellow Chartreuse', parts: 25 },
@@ -111,6 +122,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Negroni',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000253', '500ml': '5060665000062' },
     ingredients: [
       { ingredientName: 'Gin', parts: 33.3 },
       { ingredientName: 'Carpano Antica Formula Vermouth', parts: 16.5 },
@@ -121,6 +133,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Pisco Martini',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000260', '500ml': '5060665000079' },
     ingredients: [
       { ingredientName: 'Gin', parts: 25 },
       { ingredientName: 'Pisco', parts: 25 },
@@ -131,6 +144,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Red Hook',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000420' },
     ingredients: [
       { ingredientName: 'Rye', parts: 61 },
       { ingredientName: 'Punt e Mes', parts: 17 },
@@ -141,6 +155,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Rum Old Fashioned',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000307', '500ml': '5060665000086' },
     ingredients: [
       { ingredientName: 'Rum', parts: 88 },
       { ingredientName: 'Simple Syrup', parts: 12 },
@@ -148,8 +163,20 @@ export const RECIPES: Recipe[] = [
     ],
   },
   {
+    name: 'Sakura Martini',
+    clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000413' },
+    ingredients: [
+      { ingredientName: 'Ginjo Sake', parts: 61 },
+      { ingredientName: 'Gin', parts: 24 },
+      { ingredientName: 'Maraschino', parts: 6 },
+      { ingredientName: 'Water', parts: 9 },
+    ],
+  },
+  {
     name: 'Trident',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000338', '500ml': '5060665000093' },
     ingredients: [
       { ingredientName: 'Akvavit', parts: 33.3 },
       { ingredientName: 'Manzanilla', parts: 33.3 },
@@ -159,6 +186,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Tuxedo',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000376' },
     ingredients: [
       { ingredientName: 'Old Tom', parts: 60 },
       { ingredientName: 'Dry Vermouth', parts: 15 },
@@ -170,6 +198,7 @@ export const RECIPES: Recipe[] = [
   {
     name: 'Vesper Martini',
     clients: ["Myatt's Fields"],
+    gtins: { '250ml': '5060665000239', '500ml': '5060665000109' },
     ingredients: [
       { ingredientName: 'Gin', parts: 60 },
       { ingredientName: 'Vodka', parts: 20 },

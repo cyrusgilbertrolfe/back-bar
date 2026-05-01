@@ -246,9 +246,9 @@ const SECTIONS: Section[] = [
 
         <div style={S.factsRow}>
           {[
-            { value: '29', label: 'Active SKUs' },
+            { value: '30', label: 'Active SKUs' },
             { value: '40%', label: 'Markup on COGS' },
-            { value: '29/29', label: 'Pass retailer test' },
+            { value: '30/30', label: 'Pass retailer test' },
             { value: '12', label: 'RRPs updated' },
             { value: '4', label: 'SKUs discontinued' },
           ].map(({ value, label }) => (
@@ -260,7 +260,7 @@ const SECTIONS: Section[] = [
         </div>
 
         <p style={S.p}>
-          The result is 29 SKUs with confirmed wholesale prices, all of which pass the retailer test, and a live
+          The result is 30 SKUs with confirmed wholesale prices, all of which pass the retailer test, and a live
           pricing module in The Back Bar where COGS can be updated as ingredient costs change — with the impact
           flowing through to wholesale prices instantly. This moves pricing from a periodic, manual exercise
           to a live business tool.

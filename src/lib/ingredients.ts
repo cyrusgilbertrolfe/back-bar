@@ -80,6 +80,7 @@ export const RECIPE_INGREDIENT_MAP: Record<string, string | null> = {
   Grenadine: "monin-grenadine",
   Coffee: "coffee",
   "Yuzu Sake": "yuzu-sake",
+  "Ginjo Sake": "ginjo-sake",
   "Triple Sec": "triple-sec",
   "English Whisky": "cotswold-whisky",
 

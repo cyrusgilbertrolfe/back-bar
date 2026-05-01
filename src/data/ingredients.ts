@@ -54,6 +54,7 @@ export const MASTER_INGREDIENTS: Ingredient[] = [
   { name: 'Tequila', type: 'bottle', bottleSize: 700 },
   { name: 'Triple Sec', type: 'bottle', bottleSize: 700 },
   { name: 'Verjus', type: 'bottle', bottleSize: 750 },
+  { name: 'Ginjo Sake', type: 'bottle', bottleSize: 300 },
   { name: 'Yuzu Sake', type: 'bottle', bottleSize: 720 },
 
   // ——— House-made ———

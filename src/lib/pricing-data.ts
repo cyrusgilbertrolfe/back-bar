@@ -18,6 +18,7 @@ export interface PricingProduct {
   shipping: number     // per-bottle shipping cost
   prevWholesale: number | null  // previous wholesale price (null = new to wholesale)
   notes: string
+  gtin?: string        // GS1 GTIN-13 barcode
 }
 
 export interface PricingConfig {
@@ -44,6 +45,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 1.74,
     prevWholesale: null,
     notes: 'RRP updated Apr 2026 (+£2.00)',
+    gtin: '5060665000031',
   },
   {
     id: 'baby-otis-250',
@@ -54,6 +56,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: null,
     notes: 'RRP updated Apr 2026 (+£1.00)',
+    gtin: '5060665000345',
   },
   {
     id: 'cold-brew-negroni-250',
@@ -64,6 +67,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: null,
     notes: 'RRP updated Apr 2026 (+£0.50)',
+    gtin: '5060665000369',
   },
   {
     id: 'corpse-reviver-250',
@@ -74,6 +78,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: null,
     notes: '',
+    gtin: '5060665000444',
   },
   {
     id: 'dempsey-500',
@@ -84,6 +89,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 1.74,
     prevWholesale: null,
     notes: '',
+    gtin: '5060665000123',
   },
   {
     id: 'dempsey-250',
@@ -94,6 +100,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: null,
     notes: '',
+    gtin: '5060665000291',
   },
   {
     id: 'desert-negroni-500',
@@ -104,6 +111,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 1.74,
     prevWholesale: 23.67,
     notes: 'RRP updated Apr 2026 (+£1.00)',
+    gtin: '5060665000048',
   },
   {
     id: 'desert-negroni-250',
@@ -114,6 +122,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: 11.61,
     notes: 'RRP updated Apr 2026 (+£1.00)',
+    gtin: '5060665000314',
   },
   {
     id: 'espresso-martini-500',
@@ -124,6 +133,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 1.74,
     prevWholesale: 15.26,
     notes: '',
+    gtin: '5060665000017',
   },
   {
     id: 'espresso-martini-250',
@@ -134,6 +144,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: 7.95,
     notes: '',
+    gtin: '5060665000246',
   },
   {
     id: 'gibson-martini-250',
@@ -144,6 +155,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: null,
     notes: '',
+    gtin: '5060665000352',
   },
   {
     id: 'lychee-martini-250',
@@ -154,6 +166,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: null,
     notes: '',
+    gtin: '5060665000406',
   },
   {
     id: 'manhattan-500',
@@ -164,6 +177,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 1.74,
     prevWholesale: 25.14,
     notes: 'Award winner. RRP updated Apr 2026 (+£2.50)',
+    gtin: '5060665000055',
   },
   {
     id: 'manhattan-250',
@@ -174,6 +188,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: 11.61,
     notes: 'RRP updated Apr 2026 (+£0.50)',
+    gtin: '5060665000277',
   },
   {
     id: 'naked-and-famous-250',
@@ -184,6 +199,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: null,
     notes: 'Mezcal & Chartreuse — premium price justified. RRP updated Apr 2026 (+£2.00)',
+    gtin: '5060665000437',
   },
   {
     id: 'margarita-250',
@@ -194,6 +210,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: null,
     notes: 'RRP updated Apr 2026 (+£0.50)',
+    gtin: '5060665000390',
   },
   {
     id: 'negroni-500',
@@ -204,6 +221,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 1.74,
     prevWholesale: 19.65,
     notes: '',
+    gtin: '5060665000062',
   },
   {
     id: 'negroni-250',
@@ -214,6 +232,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: 9.05,
     notes: 'RRP updated Apr 2026 (+£0.50)',
+    gtin: '5060665000253',
   },
   {
     id: 'pisco-martini-500',
@@ -224,6 +243,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 1.74,
     prevWholesale: null,
     notes: '',
+    gtin: '5060665000079',
   },
   {
     id: 'pisco-martini-250',
@@ -234,6 +254,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: null,
     notes: '',
+    gtin: '5060665000260',
   },
   {
     id: 'red-hook-250',
@@ -244,6 +265,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: null,
     notes: '',
+    gtin: '5060665000420',
   },
   {
     id: 'rum-old-fashioned-500',
@@ -254,6 +276,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 1.74,
     prevWholesale: 20.02,
     notes: '',
+    gtin: '5060665000086',
   },
   {
     id: 'rum-old-fashioned-250',
@@ -264,6 +287,18 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: 9.78,
     notes: '',
+    gtin: '5060665000307',
+  },
+  {
+    id: 'sakura-martini-250',
+    name: 'Sakura Martini',
+    size: '250ml',
+    rrp: 20.00,
+    cogs: 8.00,
+    shipping: 0.93,
+    prevWholesale: null,
+    notes: '',
+    gtin: '5060665000413',
   },
   {
     id: 'trident-500',
@@ -274,6 +309,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 1.74,
     prevWholesale: null,
     notes: '',
+    gtin: '5060665000093',
   },
   {
     id: 'trident-250',
@@ -284,6 +320,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: null,
     notes: '',
+    gtin: '5060665000338',
   },
   {
     id: 'tuxedo-250',
@@ -294,6 +331,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: null,
     notes: '',
+    gtin: '5060665000376',
   },
   {
     id: 'vesper-500',
@@ -304,6 +342,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 1.74,
     prevWholesale: 18.92,
     notes: 'RRP updated Apr 2026 (+£1.00)',
+    gtin: '5060665000109',
   },
   {
     id: 'vesper-250',
@@ -314,6 +353,7 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     shipping: 0.93,
     prevWholesale: 9.05,
     notes: '',
+    gtin: '5060665000239',
   },
   {
     id: 'martini-flight',
