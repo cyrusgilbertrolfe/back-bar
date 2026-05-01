@@ -23,8 +23,9 @@ export const COLOR = {
 } as const;
 
 export const FONT = {
-  serif: "var(--font-spectral), Georgia, serif",
-  sans: "var(--font-inter), system-ui, sans-serif",
+  display: "var(--font-adamcg-pro), Georgia, serif", // wordmark only
+  serif: "var(--font-soehne), system-ui, sans-serif", // editorial headings/italics — Söhne handles italics via kursiv
+  sans: "var(--font-soehne), system-ui, sans-serif",
   mono: "var(--font-jetbrains-mono), ui-monospace, monospace",
 } as const;
 

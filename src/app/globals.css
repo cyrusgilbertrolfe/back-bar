@@ -15,8 +15,9 @@
   --color-accent: #7A5A2B;
   --color-flag: #8E3A2C;
 
-  --font-sans: var(--font-inter);
-  --font-serif: var(--font-spectral);
+  --font-sans: var(--font-soehne);
+  --font-serif: var(--font-soehne);
+  --font-display: var(--font-adamcg-pro);
   --font-mono: var(--font-jetbrains-mono);
 }
 
@@ -28,7 +29,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter), system-ui, sans-serif;
+  font-family: var(--font-soehne), system-ui, sans-serif;
   font-weight: 400;
   font-size: 16px;
   line-height: 1.55;

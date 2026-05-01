@@ -1,28 +1,23 @@
 import type { Metadata } from "next";
-import { DM_Sans, Spectral, Inter, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
+import { JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+const soehne = localFont({
+  variable: "--font-soehne",
+  display: "swap",
+  src: [
+    { path: "../../public/fonts/soehne-leicht.woff2", weight: "300", style: "normal" },
+    { path: "../../public/fonts/soehne-buch.woff2", weight: "400", style: "normal" },
+    { path: "../../public/fonts/soehne-buch-kursiv.woff2", weight: "400", style: "italic" },
+    { path: "../../public/fonts/soehne-kraftig.woff2", weight: "500", style: "normal" },
+  ],
 });
 
-// Fonts reserved for the /preview routes — loaded as CSS variables only,
-// not applied globally. Existing pages continue to use DM Sans via body.
-const spectral = Spectral({
-  variable: "--font-spectral",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  style: ["normal", "italic"],
+const adamcgPro = localFont({
+  variable: "--font-adamcg-pro",
   display: "swap",
-});
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
+  src: [{ path: "../../public/fonts/adamcg-pro.woff2", weight: "400", style: "normal" }],
 });
 
 const jetbrainsMono = JetBrains_Mono({
@@ -47,7 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${dmSans.variable} ${spectral.variable} ${inter.variable} ${jetbrainsMono.variable} h-full`}
+      className={`${soehne.variable} ${adamcgPro.variable} ${jetbrainsMono.variable} h-full`}
     >
       <body className="min-h-full" style={{ background: "#F5F1EA", color: "#1A1815" }}>
         {children}
