@@ -1,6 +1,6 @@
 /**
  * MFC Wholesale Pricing — Single Source of Truth
- * Confirmed April 2026 | All 29 SKUs pass retailer test at 40% markup
+ * Confirmed May 2026 | 34 SKUs (incl. 5 × 700ml trade format for Macknade pilot)
  *
  * Formula: Wholesale = COGS × markup + shipping
  * Retailer test: wholesale × retailerMargin × vat ≤ rrp
@@ -125,6 +125,16 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     gtin: '5060665000314',
   },
   {
+    id: 'espresso-martini-700',
+    name: 'Espresso Martini',
+    size: '700ml',
+    rrp: 35.00,
+    cogs: 12.62,
+    shipping: 0,
+    prevWholesale: null,
+    notes: 'Trade format (Macknade pilot). Delivery included — MFC drop-off.',
+  },
+  {
     id: 'espresso-martini-500',
     name: 'Espresso Martini',
     size: '500ml',
@@ -202,6 +212,16 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     gtin: '5060665000437',
   },
   {
+    id: 'margarita-700',
+    name: 'Margarita',
+    size: '700ml',
+    rrp: 50.00,
+    cogs: 21.94,
+    shipping: 0,
+    prevWholesale: null,
+    notes: 'Trade format (Macknade pilot). Delivery included — MFC drop-off.',
+  },
+  {
     id: 'margarita-250',
     name: 'Margarita',
     size: '250ml',
@@ -211,6 +231,16 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     prevWholesale: null,
     notes: 'RRP updated Apr 2026 (+£0.50)',
     gtin: '5060665000390',
+  },
+  {
+    id: 'negroni-700',
+    name: 'Negroni',
+    size: '700ml',
+    rrp: 43.00,
+    cogs: 18.89,
+    shipping: 0,
+    prevWholesale: null,
+    notes: 'Trade format (Macknade pilot). Delivery included — MFC drop-off.',
   },
   {
     id: 'negroni-500',
@@ -266,6 +296,16 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     prevWholesale: null,
     notes: '',
     gtin: '5060665000420',
+  },
+  {
+    id: 'rum-old-fashioned-700',
+    name: 'Rum Old Fashioned',
+    size: '700ml',
+    rrp: 44.00,
+    cogs: 18.25,
+    shipping: 0,
+    prevWholesale: null,
+    notes: 'Trade format (Macknade pilot). Delivery included — MFC drop-off.',
   },
   {
     id: 'rum-old-fashioned-500',
@@ -332,6 +372,16 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
     prevWholesale: null,
     notes: '',
     gtin: '5060665000376',
+  },
+  {
+    id: 'vesper-700',
+    name: 'Vesper',
+    size: '700ml',
+    rrp: 45.00,
+    cogs: 19.95,
+    shipping: 0,
+    prevWholesale: null,
+    notes: 'Trade format (Macknade pilot). Delivery included — MFC drop-off.',
   },
   {
     id: 'vesper-500',
