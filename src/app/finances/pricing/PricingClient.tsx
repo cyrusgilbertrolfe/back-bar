@@ -297,7 +297,7 @@ export default function PricingClient({
           style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, ...tabularNums }}
         >
           <thead>
-            <tr style={{ borderTop: `2px solid ${COLOR.ink}`, borderBottom: `1px solid ${COLOR.ruleBold}` }}>
+            <tr>
               {[
                 { label: "Cocktail", align: "left" as const },
                 { label: "Size", align: "left" as const },
@@ -319,6 +319,12 @@ export default function PricingClient({
                     color: COLOR.muted,
                     fontWeight: 500,
                     whiteSpace: "nowrap",
+                    position: "sticky",
+                    top: 0,
+                    background: COLOR.paper,
+                    zIndex: 2,
+                    borderTop: `2px solid ${COLOR.ink}`,
+                    borderBottom: `1px solid ${COLOR.ruleBold}`,
                     ...smallCaps,
                   }}
                 >
