@@ -292,7 +292,7 @@ export default function PricingClient({
       </section>
 
       {/* Table */}
-      <section style={{ overflowX: "auto" }}>
+      <section>
         <table
           style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, ...tabularNums }}
         >
