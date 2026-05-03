@@ -33,7 +33,7 @@ export const CHOOSE_SIX_DRINKS: ChooseSixDrink[] = [
   {
     handle: 'negroni',
     name: 'Negroni',
-    tagline: '58 & Co gin, Campari, two Italian sweet vermouths.',
+    tagline: 'London dry gin, Campari, two Italian sweet vermouths.',
     image: `${CDN}/Negroni_2.webp?v=1742744463`,
     categories: ['negroni'],
   },
