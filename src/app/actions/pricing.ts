@@ -7,8 +7,8 @@
 
 import { revalidatePath } from "next/cache";
 
-const OWNER = "cyrus-kezzler";
-const REPO = "mfc";
+const OWNER = "cyrusgilbertrolfe";
+const REPO = "back-bar";
 const BRANCH = "main";
 const RRP_PATH = "src/data/rrp-overrides.json";
 const WHOLESALE_PATH = "src/data/wholesale-overrides.json";
