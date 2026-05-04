@@ -146,9 +146,9 @@ async function pullAll<T>(
   let page = 0
   while (true) {
     page++
-    const data = await gql<Record<string, Page<T>>>(token, query, { cursor })
-    const pageData = data[rootKey]
-    const nodes = pageData.edges.map(e => e.node)
+    const data: Record<string, Page<T>> = await gql<Record<string, Page<T>>>(token, query, { cursor })
+    const pageData: Page<T> = data[rootKey]
+    const nodes: T[] = pageData.edges.map((e: { node: T }) => e.node)
     all.push(...nodes)
     process.stdout.write(`  page ${page.toString().padStart(3)} → ${nodes.length.toString().padStart(4)} ${label} (total: ${all.length})\n`)
     if (!pageData.pageInfo.hasNextPage) break
