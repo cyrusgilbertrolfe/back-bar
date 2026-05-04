@@ -19,6 +19,7 @@ export interface PricingProduct {
   prevWholesale: number | null  // previous wholesale price (null = new to wholesale)
   notes: string
   gtin?: string        // GS1 GTIN-13 barcode
+  wholesaleOverride?: number  // when set, replaces the formula-derived wholesale
 }
 
 export interface PricingConfig {
@@ -420,6 +421,9 @@ export const PRICING_PRODUCTS: PricingProduct[] = [
 // ─── Pure calculation helpers (no React, usable server + client side) ─────────
 
 export function calcWholesale(product: PricingProduct, config: PricingConfig): number {
+  if (product.wholesaleOverride !== undefined) {
+    return Math.round(product.wholesaleOverride * 100) / 100
+  }
   return Math.round((product.cogs * config.markup + product.shipping) * 100) / 100
 }
 
