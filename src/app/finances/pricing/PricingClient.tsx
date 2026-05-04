@@ -9,7 +9,12 @@ import {
   passesRetailerTest,
   calcMargin,
 } from "@/lib/pricing-data";
-import { updateRrpOverride, resetRrpOverrides } from "@/app/actions/pricing";
+import {
+  updateRrpOverride,
+  resetRrpOverrides,
+  updateWholesaleOverride,
+  resetWholesaleOverrides,
+} from "@/app/actions/pricing";
 import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
 
 const GBP = (n: number) =>
@@ -25,16 +30,22 @@ type Props = {
   products: PricingProduct[];
   defaultConfig: PricingConfig;
   rrpOverrides: Record<string, number>;
+  wholesaleOverrides: Record<string, number>;
 };
+
+type EditField = "rrp" | "wholesale";
 
 export default function PricingClient({
   products: serverProducts,
   defaultConfig,
   rrpOverrides: serverRrpOverrides,
+  wholesaleOverrides: serverWholesaleOverrides,
 }: Props) {
   const [config, setConfig] = useState<PricingConfig>(defaultConfig);
   const [localRrpEdits, setLocalRrpEdits] = useState<Record<string, number>>({});
+  const [localWholesaleEdits, setLocalWholesaleEdits] = useState<Record<string, number>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<EditField | null>(null);
   const [editValue, setEditValue] = useState("");
   const [filterFails, setFilterFails] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -52,6 +63,10 @@ export default function PricingClient({
   const products: PricingProduct[] = serverProducts.map((p) => ({
     ...p,
     rrp: localRrpEdits[p.id] ?? p.rrp,
+    wholesaleOverride:
+      localWholesaleEdits[p.id] !== undefined
+        ? localWholesaleEdits[p.id]
+        : p.wholesaleOverride,
   }));
 
   const allPass = products.every((p) => passesRetailerTest(p, config));
@@ -59,32 +74,44 @@ export default function PricingClient({
   const displayed = filterFails
     ? products.filter((p) => !passesRetailerTest(p, config))
     : products;
-  const hasUnsavedRrpEdits = Object.keys(localRrpEdits).length > 0;
+  const totalUnsavedEdits =
+    Object.keys(localRrpEdits).length + Object.keys(localWholesaleEdits).length;
+  const hasUnsavedEdits = totalUnsavedEdits > 0;
 
-  const startEdit = (id: string, val: number) => {
+  const startEdit = (id: string, field: EditField, val: number) => {
     setEditingId(id);
+    setEditingField(field);
     setEditValue(val.toFixed(2));
   };
 
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingField(null);
+  };
+
   const commitEdit = useCallback(() => {
-    if (!editingId) return;
+    if (!editingId || !editingField) return;
     const val = parseFloat(editValue);
     if (isNaN(val) || val <= 0) {
-      setEditingId(null);
+      cancelEdit();
       return;
     }
-    setLocalRrpEdits((prev) => ({ ...prev, [editingId]: val }));
-    setEditingId(null);
+    if (editingField === "rrp") {
+      setLocalRrpEdits((prev) => ({ ...prev, [editingId]: val }));
+    } else {
+      setLocalWholesaleEdits((prev) => ({ ...prev, [editingId]: val }));
+    }
+    cancelEdit();
     setFeedback(null);
-  }, [editingId, editValue]);
+  }, [editingId, editingField, editValue]);
 
-  const saveAllRrpEdits = () => {
+  const saveAllEdits = () => {
     setFeedback(null);
-    const edits = { ...localRrpEdits };
-    const entries = Object.entries(edits);
-    if (entries.length === 0) return;
+    const rrpEntries = Object.entries(localRrpEdits);
+    const wholesaleEntries = Object.entries(localWholesaleEdits);
+    if (rrpEntries.length + wholesaleEntries.length === 0) return;
     startTransition(async () => {
-      for (const [id, rrp] of entries) {
+      for (const [id, rrp] of rrpEntries) {
         const product = serverProducts.find((p) => p.id === id);
         if (!product) continue;
         const res = await updateRrpOverride(id, product.name, product.size, rrp);
@@ -93,20 +120,43 @@ export default function PricingClient({
           return;
         }
       }
+      for (const [id, ws] of wholesaleEntries) {
+        const product = serverProducts.find((p) => p.id === id);
+        if (!product) continue;
+        const res = await updateWholesaleOverride(id, product.name, product.size, ws);
+        if (!res.ok) {
+          setFeedback({ kind: "err", msg: res.error });
+          return;
+        }
+      }
       setLocalRrpEdits({});
+      setLocalWholesaleEdits({});
+      const total = rrpEntries.length + wholesaleEntries.length;
       setFeedback({
         kind: "ok",
-        msg: `${entries.length} RRP change${entries.length > 1 ? "s" : ""} saved — site redeploys in ~30s.`,
+        msg: `${total} change${total > 1 ? "s" : ""} saved — site redeploys in ~30s.`,
       });
     });
   };
 
-  const handleReset = () => {
+  const handleResetRrp = () => {
     startTransition(async () => {
       const res = await resetRrpOverrides();
       if (res.ok) {
         setLocalRrpEdits({});
         setFeedback({ kind: "ok", msg: "RRP overrides cleared. Defaults restored." });
+      } else {
+        setFeedback({ kind: "err", msg: res.error });
+      }
+    });
+  };
+
+  const handleResetWholesale = () => {
+    startTransition(async () => {
+      const res = await resetWholesaleOverrides();
+      if (res.ok) {
+        setLocalWholesaleEdits({});
+        setFeedback({ kind: "ok", msg: "Wholesale overrides cleared. Formula restored." });
       } else {
         setFeedback({ kind: "err", msg: res.error });
       }
@@ -171,8 +221,9 @@ export default function PricingClient({
           }}
         >
           COGS derived live from the ingredient master (liquid plus labour); wholesale is COGS
-          times markup, plus shipping. Adjust the assumptions inline. RRP is click-to-edit —
-          changes persist to git across every device.
+          times markup, plus shipping. Adjust the assumptions inline. Both RRP and wholesale are
+          click-to-edit — overrides persist to git across every device, and the retailer test runs
+          against whatever wholesale is shown.
         </p>
       </section>
 
@@ -263,9 +314,9 @@ export default function PricingClient({
               {feedback.msg}
             </span>
           )}
-          {hasUnsavedRrpEdits && (
+          {hasUnsavedEdits && (
             <button
-              onClick={saveAllRrpEdits}
+              onClick={saveAllEdits}
               disabled={isPending}
               style={{
                 background: COLOR.ink,
@@ -280,13 +331,14 @@ export default function PricingClient({
             >
               {isPending
                 ? "Saving…"
-                : `Save ${Object.keys(localRrpEdits).length} RRP change${
-                    Object.keys(localRrpEdits).length > 1 ? "s" : ""
-                  }`}
+                : `Save ${totalUnsavedEdits} change${totalUnsavedEdits > 1 ? "s" : ""}`}
             </button>
           )}
-          <TextButton onClick={handleReset} color={COLOR.muted} disabled={isPending}>
+          <TextButton onClick={handleResetRrp} color={COLOR.muted} disabled={isPending}>
             Reset RRP overrides
+          </TextButton>
+          <TextButton onClick={handleResetWholesale} color={COLOR.muted} disabled={isPending}>
+            Reset wholesale overrides
           </TextButton>
         </div>
       </section>
@@ -340,10 +392,15 @@ export default function PricingClient({
               const passes = rp <= p.rrp;
               const headroom = Math.round((p.rrp - rp) * 100) / 100;
               const margin = calcMargin(p, config);
-              const isEditing = editingId === p.id;
-              const hasOverride =
+              const isEditingRrp = editingId === p.id && editingField === "rrp";
+              const isEditingWholesale = editingId === p.id && editingField === "wholesale";
+              const hasRrpOverride =
                 localRrpEdits[p.id] !== undefined || serverRrpOverrides[p.id] !== undefined;
-              const isUnsavedEdit = localRrpEdits[p.id] !== undefined;
+              const isUnsavedRrpEdit = localRrpEdits[p.id] !== undefined;
+              const hasWholesaleOverride =
+                localWholesaleEdits[p.id] !== undefined ||
+                serverWholesaleOverrides[p.id] !== undefined;
+              const isUnsavedWholesaleEdit = localWholesaleEdits[p.id] !== undefined;
 
               return (
                 <tr key={p.id} style={{ borderBottom: `1px solid ${COLOR.rule}` }} className="pricing-row">
@@ -379,13 +436,17 @@ export default function PricingClient({
                       padding: "18px 12px",
                       textAlign: "right",
                       fontFamily: FONT.mono,
-                      cursor: isEditing ? "default" : "text",
-                      color: isUnsavedEdit ? COLOR.flag : hasOverride ? COLOR.accent : COLOR.ink,
-                      fontWeight: hasOverride || isUnsavedEdit ? 600 : 400,
+                      cursor: isEditingRrp ? "default" : "text",
+                      color: isUnsavedRrpEdit
+                        ? COLOR.flag
+                        : hasRrpOverride
+                        ? COLOR.accent
+                        : COLOR.ink,
+                      fontWeight: hasRrpOverride || isUnsavedRrpEdit ? 600 : 400,
                     }}
-                    onClick={() => !isEditing && startEdit(p.id, p.rrp)}
+                    onClick={() => !isEditingRrp && startEdit(p.id, "rrp", p.rrp)}
                   >
-                    {isEditing ? (
+                    {isEditingRrp ? (
                       <input
                         autoFocus
                         value={editValue}
@@ -393,7 +454,7 @@ export default function PricingClient({
                         onBlur={commitEdit}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") commitEdit();
-                          if (e.key === "Escape") setEditingId(null);
+                          if (e.key === "Escape") cancelEdit();
                         }}
                         style={{
                           width: 72,
@@ -439,11 +500,44 @@ export default function PricingClient({
                       padding: "18px 12px",
                       textAlign: "right",
                       fontFamily: FONT.mono,
-                      color: COLOR.ink,
+                      cursor: isEditingWholesale ? "default" : "text",
+                      color: isUnsavedWholesaleEdit
+                        ? COLOR.flag
+                        : hasWholesaleOverride
+                        ? COLOR.accent
+                        : COLOR.ink,
                       fontWeight: 600,
                     }}
+                    onClick={() => !isEditingWholesale && startEdit(p.id, "wholesale", ws)}
                   >
-                    {GBP(ws)}
+                    {isEditingWholesale ? (
+                      <input
+                        autoFocus
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={commitEdit}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitEdit();
+                          if (e.key === "Escape") cancelEdit();
+                        }}
+                        style={{
+                          width: 72,
+                          textAlign: "right",
+                          fontFamily: FONT.mono,
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: COLOR.accent,
+                          background: COLOR.paperDeep,
+                          border: `1px solid ${COLOR.accent}`,
+                          padding: "4px 6px",
+                          outline: "none",
+                        }}
+                      />
+                    ) : (
+                      <span style={{ borderBottom: `1px dotted ${COLOR.ruleBold}`, paddingBottom: 1 }}>
+                        {GBP(ws)}
+                      </span>
+                    )}
                   </td>
                   <td
                     style={{

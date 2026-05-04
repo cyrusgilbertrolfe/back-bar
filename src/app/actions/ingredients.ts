@@ -8,14 +8,14 @@
  * so every computer sees the new prices.
  *
  * Requires GITHUB_PAT in environment (a fine-grained PAT with Contents
- * read+write scoped to cyrus-kezzler/mfc).
+ * read+write scoped to cyrusgilbertrolfe/back-bar).
  */
 
 import { revalidatePath } from "next/cache";
 import type { IngredientMaster, IngredientPriceHistoryEntry } from "@/lib/ingredients";
 
-const OWNER = "cyrus-kezzler";
-const REPO = "mfc";
+const OWNER = "cyrusgilbertrolfe";
+const REPO = "back-bar";
 const BRANCH = "main";
 const INGREDIENTS_PATH = "src/data/ingredients.json";
 const HISTORY_PATH = "src/data/ingredient-price-history.json";

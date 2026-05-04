@@ -7,10 +7,11 @@
 
 import { revalidatePath } from "next/cache";
 
-const OWNER = "cyrus-kezzler";
-const REPO = "mfc";
+const OWNER = "cyrusgilbertrolfe";
+const REPO = "back-bar";
 const BRANCH = "main";
 const RRP_PATH = "src/data/rrp-overrides.json";
+const WHOLESALE_PATH = "src/data/wholesale-overrides.json";
 
 export type UpdateRrpResult =
   | { ok: true }
@@ -97,6 +98,61 @@ export async function resetRrpOverrides(): Promise<UpdateRrpResult> {
   try {
     const file = await ghGet(RRP_PATH);
     await ghPut(RRP_PATH, "{}\n", file.sha, "Reset all RRP overrides to defaults\n\nSource: Back Bar pricing editor");
+    revalidatePath("/finances/pricing");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Save a wholesale price override for a product. Commits to git so all devices see it.
+ * When set, this value replaces the formula-derived wholesale; the retailer test still runs against it.
+ */
+export async function updateWholesaleOverride(
+  productId: string,
+  productName: string,
+  size: string,
+  newWholesale: number,
+): Promise<UpdateRrpResult> {
+  if (!Number.isFinite(newWholesale) || newWholesale <= 0) {
+    return { ok: false, error: "Wholesale must be a positive number." };
+  }
+
+  try {
+    const file = await ghGet(WHOLESALE_PATH);
+    const overrides: Record<string, number> = JSON.parse(file.content);
+
+    overrides[productId] = Math.round(newWholesale * 100) / 100;
+
+    const commitMsg = `Update ${productName} ${size} wholesale to £${overrides[productId].toFixed(2)}\n\nSource: Back Bar pricing editor`;
+
+    await ghPut(
+      WHOLESALE_PATH,
+      JSON.stringify(overrides, null, 2) + "\n",
+      file.sha,
+      commitMsg,
+    );
+
+    revalidatePath("/finances/pricing");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Reset all wholesale overrides (revert to formula-derived values).
+ */
+export async function resetWholesaleOverrides(): Promise<UpdateRrpResult> {
+  try {
+    const file = await ghGet(WHOLESALE_PATH);
+    await ghPut(
+      WHOLESALE_PATH,
+      "{}\n",
+      file.sha,
+      "Reset all wholesale overrides to defaults\n\nSource: Back Bar pricing editor",
+    );
     revalidatePath("/finances/pricing");
     return { ok: true };
   } catch (err) {
