@@ -43,5 +43,20 @@
     "notes": "",
     "created_at": "2026-05-18T16:06:17.247Z",
     "updated_at": "2026-05-18T16:06:17.247Z"
+  },
+  {
+    "id": "2b691e7a-1b7b-4f15-9f4b-12fc82d4d765",
+    "name": "Daylesford",
+    "category": "Food Hall",
+    "tier": 1,
+    "city": "London",
+    "buyer_name": "Rachael Winter",
+    "buyer_title": "Head of Food Buying",
+    "buyer_email": "rachael.winter@daylesford.com",
+    "buyer_phone": "+44 7949 337682",
+    "status": "Researching",
+    "notes": "",
+    "created_at": "2026-05-18T16:08:50.617Z",
+    "updated_at": "2026-05-18T16:08:50.617Z"
   }
 ]
