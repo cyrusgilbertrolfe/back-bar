@@ -73,5 +73,20 @@
     "notes": "",
     "created_at": "2026-05-18T16:10:03.867Z",
     "updated_at": "2026-05-18T16:10:03.867Z"
+  },
+  {
+    "id": "ca502edc-0fde-475d-b61e-89fe336891ab",
+    "name": "Smythson",
+    "category": "Lifestyle",
+    "tier": 1,
+    "city": "London",
+    "buyer_name": "Omar Deen",
+    "buyer_title": "Head of Buying, Planning and Allocations",
+    "buyer_email": "",
+    "buyer_phone": "",
+    "status": "Researching",
+    "notes": "Lusha enrichment timed out twice. Email and phone need follow-up. Worth noting: we are writing to them on their own paper.",
+    "created_at": "2026-05-18T16:11:47.188Z",
+    "updated_at": "2026-05-18T16:11:47.188Z"
   }
 ]
