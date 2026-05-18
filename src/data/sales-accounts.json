@@ -1,0 +1,17 @@
+[
+  {
+    "id": "0f8b1c2d-3e4a-4b5c-8d6e-7f8a9b0c1d2e",
+    "name": "Selfridges",
+    "category": "Department Store",
+    "tier": 1,
+    "city": "London",
+    "buyer_name": "Andrew Bird",
+    "buyer_title": "Head of Food",
+    "buyer_email": "",
+    "buyer_phone": "",
+    "status": "Researching",
+    "notes": "Will move to Box Sent on dispatch.",
+    "created_at": "2026-05-18T00:00:00.000Z",
+    "updated_at": "2026-05-18T00:00:00.000Z"
+  }
+]
