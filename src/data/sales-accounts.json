@@ -7,11 +7,11 @@
     "city": "London",
     "buyer_name": "Andrew Bird",
     "buyer_title": "Head of Food",
-    "buyer_email": "",
-    "buyer_phone": "",
+    "buyer_email": "andrew.bird@selfridges.co.uk",
+    "buyer_phone": "+44 7775 717376",
     "status": "Researching",
     "notes": "Will move to Box Sent on dispatch.",
     "created_at": "2026-05-18T00:00:00.000Z",
-    "updated_at": "2026-05-18T00:00:00.000Z"
+    "updated_at": "2026-05-18T15:36:27.783Z"
   }
 ]
