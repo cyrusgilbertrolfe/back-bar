@@ -28,5 +28,20 @@
     "notes": "",
     "created_at": "2026-05-18T16:04:16.049Z",
     "updated_at": "2026-05-18T16:04:16.049Z"
+  },
+  {
+    "id": "7bcd4cdd-af3d-493a-adee-69338e16047b",
+    "name": "Harrods",
+    "category": "Department Store",
+    "tier": 1,
+    "city": "London",
+    "buyer_name": "André Lewis",
+    "buyer_title": "Head of Food, Wine and Spirits",
+    "buyer_email": "andre.lewis@harrods.com",
+    "buyer_phone": "+44 7733 116620",
+    "status": "Researching",
+    "notes": "",
+    "created_at": "2026-05-18T16:06:17.247Z",
+    "updated_at": "2026-05-18T16:06:17.247Z"
   }
 ]
