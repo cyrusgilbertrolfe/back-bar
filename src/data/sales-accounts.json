@@ -13,5 +13,20 @@
     "notes": "Will move to Box Sent on dispatch.",
     "created_at": "2026-05-18T00:00:00.000Z",
     "updated_at": "2026-05-18T15:36:27.783Z"
+  },
+  {
+    "id": "6570a7c7-3b4f-4bf7-9a3d-eefbcbae93ed",
+    "name": "Harvey Nichols",
+    "category": "Department Store",
+    "tier": 1,
+    "city": "London",
+    "buyer_name": "Robert Graves",
+    "buyer_title": "Head of Buying, Food and Beverage",
+    "buyer_email": "rob.graves@harveynichols.com",
+    "buyer_phone": "+44 7914 705156",
+    "status": "Researching",
+    "notes": "",
+    "created_at": "2026-05-18T16:04:16.049Z",
+    "updated_at": "2026-05-18T16:04:16.049Z"
   }
 ]
