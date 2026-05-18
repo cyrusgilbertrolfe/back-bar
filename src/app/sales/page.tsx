@@ -2,6 +2,14 @@ import HubPage, { HubModule } from "@/components/HubPage";
 
 const MODULES: HubModule[] = [
   {
+    href: "/sales/accounts",
+    label: "Wholesale Outreach",
+    sublabel: "Sample-box campaign",
+    description:
+      "Track every retail prospect for the wholesale sample drop — who, what, when, where, and what came back. Accounts, buyers, status, and a touchpoint log.",
+    status: "live",
+  },
+  {
     href: "/sales/crm",
     label: "CRM",
     sublabel: "Contacts & pipeline",
@@ -56,7 +64,7 @@ export default function SalesPage() {
     <HubPage
       eyebrow="Sales"
       title="Customers & pipeline"
-      intro="Every buyer, every channel, every conversation. A CRM is the next thing to build here."
+      intro="Every buyer, every channel, every conversation. The wholesale outreach tracker is live; the rest follows."
       modules={MODULES}
     />
   );
