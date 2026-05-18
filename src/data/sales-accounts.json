@@ -58,5 +58,20 @@
     "notes": "",
     "created_at": "2026-05-18T16:08:50.617Z",
     "updated_at": "2026-05-18T16:08:50.617Z"
+  },
+  {
+    "id": "0ccae916-f0ad-49e7-9ad2-abfd6c382634",
+    "name": "Petersham Nurseries",
+    "category": "Lifestyle",
+    "tier": 1,
+    "city": "Richmond",
+    "buyer_name": "Tariq Khan",
+    "buyer_title": "Head of Wine",
+    "buyer_email": "tariq.khan@petershamnurseries.com",
+    "buyer_phone": "",
+    "status": "Researching",
+    "notes": "",
+    "created_at": "2026-05-18T16:10:03.867Z",
+    "updated_at": "2026-05-18T16:10:03.867Z"
   }
 ]
