@@ -15,6 +15,11 @@
   var ROOT_ID = 'mfc-c6-root'
   var SLOT_COUNT = 6
   var FALLBACK_DATA_URL = 'https://mfc-batch-calculator.vercel.app/api/choose-six/drinks'
+  // "GIFT CARD" product (Shopify handle: gift-card) — a £1 add-on. When a
+  // customer picks a card in the gift-card modal we add this product to the
+  // cart as its own line item, carrying the design + message as properties.
+  // The £1 charge is simply this product's price.
+  var GIFT_CARD_VARIANT_ID = 39671015080005
 
   document.addEventListener('DOMContentLoaded', init)
 
@@ -146,32 +151,37 @@
       properties['Drink ' + (i + 1)] = drink ? drink.name : handle
     })
 
-    // Gift-card line-item properties — read directly from the mfc-gc UI
-    // rather than relying on the product form, since the boxset template
-    // doesn't seed the hidden property inputs the other product templates
-    // do. The chosen name element is only populated after the customer
-    // confirms a card in the modal.
+    var items = [{
+      id: parseInt(state.variantId, 10),
+      quantity: 1,
+      properties: properties,
+    }]
+
+    // Gift card — added as its own £1 line item (the GIFT CARD product),
+    // carrying the chosen design + message as line-item properties. Read
+    // directly from the mfc-gc UI rather than the product form, since the
+    // boxset template doesn't seed the hidden property inputs other product
+    // templates do. The chosen-name element is only populated after the
+    // customer confirms a card in the modal.
     var chosen = state.giftCardWrap && state.giftCardWrap.querySelector('.mfc-gc-chosen')
     var designEl = state.giftCardWrap && state.giftCardWrap.querySelector('.mfc-gc-chosen__name')
     var designName = designEl ? designEl.textContent.trim() : ''
     if (chosen && !chosen.hasAttribute('hidden') && designName) {
       var messageEl = document.querySelector('.mfc-gc-textarea')
       var message = messageEl && messageEl.value ? messageEl.value.trim() : ''
-      properties['_Gift card'] = 'Yes'
-      properties['_Gift card design'] = designName
-      if (message) properties['_Gift card message'] = message
+      var giftCardProps = { '_Gift card design': designName }
+      if (message) giftCardProps['_Gift card message'] = message
+      items.push({
+        id: GIFT_CARD_VARIANT_ID,
+        quantity: 1,
+        properties: giftCardProps,
+      })
     }
 
     fetch('/cart/add.js', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({
-        items: [{
-          id: parseInt(state.variantId, 10),
-          quantity: 1,
-          properties: properties,
-        }],
-      }),
+      body: JSON.stringify({ items: items }),
     })
       .then(function (r) { if (!r.ok) return r.json().then(function (e) { throw e }); return r.json() })
       .then(function () {
