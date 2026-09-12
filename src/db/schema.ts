@@ -53,6 +53,28 @@ export const uomEnum = pgEnum("uom", ["ml", "g", "each", "m"]);
 export const priceSourceEnum = pgEnum("price_source", ["inbound", "manual", "placeholder"]);
 
 /**
+ * Where an ABV figure came from. Ordered strongest to weakest on purpose: the
+ * whole reason this enum exists is that "somebody read the bottle" and "it is
+ * probably 40% like everything else" were indistinguishable until 12 Sept 2026.
+ *
+ * `assumed` is not a soft version of `bottle`. It means nobody has checked, and
+ * on 12 Sept 2026 it was the honest label for 46 of 52 alcoholic components —
+ * ten of which were recorded at exactly 40.00%.
+ */
+export const abvSourceEnum = pgEnum("abv_source", [
+  /** Read off the physical bottle in the store. The strongest evidence there is. */
+  "bottle",
+  /** The producer's own published specification, with the URL in source_ref. */
+  "manufacturer",
+  /** Stated on a purchase invoice, with the invoice reference in source_ref. */
+  "supplier_invoice",
+  /** Taken from the category because nobody has checked. Not a reading. */
+  "assumed",
+  /** Entered to make something work, known at the time to be wrong. */
+  "placeholder",
+]);
+
+/**
  * What job a component does on a SKU's bill of materials.
  *
  * The first five are PRIMARY packaging: they are on every bottle no matter how
@@ -137,6 +159,27 @@ export const components = pgTable(
     // Ingredient-only fields (nullable for other types). Per spec §5.2 these
     // could live in an IngredientDetails table; inlining for now.
     abv: numeric("abv", { precision: 5, scale: 2 }),
+    /**
+     * Provenance for `abv`, added 12 Sept 2026. Cached from the most recent
+     * `component_abv_history` row, exactly as `unit_cost` caches the latest
+     * price-history row.
+     *
+     * This column exists because the table already treated cost as a
+     * time-varying, sourced, versioned fact — `unit_cost_set_at` was populated
+     * on 71 of 72 ingredients and `component_price_history` held 116 rows —
+     * while `abv` was a bare number with no date and no source. ABV is not a
+     * constant: it changes when the product changes. That is not theoretical.
+     * The house vodka moved from Bimber (37.5%) to Thames NGS (40.1%) in July
+     * 2026, the switch was recorded as prose in a component name, and nothing
+     * told anyone that Espresso Martini's computed ABV had moved and its label
+     * needed re-checking. It still has not been.
+     *
+     * NULL means the figure predates this column and its origin is unknown.
+     * Do not read NULL as `bottle`.
+     */
+    abvSource: abvSourceEnum("abv_source"),
+    /** When `abv` was last set, mirroring `unit_cost_set_at`. */
+    abvSetAt: timestamp("abv_set_at", { withTimezone: true }),
     allergenFlags: jsonb("allergen_flags"),
     shelfLifeDays: integer("shelf_life_days"),
 
@@ -196,6 +239,45 @@ export const componentPriceHistory = pgTable(
  * Nesting is allowed and needed: the phosphoric acid 1.25% stock is itself a
  * sub-recipe that Sours consumes.
  */
+/**
+ * ABV history, added 12 Sept 2026 — the exact shape of
+ * `component_price_history`, for the same reason.
+ *
+ * Cost got this treatment from the start and ABV did not, so a cost change was
+ * an auditable dated event with a source while an ABV change was an overwrite.
+ * That asymmetry sat inside one table for four months and produced two real
+ * consequences: the Espresso Martini label that never followed its vodka
+ * change, and an in-house gin recorded at 41.2% when every 58 & Co invoice
+ * since November 2025 states 43%.
+ *
+ * Never overwrite `components.abv` without writing a row here. The row is the
+ * evidence that the figure was ever different, and the evidence is the point.
+ */
+export const componentAbvHistory = pgTable(
+  "component_abv_history",
+  {
+    id: serial("id").primaryKey(),
+    componentId: integer("component_id")
+      .notNull()
+      .references(() => components.id, { onDelete: "cascade" }),
+    abv: numeric("abv", { precision: 5, scale: 2 }).notNull(),
+    effectiveDate: date("effective_date").notNull(),
+    source: abvSourceEnum("source").notNull(),
+    /**
+     * What to go and look at to check this: an invoice number, a URL, a
+     * shelf location. Free text on purpose — the provenance of a number is a
+     * sentence, not an enum, and flattening it is how provenance gets lost.
+     */
+    sourceRef: text("source_ref"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("component_abv_history_component_idx").on(t.componentId),
+    index("component_abv_history_effective_date_idx").on(t.effectiveDate),
+  ],
+);
+
 export const componentRecipes = pgTable(
   "component_recipes",
   {
