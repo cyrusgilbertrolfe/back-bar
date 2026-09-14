@@ -107,6 +107,34 @@ const LINES: Line[] = [
     effectiveDate: TODAY,
     evidence: "Avallen Calvados 4.5L at £152.38, confirmed by Cyrus on 13 Sept 2026 as the correct pack and price. A matching Matthew Clark order (10794740) was reported by an inbox search summary, not read directly. Replaces 700ml at £18.95: cost per ml rises about 25%.",
   },
+  {
+    name: "Carpano Antica Formula Vermouth",
+    before: { packSize: "1000", packCost: "27.36" },
+    after: { packSize: "1000", packCost: "27.36" },
+    effectiveDate: "2026-08-05",
+    evidence: "Matthew Clark invoice 4417302, 5 Aug 2026 (paid by Direct Debit): 12 x CARPANO ANTICA FORMULA 1LX6 (code 49973) at £27.36 ex VAT. Price already matched; this records the purchase as its source. This is product code 49973; the Matthew Clark price letter's ANTICA FORMULA 1LX6 at £24.70 is code 30013, a different line, which is why it matched neither price.",
+  },
+  {
+    name: "Campari",
+    before: { packSize: "700", packCost: "15.17" },
+    after: { packSize: "700", packCost: "15.17" },
+    effectiveDate: "2026-08-05",
+    evidence: "Matthew Clark invoice 4417302, 5 Aug 2026 (paid by Direct Debit): 18 x CAMPARI 70x6 (code 15394) at £15.17 ex VAT. Price already matched; this records the purchase as its source.",
+  },
+  {
+    name: "Lillet Blanc",
+    before: { packSize: "750", packCost: "14.42" },
+    after: { packSize: "750", packCost: "14.42" },
+    effectiveDate: "2026-08-05",
+    evidence: "Matthew Clark invoice 4417302, 5 Aug 2026 (paid by Direct Debit): 24 x LILLET BLANC 75x6 (code 25953) at £14.42 ex VAT. Price already matched; this records the purchase as its source.",
+  },
+  {
+    name: "Punt e Mes",
+    before: { packSize: "750", packCost: "10.96" },
+    after: { packSize: "750", packCost: "10.96" },
+    effectiveDate: "2026-08-05",
+    evidence: "Matthew Clark invoice 4417302, 5 Aug 2026 (paid by Direct Debit): 18 x PUNT E MES 75x6 (code 15403) at £10.96 ex VAT. Price already matched; this records the purchase as its source.",
+  },
 ];
 
 const eqNum = (a: string | null, b: string | null) =>
@@ -148,7 +176,7 @@ async function main() {
     const unitCost = (Number(l.after.packCost) / Number(l.after.packSize)).toFixed(4);
 
     if (noChange) {
-      console.log(`  +  ${label} £${c.packCost} unchanged — adding its source (no history yet)`);
+      console.log(`  +  ${label} £${c.packCost} unchanged — adding the invoice as its source`);
       sourced++;
     } else {
       console.log(`  ~  ${label} ${l.before.packSize ?? "?"}ml @ £${l.before.packCost ?? "?"} -> ${l.after.packSize}ml @ £${l.after.packCost}  (unit £${unitCost}/ml)`);

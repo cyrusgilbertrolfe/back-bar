@@ -330,3 +330,12 @@ confirmation email. The invoice price is £12.80 ex VAT — cheaper, not dearer.
 **Still without a price paid:** Carpano Antica and Chinotto Nero appear on none
 of these documents. Their costs stand as recorded, Chinotto's marked
 `placeholder`.
+
+**Carpano Antica resolved, same day.** Matthew Clark invoice 4417302 (5 Aug
+2026, paid) shows CARPANO ANTICA FORMULA 1LX6 at **£27.36** — exactly Back Bar's
+recorded cost. It is product code 49973. The price letter's "ANTICA FORMULA
+1LX6" at £24.70 is code 30013, a different line; that is why the recorded cost
+matched neither letter price, not because it was bought elsewhere. The same
+invoice gives **Campari (£15.17)** and **Lillet Blanc (£14.42)** a real source —
+an actual purchase — after the letter-derived rows were removed earlier, and
+confirms Punt e Mes at £10.96. Rye remains unsourced.
