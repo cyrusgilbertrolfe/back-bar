@@ -68,6 +68,14 @@ export const abvSourceEnum = pgEnum("abv_source", [
   "manufacturer",
   /** Stated on a purchase invoice, with the invoice reference in source_ref. */
   "supplier_invoice",
+  /**
+   * A UK retailer's product listing, with the URL in source_ref. Added 13 Sept
+   * 2026. A UK listing describes the UK bottling, which can differ from the
+   * strength a producer quotes for other markets. Ranked below the producer's
+   * own spec and below an invoice because a retailer can copy an error — but a
+   * listing someone read is evidence, and `assumed` is not.
+   */
+  "retailer_listing",
   /** Taken from the category because nobody has checked. Not a reading. */
   "assumed",
   /** Entered to make something work, known at the time to be wrong. */

@@ -249,16 +249,30 @@ is in all three Clementini recipes — so the F&M flagship's computed ABV is
 understated by however strong it is. It is now the most consequential missing
 figure in the range.
 
-The same letter reconciled 21 costs:
+The same letter was then misused as a cost source, and the misuse was undone
+the same evening.
 
-- 15 already matched, with a recorded source.
-- 3 matched but had no price history at all, so the app showed them as
-  unsourced: **Rye, Campari, Lillet Blanc**. Each now cites the letter. No cost
-  changed.
-- 1 was stale: **Chinotto Nero** still held the pre-March £22.57. Now £23.67.
-- 2 match neither the old nor the new price, and are left alone pending a
-  source: **Carpano Antica** (Back Bar £27.36; letter £23.85 → £24.70) and
-  **Cocchi Americano** (Back Bar £18.42; letter £18.60 → £19.80).
+A price list says what a supplier would charge. It is not evidence of where
+Myatt's Fields buys or what it pays. Cyrus: *"Just because we have a price from
+Matthew Clark doesn't mean we buy from them"* — and there are better prices
+elsewhere. The first reconciliation script's own header said a price list is
+not evidence of what was paid, and it wrote four rows anyway:
+
+- **#119 Rye, #121 Lillet Blanc, #122 Campari** — `manual` rows citing the
+  letter, which made three unsourced costs look sourced.
+- **#120 Chinotto Nero** — moved the cost from £22.57 to the letter's £23.67.
+
+All four were deleted by `fix-mc-letter-misuse-20260913.ts`, guarded so it
+could touch only those rows. Rye, Campari and Lillet Blanc are back to
+unsourced, which is the truth. Chinotto Nero is back to £22.57 and marked
+`placeholder`, because £22.57 is itself only Matthew Clark's pre-March list
+price. The writing script is replaced by a read-only report.
+
+What the letter legitimately shows is where recorded costs came from: 19 of 21
+equal a Matthew Clark list price (18 the March price, 1 the pre-March), which
+ties those components to those products. It does not show the price actually
+paid for any of them. Carpano Antica (Back Bar £27.36) and Cocchi Americano
+(£18.42) match neither list price, plausibly because they are bought elsewhere.
 
 Still open on cost:
 
@@ -268,3 +282,13 @@ Still open on cost:
   orders — 60 in August, 90 in September 2026 — were from Master of Malt at
   £15.36, about 14% more. If that is now the supplier, the cost is understated.
 - **"Epsolon Blanco Tequila"** is misspelt; the product is Espolòn.
+
+## 11. 13 Sept 2026 — Chinotto Nero is 24%
+
+Recorded at **24%** (was blank, which every recipe read as 0%), under a new
+source label, `retailer_listing`, ranked below a producer's spec and below an
+invoice because a retailer can copy an error. Cyrus cited The Whisky
+Exchange's listing; Royal Mile Whiskies' own listing is titled "Muyu Chinotto
+Nero Liqueur 24% 50cl". Neither page body could be read from here, so it rests
+on a listing title and Cyrus's reading. All three Clementini recipes are
+corrected. None carries a label figure yet, so Gate 1 still cannot check them.

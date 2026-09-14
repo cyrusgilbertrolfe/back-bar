@@ -1,0 +1,1 @@
+ALTER TYPE "public"."abv_source" ADD VALUE 'retailer_listing' BEFORE 'assumed';

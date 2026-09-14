@@ -17,10 +17,22 @@ import {
 const COMPONENT_TYPES = ["ingredient", "sub_recipe", "dry_good", "packaging"] as const;
 const UOMS = ["ml", "g", "each", "m"] as const;
 
-const ABV_SOURCES = ["bottle", "manufacturer", "supplier_invoice", "assumed", "placeholder"] as const;
+const ABV_SOURCES = [
+  "bottle",
+  "manufacturer",
+  "supplier_invoice",
+  "retailer_listing",
+  "assumed",
+  "placeholder",
+] as const;
 type AbvSource = (typeof ABV_SOURCES)[number];
 /** Sources that claim something checkable, so must say what to go and check. */
-const NEEDS_REFERENCE: readonly AbvSource[] = ["bottle", "manufacturer", "supplier_invoice"];
+const NEEDS_REFERENCE: readonly AbvSource[] = [
+  "bottle",
+  "manufacturer",
+  "supplier_invoice",
+  "retailer_listing",
+];
 
 function readStr(form: FormData, key: string): string | null {
   const raw = form.get(key);

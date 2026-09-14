@@ -106,6 +106,13 @@
       "when": 1789346186874,
       "tag": "0014_product_name",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1789349278134,
+      "tag": "0015_abv_source_retailer_listing",
+      "breakpoints": true
     }
   ]
 }

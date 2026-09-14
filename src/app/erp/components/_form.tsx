@@ -31,6 +31,7 @@ const ABV_SOURCE_OPTIONS = [
   { value: "bottle", label: "Read off the bottle" },
   { value: "manufacturer", label: "Producer's published spec" },
   { value: "supplier_invoice", label: "Stated on a supplier invoice" },
+  { value: "retailer_listing", label: "UK retailer's product listing" },
   { value: "assumed", label: "Assumed — nobody has checked" },
   { value: "placeholder", label: "Placeholder — known to be wrong" },
 ];

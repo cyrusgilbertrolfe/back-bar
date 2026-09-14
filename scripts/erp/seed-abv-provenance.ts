@@ -53,7 +53,7 @@ type Verified = {
   name: string;
   abv: string;
   productName: string;
-  source: "bottle" | "manufacturer" | "supplier_invoice";
+  source: "bottle" | "manufacturer" | "supplier_invoice" | "retailer_listing";
   sourceRef: string;
   notes: string;
 };
@@ -94,6 +94,21 @@ const VERIFIED: Verified[] = [
       "The line's unit price, £17.46, is exactly this component's recorded pack cost, which is " +
       "how the product is identified. Previously recorded as 40% with no source. The largest " +
       "single-component impact in the range: 86% of the Rum Old Fashioned.",
+  },
+  {
+    name: "Chinotto Nero",
+    abv: "24.00",
+    productName: "Muyu Chinotto Nero Liqueur",
+    source: "retailer_listing",
+    sourceRef:
+      "https://www.royalmilewhiskies.com/muyu-chinotto-nero-liqueur-24-50cl/ ; " +
+      "https://www.thewhiskyexchange.com/p/48657/muyu-chinotto-nero-liqueur",
+    notes:
+      "24% per Cyrus, 13 Sept 2026, citing The Whisky Exchange's listing. Corroborated by Royal " +
+      "Mile Whiskies, whose own listing is titled \"Muyu Chinotto Nero Liqueur 24% 50cl\". Both are " +
+      "UK retailers. Neither page body could be read from here (403/429 to automated requests), so " +
+      "this rests on a listing title and Cyrus's reading, not a full page read. Previously blank, " +
+      "which every recipe read as 0% — this corrects all three Clementini recipes.",
   },
   {
     name: "Ginger Amalthea Gin",
