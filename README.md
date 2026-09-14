@@ -98,9 +98,9 @@ npm run audit       # recipe + ABV integrity, read-only
 npm run build       # next build
 ```
 
-`npm run audit` currently **fails**, and that is honest rather than broken: 19 of
-the 25 checkable recipes are more than 0.3 points from their label ABV. Closing
-that is the week of 18 September. Do not make the audit lenient to get it green.
+`npm run audit` currently **fails**, and that is honest rather than broken: on 14 September 2026, 22 of the 25 recipes with a label figure were more than 0.3 points from it. Closing that is the label audit; see the Back Bar index in Lifemaxxing. Do not make the audit lenient to get it green.
+
+**Known issue: the audit can die on a database query partway through.** On 14 September 2026 two of three runs failed with `Failed query`, each at a different table (`component_recipes`, then `drinks`), while the same queries run directly, and 30 quick queries in a row, all succeeded. So it's an intermittent connection failure on long runs through the Neon HTTP driver, not a data or schema fault. The underlying cause was not captured. If you see `FAILED: Error: Failed query`, re-run before investigating the data. A likely fix is retrying transient failures in `src/db/index.ts`, but confirm the cause first.
 
 ## Layout
 
