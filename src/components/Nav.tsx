@@ -24,14 +24,14 @@ export type NavSection = {
  */
 export const NAV_SECTIONS: NavSection[] = [
   {
-    label: "Make",
-    href: "/make",
-    match: ["/make", "/drinks", "/recipes", "/calculator", "/production"],
-  },
-  {
     label: "Buy",
     href: "/buy",
     match: ["/buy", "/erp", "/finances/ingredients"],
+  },
+  {
+    label: "Make",
+    href: "/make",
+    match: ["/make", "/drinks", "/recipes", "/calculator", "/production"],
   },
   {
     label: "Sell",

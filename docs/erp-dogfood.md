@@ -137,7 +137,7 @@ Wait for a line that looks like `✓ Ready on http://localhost:3000`. Leave the 
 
 1. Open **http://localhost:3000** in a browser.
 2. You'll see the login screen. Type the Back Bar password and hit **Enter**.
-3. The top navigation has four links — **Make**, **Buy**, **Sell**, **Analyse**. Click **Buy**, then **Components**. You're in.
+3. The top navigation has four links — **Buy**, **Make**, **Sell**, **Analyse**. Click **Buy**, then **Components**. You're in.
 
    > **Changed 4 Sept 2026.** The nav used to read Strategy / Finances / Production / Sales / Drinks / ERP. It is now the four surfaces. The ERP landing page still exists at `/erp` and is reachable from **Buy**.
 
