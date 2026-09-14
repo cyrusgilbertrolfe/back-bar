@@ -88,8 +88,11 @@ The value never needed changing; what it lacked was a source, and it has one now
 
 **The in-house gin was wrong: 41.2% should be 43.0%.** Every 58 & Co invoice
 since November 2025 states "58 and Co London Dry Gin 43% 1L", product code
-`LDG/43/1L/CORE/DP` — the strength is in the product code. The 41.2% figure is
-Hayman's London Dry: a different gin. Cyrus confirmed from an invoice
+`LDG/43/1L/CORE/DP` — the strength is in the product code. Where 41.2% came
+from was never recorded; it matches Hayman's London Dry, which may be how it
+got there. Cyrus confirmed on 13 Sept that the house gin is 58 & Co's standard
+London Dry — the database note calling it an "in-house Fusion blend" was
+unsourced and wrong. Cyrus confirmed from an invoice
 independently before the inbox was searched, so this is two sources agreeing.
 
 That component is in **eleven current recipes**, so correcting it moved Gate 1

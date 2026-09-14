@@ -180,6 +180,22 @@ export const components = pgTable(
     abvSource: abvSourceEnum("abv_source"),
     /** When `abv` was last set, mirroring `unit_cost_set_at`. */
     abvSetAt: timestamp("abv_set_at", { withTimezone: true }),
+    /**
+     * The actual product currently filling this component — "58 and Co London
+     * Dry Gin" behind "Gin (in-house)". Added 13 Sept 2026. Cached from the
+     * latest `component_abv_history` row.
+     *
+     * The component name is the recipe-facing item and stays stable when the
+     * supplier changes; the product is a dated attribute of it, recorded with
+     * the ABV it brings. Renaming the component instead would have put product
+     * identity into the field every recipe points at, so the next substitution
+     * would force either an in-place edit (losing what older batches were made
+     * from) or a new row and a repoint — the route the house vodka took in July,
+     * after which its label never followed. This is the cheap subset of an
+     * item-master / supplier-part split, chosen so that split can come later
+     * without repointing a single recipe line.
+     */
+    productName: text("product_name"),
     allergenFlags: jsonb("allergen_flags"),
     shelfLifeDays: integer("shelf_life_days"),
 
@@ -261,6 +277,8 @@ export const componentAbvHistory = pgTable(
       .notNull()
       .references(() => components.id, { onDelete: "cascade" }),
     abv: numeric("abv", { precision: 5, scale: 2 }).notNull(),
+    /** Which product this reading is for. A change of product is a new row. */
+    productName: text("product_name"),
     effectiveDate: date("effective_date").notNull(),
     source: abvSourceEnum("source").notNull(),
     /**
@@ -917,6 +935,7 @@ export type NewComponent = typeof components.$inferInsert;
 
 export type ComponentPriceHistoryRow = typeof componentPriceHistory.$inferSelect;
 export type NewComponentPriceHistoryRow = typeof componentPriceHistory.$inferInsert;
+export type NewComponentAbvHistoryRow = typeof componentAbvHistory.$inferInsert;
 
 export type SystemSetting = typeof systemSettings.$inferSelect;
 export type NewSystemSetting = typeof systemSettings.$inferInsert;
