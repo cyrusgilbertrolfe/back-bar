@@ -233,3 +233,38 @@ with strength.
 One quantity worth checking with the distillery, from Adam's own figures: 75 L
 at 75% dilutes to about 122 L at 46% but about 112 L at 50%, against 124 L
 ordered.
+
+## 10. 13 Sept 2026 — the Matthew Clark price letter, and the last four names
+
+Cyrus supplied the four remaining product names, and Matthew Clark's
+price-change letter to account 50900601 (11 Feb 2026, effective 2 Mar 2026)
+corroborated three of them to the penny: **Del Maguey Vida** mezcal (£35.80),
+**Bols** Blue Curaçao (£11.73), **Cointreau** (£21.62). **Avallen** Calvados is
+not on the letter. With those, every category-named component now names a
+product. Their ABVs remain `assumed`.
+
+**Chinotto Nero is a liqueur.** The letter lists it as `MUYU CHINOTTO NERO LIQU
+50X6`. Back Bar records its ABV as blank, which every recipe reads as 0%, and it
+is in all three Clementini recipes — so the F&M flagship's computed ABV is
+understated by however strong it is. It is now the most consequential missing
+figure in the range.
+
+The same letter reconciled 21 costs:
+
+- 15 already matched, with a recorded source.
+- 3 matched but had no price history at all, so the app showed them as
+  unsourced: **Rye, Campari, Lillet Blanc**. Each now cites the letter. No cost
+  changed.
+- 1 was stale: **Chinotto Nero** still held the pre-March £22.57. Now £23.67.
+- 2 match neither the old nor the new price, and are left alone pending a
+  source: **Carpano Antica** (Back Bar £27.36; letter £23.85 → £24.70) and
+  **Cocchi Americano** (Back Bar £18.42; letter £18.60 → £19.80).
+
+Still open on cost:
+
+- **Calvados.** Recorded 700 ml at £18.95. An inbox summary reports Avallen
+  bought as a 4.5 L at £152.38 — about 25% more per ml. Pack or price is wrong.
+- **Kahlúa.** Recorded £13.43 (the Matthew Clark price), but the most recent
+  orders — 60 in August, 90 in September 2026 — were from Master of Malt at
+  £15.36, about 14% more. If that is now the supplier, the cost is understated.
+- **"Epsolon Blanco Tequila"** is misspelt; the product is Espolòn.

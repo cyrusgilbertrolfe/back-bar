@@ -201,6 +201,42 @@ const PRODUCT_IDENTITIES: { name: string; productName: string; evidence: string 
     productName: "Tio Pepe Fino",
     evidence: "Component note: \"Tio Pepe. Used in the Tuxedo. (Cyrus, 20 Jul 2026)\".",
   },
+  {
+    name: "Mezcal",
+    productName: "Del Maguey Vida Mezcal",
+    evidence:
+      "Matthew Clark price-change letter to account 50900601, 11 Feb 2026: DEL MAGUEY MEZCAL VIDA 70X6 (code 32397) at £35.80 from " +
+      "2 Mar 2026, exactly this component's pack cost. Named by Cyrus, 13 Sept 2026.",
+  },
+  {
+    name: "Blue Curaçao",
+    productName: "Bols Blue Curaçao",
+    evidence:
+      "Matthew Clark price-change letter to account 50900601, 11 Feb 2026: BOLS BLUE CURACAO 50X6 (code 43457) at £11.73 from 2 Mar 2026, " +
+      "exactly this component's 500ml pack cost. Named by Cyrus, 13 Sept 2026.",
+  },
+  {
+    name: "Triple Sec",
+    productName: "Cointreau",
+    evidence:
+      "Matthew Clark price-change letter to account 50900601, 11 Feb 2026: COINTREAU 70x6 (code 10637) at £21.62 from 2 Mar 2026, exactly " +
+      "this component's pack cost. Named by Cyrus, 13 Sept 2026.",
+  },
+  {
+    name: "Calvados",
+    productName: "Avallen Calvados",
+    evidence:
+      "Named by Cyrus, 13 Sept 2026. Not on the March 2026 price letter. An inbox search " +
+      "summary reported a Matthew Clark order for Avallen Calvados 4.5L at £152.38, which does " +
+      "not match this component's recorded 700ml at £18.95 — pack and price need checking.",
+  },
+  {
+    name: "Chinotto Nero",
+    productName: "Muyu Chinotto Nero Liqueur",
+    evidence:
+      "Matthew Clark price-change letter to account 50900601, 11 Feb 2026: MUYU CHINOTTO NERO LIQU 50X6 (code 39471). It is a liqueur, so the " +
+      "blank ABV — read as 0% by every recipe — understates all three Clementini recipes.",
+  },
 ];
 
 async function main() {
@@ -330,7 +366,18 @@ async function main() {
       continue;
     }
     if (c.abv === null) {
-      console.log(`  !! ${p.name}: no ABV to carry into the history row — skipped`);
+      // component_abv_history.abv is NOT NULL, so a product with no evidenced
+      // ABV cannot have a history row yet. Name it on the component anyway: a
+      // blank ABV on a named bottle is checkable; on an unnamed one it is not.
+      // The history row follows when the ABV is evidenced.
+      console.log(`  ~ ${p.name} -> "${p.productName}"  (ABV blank — named only; no history row until evidenced)`);
+      console.log(`      evidence: ${p.evidence}`);
+      if (WRITE) {
+        await db
+          .update(components)
+          .set({ productName: p.productName, updatedAt: new Date() })
+          .where(eq(components.id, c.id));
+      }
       continue;
     }
     console.log(`  ~ ${p.name} -> "${p.productName}"  (ABV ${c.abv}% still assumed)`);
