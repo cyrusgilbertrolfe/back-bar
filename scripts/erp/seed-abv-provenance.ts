@@ -44,7 +44,7 @@
 import { eq, and, desc } from "drizzle-orm";
 
 import { db } from "../../src/db";
-import { components, componentAbvHistory } from "../../src/db/schema";
+import { components, componentAbvHistory, componentPriceHistory } from "../../src/db/schema";
 
 const WRITE = process.argv.includes("--write");
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -95,6 +95,22 @@ const VERIFIED: Verified[] = [
       "how the product is identified. Previously recorded as 40% with no source. The largest " +
       "single-component impact in the range: 86% of the Rum Old Fashioned.",
   },
+  {
+    name: "Ginger Amalthea Gin",
+    abv: "50.00",
+    productName: "Amalthea Ginger Gin",
+    source: "manufacturer",
+    sourceRef:
+      "Adam Lock, Lead Distiller, Amalthea — email 12 Sept 2026 (msg 1a096c585e620a31), batch AGG-001",
+    notes:
+      "The distillery's written commitment: \"We'll then be ready to dilute them down to 50% and " +
+      "get them ready for transfer over to you\" (Adam Lock, 12 Sept 2026). Agreed in the thread " +
+      "\"Christmas Gingertini Gin ABV%?\": the sample was 50%, the drink was tested at 50% (Cyrus, " +
+      "7 Sept), and the distillery preferred 50% (Arnold Harrison, 9 Sept). Supersedes 46%, quoted " +
+      "for order PU215780 on 24 and 27 Aug, which the distillery now thinks belongs to the Vesper " +
+      "gin. A specification, not a measurement: check the delivered batch's paperwork on arrival, " +
+      "due w/c 5 Oct 2026.",
+  },
 ];
 
 const NOTE_CORRECTIONS: { name: string; from: string; to: string }[] = [
@@ -105,6 +121,27 @@ const NOTE_CORRECTIONS: { name: string; from: string; to: string }[] = [
       "Base spirit. 58 and Co London Dry Gin, 43% — their standard London Dry, not a bespoke " +
       "blend (Cyrus, 13 Sept 2026). An earlier note describing an \"in-house Fusion blend\" " +
       "was unsourced and wrong.",
+  },
+  {
+    name: "Ginger Amalthea Gin",
+    from: "Short-run Amalthea with heavy ginger botanical, for Christmas Gingertini only. Same price as Amalthea: £16.67/L (Cyrus, 20 Jul 2026). ABV corrected 46 -> 42 on 23 Aug 2026: Cyrus, the distillery supplies at 42% (the 46 was the retail Amalthea bottling strength, assumed in error). REVERTED to 46 same day: Clemency confirms the distillery supplies at 46%. The 42 was a mis-recollection; 46 stands.",
+    to: "Short-run Amalthea with heavy ginger botanical, for Christmas Gingertini only. ABV 50% per the distillery (Adam Lock, 12 Sept 2026, batch AGG-001) — see component_abv_history. History: 46% was quoted for order PU215780 in August; on 23 Aug 2026 the figure was changed 46 -> 42 and reverted to 46 the same day, both from recollection, and both were wrong. Price borrowed from standard Amalthea (£16.67/L) pending a real quote.",
+  },
+];
+
+/**
+ * Prices known to be stand-ins, marked so (13 Sept 2026). The unit cost is not
+ * changed — only its provenance, by appending a `placeholder` row, because the
+ * app reads a component's price provenance from its newest history row
+ * (src/lib/erp/ingredients.ts) and already lists placeholders as unsourced.
+ */
+const PRICE_PLACEHOLDERS: { name: string; reason: string }[] = [
+  {
+    name: "Ginger Amalthea Gin",
+    reason:
+      "Borrowed from standard Amalthea (£16.67/L) pending a real quote — Cyrus, 13 Sept 2026: " +
+      "\"just waiting on price\". The spec is now 50% ABV, not 46%: if the Amalthea rate is " +
+      "duty-inclusive, duty scales with strength, so the real price is likely higher.",
   },
 ];
 
@@ -312,6 +349,39 @@ async function main() {
       .update(components)
       .set({ productName: p.productName, updatedAt: new Date() })
       .where(eq(components.id, c.id));
+  }
+
+  // ---- 2c. Stand-in prices marked as placeholders ------------------------
+  console.log("\nPRICES — stand-ins marked as placeholders (unit cost unchanged):\n");
+  for (const p of PRICE_PLACEHOLDERS) {
+    const c = byName.get(p.name);
+    if (!c) {
+      console.log(`  !! "${p.name}" not found — skipped`);
+      continue;
+    }
+    const [newest] = await db
+      .select()
+      .from(componentPriceHistory)
+      .where(eq(componentPriceHistory.componentId, c.id))
+      .orderBy(desc(componentPriceHistory.effectiveDate), desc(componentPriceHistory.id))
+      .limit(1);
+    if (newest?.source === "placeholder") {
+      console.log(`  = ${p.name}: newest price is already a placeholder`);
+      continue;
+    }
+    console.log(`  ~ ${p.name}: £${c.unitCost}/${c.uom} [${newest?.source ?? "none"}] -> placeholder`);
+    if (!WRITE) continue;
+    await db.insert(componentPriceHistory).values({
+      componentId: c.id,
+      supplierId: c.defaultSupplierId,
+      unitCost: c.unitCost,
+      currency: "GBP",
+      uom: c.uom,
+      effectiveDate: TODAY,
+      source: "placeholder",
+      sourceId: null,
+      notes: p.reason,
+    });
   }
 
   // ---- 3. Note corrections (exact match only) ---------------------------

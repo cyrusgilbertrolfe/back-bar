@@ -206,3 +206,30 @@ a 2022 order, no current price match).
 
 *Rulings collected 5–6 September 2026 via the Gate 1 decision sheet. Recorded
 here 6 September 2026. Nothing applied to the database.*
+
+## 9. 13 Sept 2026 — Ginger Amalthea is 50%, agreed in writing
+
+Recorded at **50%** (was 46%, `assumed`), sourced to the distillery's own
+commitment. Adam Lock, Lead Distiller, 12 Sept 2026: *"We'll then be ready to
+dilute them down to 50% and get them ready for transfer over to you."* The
+thread "Christmas Gingertini Gin ABV%?" shows how it was agreed: the sample was
+50%, the drink was tested at 50% (Cyrus, 7 Sept), and the distillery preferred
+50% (Arnold Harrison, 9 Sept). 46% had been quoted for order PU215780 in August,
+and the distillery now thinks that figure belongs to the Vesper gin.
+
+This is a specification, not a measurement. Batch AGG-001 is due w/c 5 Oct 2026;
+check the delivered paperwork on arrival.
+
+Christmas Gingertini's computed ABV moves from 20.0% to **21.4%**. It carries no
+declared label figure, so Gate 1 still cannot check it — but any figure given to
+Fortnum & Mason for that label should be the 21.4%, not the old 20.0%.
+
+The component note, which ended "46 stands" after a 46 -> 42 -> 46 reversal on
+23 Aug made from recollection, has been replaced. The price, borrowed from
+standard Amalthea at £16.67/L, is now marked `placeholder` pending a real quote;
+if that rate is duty-inclusive, the real one will be higher, because duty scales
+with strength.
+
+One quantity worth checking with the distillery, from Adam's own figures: 75 L
+at 75% dilutes to about 122 L at 46% but about 112 L at 50%, against 124 L
+ordered.
