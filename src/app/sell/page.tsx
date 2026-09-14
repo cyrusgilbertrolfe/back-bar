@@ -2,7 +2,7 @@ import HubPage, { HubModule } from "@/components/HubPage";
 
 /**
  * SELL — one of the four surfaces (make, buy, sell, analyse). See
- * docs/roadmap.md. CRM is parked with a stated interim answer (a spreadsheet),
+ * the Back Bar roadmap in Lifemaxxing (Domains/Cocktails/Back Bar). CRM is parked with a stated interim answer (a spreadsheet),
  * so it reads as a decision rather than a gap.
  */
 const MODULES: HubModule[] = [

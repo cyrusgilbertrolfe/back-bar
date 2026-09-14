@@ -4,7 +4,7 @@
  *   npx tsx --env-file=.env.local scripts/erp/seed-abv-provenance.ts          # dry run
  *   npx tsx --env-file=.env.local scripts/erp/seed-abv-provenance.ts --write  # apply
  *
- * Written 12 Sept 2026, opening week 2 of docs/roadmap.md. Extended 13 Sept
+ * Written 12 Sept 2026, opening week 2 of the Back Bar roadmap in Lifemaxxing (Domains/Cocktails/Back Bar). Extended 13 Sept
  * 2026 when `product_name` was added.
  *
  * Three jobs, in this order:

@@ -13,4 +13,4 @@ Git holds the full history either way, so anything here can be deleted whenever
 its story stops being interesting.
 
 The habit that produced them — reaching for a one-off script instead of building
-a screen — is what cycle 2 of `docs/roadmap.md` exists to end.
+a screen — is what cycle 2 of the Back Bar roadmap in Lifemaxxing (Domains/Cocktails/Back Bar) exists to end.

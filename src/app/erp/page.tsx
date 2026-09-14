@@ -125,7 +125,7 @@ export default async function ErpHome() {
         >
           Scope was cut to costing and pricing on 4 September 2026. These are not in
           progress and nobody is working on them. The batch spreadsheet and paper
-          labels continue meanwhile. See <code>docs/roadmap.md</code>.
+          labels continue meanwhile. See the Back Bar roadmap in Lifemaxxing.
         </p>
         <ul
           style={{

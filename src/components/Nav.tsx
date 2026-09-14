@@ -20,7 +20,7 @@ export type NavSection = {
  * Each `match` list carries the older routes that surface absorbed, so a
  * bookmark or a deep link still highlights the right section. The old hub
  * pages (/finances, /production, /sales) still work; they are simply no
- * longer the way in. See docs/roadmap.md.
+ * longer the way in. See the Back Bar roadmap in Lifemaxxing (Domains/Cocktails/Back Bar).
  */
 export const NAV_SECTIONS: NavSection[] = [
   {

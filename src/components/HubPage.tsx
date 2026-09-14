@@ -9,7 +9,7 @@ export type HubModule = {
   description: string;
   /**
    * "parked" is not a weaker "soon". It means we have deliberately stopped
-   * work on it and said so, per the scope cut in docs/roadmap.md. Keeping the
+   * work on it and said so, per the scope cut in the Back Bar roadmap in Lifemaxxing (Domains/Cocktails/Back Bar). Keeping the
    * two apart is the point: a plan nobody is working on should not be able to
    * hide inside a list of things that are coming.
    */

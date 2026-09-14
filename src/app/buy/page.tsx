@@ -2,7 +2,7 @@ import HubPage, { HubModule } from "@/components/HubPage";
 
 /**
  * BUY — one of the four surfaces (make, buy, sell, analyse). See
- * docs/roadmap.md. Suppliers is listed as live because the screen works, but
+ * the Back Bar roadmap in Lifemaxxing (Domains/Cocktails/Back Bar). Suppliers is listed as live because the screen works, but
  * the description says plainly that nothing has ever been entered into it.
  */
 const MODULES: HubModule[] = [

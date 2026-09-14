@@ -2,7 +2,7 @@ import HubPage, { HubModule } from "@/components/HubPage";
 
 /**
  * MAKE — one of the four surfaces (make, buy, sell, analyse) the top nav is
- * built from. See docs/roadmap.md. Statuses here are the real ones: "parked"
+ * built from. See the Back Bar roadmap in Lifemaxxing (Domains/Cocktails/Back Bar). Statuses here are the real ones: "parked"
  * means we have deliberately stopped, not that it is coming soon.
  */
 const MODULES: HubModule[] = [

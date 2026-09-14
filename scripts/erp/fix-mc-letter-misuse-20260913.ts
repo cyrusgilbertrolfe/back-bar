@@ -19,7 +19,7 @@
  *
  * Deleting rather than stacking corrections: these rows record nothing that
  * happened in the world, only a mistaken inference made an hour earlier. Their
- * full content is kept in docs/gate1-rulings.md and in the commit history.
+ * full content is kept in the Gate 1 rulings record in Lifemaxxing (Domains/Cocktails/Back Bar) and in the commit history.
  *
  * Every delete is guarded: the row must still exist, still cite the letter, and
  * have been created on 13 Sept 2026. Anything else is refused and reported.

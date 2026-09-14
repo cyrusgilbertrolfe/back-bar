@@ -2,7 +2,7 @@ import HubPage, { HubModule } from "@/components/HubPage";
 
 /**
  * ANALYSE — one of the four surfaces (make, buy, sell, analyse). See
- * docs/roadmap.md.
+ * the Back Bar roadmap in Lifemaxxing (Domains/Cocktails/Back Bar).
  *
  * Every figure on this surface is governed by docs/revenue-provenance.md: a
  * number that cannot be traced to a source system does not get shown. The

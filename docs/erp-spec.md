@@ -1,6 +1,6 @@
 > **SUPERSEDED — 4 September 2026.**
 > This document is no longer the statement of scope. Back Bar's scope was cut to
-> **costing and pricing only** until March 2027; see [`roadmap.md`](roadmap.md).
+> **costing and pricing only** until March 2027; see the Back Bar roadmap in Lifemaxxing, `Domains/Cocktails/Back Bar/`.
 > Most of what follows — inbounds, inventory lots, production runs, bottle
 > serials, price lists, quotes, the channel-mix dashboard — is **parked**, and
 > was never built. It is kept here because it is a good design reference for

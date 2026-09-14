@@ -4,7 +4,7 @@ The internal operations system for **Myatt's Fields Cocktails**. Next.js 16 on
 Vercel, Postgres (Neon) via Drizzle, password-gated, live at
 `admin.myattsfields.com`.
 
-> **Read [`docs/roadmap.md`](docs/roadmap.md) before adding anything.** It is the
+> **Read the Back Bar roadmap in Lifemaxxing before adding anything** (`Domains/Cocktails/Back Bar/`, the index named in this repo's `CLAUDE.md`). It is the
 > statement of scope. `docs/erp-spec.md` describes a much larger system and was
 > superseded on 4 September 2026; it is kept only as the design reference for
 > parked work.
@@ -60,7 +60,7 @@ Parked is not cancelled, and it is not "coming soon". It means we have stopped,
 deliberately, and each has a stated interim answer. Inbounds, inventory,
 production runs, bottle serials, price lists, quotes, CRM, and the
 revenue-by-channel split. Full list and reasoning in
-[`docs/roadmap.md`](docs/roadmap.md) §4.
+the Back Bar roadmap in Lifemaxxing, §4.
 
 Six tables exist and hold zero rows (`suppliers`, `customers`,
 `wholesale_orders`, `wholesale_order_lines`, `wholesale_order_bookings`,
