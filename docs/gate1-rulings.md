@@ -167,6 +167,41 @@ Note that this correction alone does not close Tuxedo: swapping 41.4 for 41.2
 moves the computed figure from 30.3 to 30.2 against a label of 29.1. Something
 else in that recipe is also out.
 
+## 8. 13 Sept 2026 — invoices name the bottles, and correct the rum
+
+Going to source rather than typing produced three things.
+
+**The most influential component in the range was wrong.** Matthew Clark invoice
+4103269 (25 Mar 2026) prints the strength in its own product line:
+`MOUNTGAY ECLIPSE RUM 37.5%70X6`, at £17.46 — exactly the pack cost Back Bar
+holds for "Mount Gay Rum". Back Bar had it at 40%, unsourced. It is 86% of the
+Rum Old Fashioned, so the correction moves that drink from 35.2% computed to
+**33.0%**, against a label of 35.0.
+
+That label was already on the echo list in §6 — it sat 0.20 from the old
+computed figure and came from the 14 August correction record. A label that
+agreed with a recipe built on a wrong rum is further evidence those recovered
+figures were derived, not read. Gate 1 failures: 20 → 22.
+
+**Six components now name a product.** Aalborg Taffel Akvavit and La Guita
+Manzanilla come from the same PDF; Bulleit Rye, Espolòn Reposado and Kwai Feh
+Lychee from Matthew Clark order emails, each unit price matching Back Bar's
+pack cost to the penny; Tio Pepe from Cyrus's own July note. Their ABVs stay
+`assumed` — naming the bottle makes a figure checkable, it does not make it
+checked.
+
+**One source was caught being unreliable.** The inbox search assistant reported
+ABVs for Kahlúa (16.0%), Espolòn Reposado (40.0%) and Cointreau (40.0%) "from
+attached invoice PDFs". Opening those emails found order confirmations with no
+attachment and no ABV. None of those figures has been recorded. Price matches
+from the same assistant were accepted only because it never saw Back Bar's
+prices, so a penny-exact match is corroboration it could not have manufactured.
+
+Still unnamed: Calvados (three candidates across old orders, none matching the
+recorded £18.95), Mezcal (Del Maguey Vida is ordered, at £34.75 against £35.80
+recorded), Blue Curaçao (Bols, £11.55 against £11.73), Triple Sec (Cointreau on
+a 2022 order, no current price match).
+
 ---
 
 *Rulings collected 5–6 September 2026 via the Gate 1 decision sheet. Recorded

@@ -83,6 +83,18 @@ const VERIFIED: Verified[] = [
       "Value unchanged — this records the source it never had. Confirmed by Cyrus as the " +
       "product actually used.",
   },
+  {
+    name: "Mount Gay Rum",
+    abv: "37.50",
+    productName: "Mount Gay Eclipse Rum",
+    source: "supplier_invoice",
+    sourceRef: "Matthew Clark invoice 4103269, 25 Mar 2026 (line: MOUNTGAY ECLIPSE RUM 37.5%70X6)",
+    notes:
+      "The strength is printed in Matthew Clark's own product description on the invoice PDF. " +
+      "The line's unit price, £17.46, is exactly this component's recorded pack cost, which is " +
+      "how the product is identified. Previously recorded as 40% with no source. The largest " +
+      "single-component impact in the range: 86% of the Rum Old Fashioned.",
+  },
 ];
 
 const NOTE_CORRECTIONS: { name: string; from: string; to: string }[] = [
@@ -93,6 +105,64 @@ const NOTE_CORRECTIONS: { name: string; from: string; to: string }[] = [
       "Base spirit. 58 and Co London Dry Gin, 43% — their standard London Dry, not a bespoke " +
       "blend (Cyrus, 13 Sept 2026). An earlier note describing an \"in-house Fusion blend\" " +
       "was unsourced and wrong.",
+  },
+];
+
+/**
+ * Products identified from supplier documents where the ABV itself is not yet
+ * evidenced (13 Sept 2026). Each gets a history row that names the bottle but
+ * keeps the ABV `assumed`: the component becomes checkable without the figure
+ * being promoted to something it is not. `abv_set_at` is deliberately left
+ * alone, because the ABV was not set.
+ *
+ * Several of these identifications come from Matthew Clark order emails read
+ * through an inbox search assistant rather than from the documents directly.
+ * They are recorded because each line's unit price matches this component's
+ * recorded pack cost to the penny, and that assistant never saw Back Bar's
+ * prices — the match is independent corroboration. The same assistant also
+ * claimed ABVs "from attached invoice PDFs" on emails that turned out to have
+ * no attachments, which is why none of its ABV figures are recorded here.
+ */
+const PRODUCT_IDENTITIES: { name: string; productName: string; evidence: string }[] = [
+  {
+    name: "Akvavit",
+    productName: "Aalborg Taffel Akvavit",
+    evidence:
+      "Matthew Clark invoice 4103269 (PDF), 25 Mar 2026: AALBORG TAFFEL AKVAVIT 70x6 at £27.93, " +
+      "exactly this component's pack cost.",
+  },
+  {
+    name: "Manzanilla",
+    productName: "La Guita Manzanilla",
+    evidence:
+      "Matthew Clark invoice 4103269 (PDF), 25 Mar 2026: LA GUITA MANZANILLA 75X6 at £11.25, " +
+      "exactly this component's pack cost.",
+  },
+  {
+    name: "Rye",
+    productName: "Bulleit Rye",
+    evidence:
+      "Matthew Clark order 23339746: Bulleit Rye Whiskey 70cl at £28.02, exactly this " +
+      "component's pack cost. Read from order emails via inbox search, 13 Sept 2026.",
+  },
+  {
+    name: "Tequila Reposado",
+    productName: "Espolòn Reposado Tequila",
+    evidence:
+      "Matthew Clark order 23339746: Espolon Reposado Tequila 70cl at £26.88, exactly this " +
+      "component's pack cost. Read from order emails via inbox search, 13 Sept 2026.",
+  },
+  {
+    name: "Lychee Liqueur",
+    productName: "Kwai Feh Lychee Liqueur",
+    evidence:
+      "Matthew Clark orders 21566854 and 22286623: Kwai Feh Lychee 70cl at £17.85, exactly this " +
+      "component's pack cost. Read from order emails via inbox search, 13 Sept 2026.",
+  },
+  {
+    name: "Fino Sherry",
+    productName: "Tio Pepe Fino",
+    evidence: "Component note: \"Tio Pepe. Used in the Tuxedo. (Cyrus, 20 Jul 2026)\".",
   },
 ];
 
@@ -203,6 +273,44 @@ async function main() {
         abvSetAt: new Date(),
         updatedAt: new Date(),
       })
+      .where(eq(components.id, c.id));
+  }
+
+  // ---- 2b. Products named, ABV still assumed -----------------------------
+  console.log("\nPRODUCTS — named from supplier documents; ABV stays `assumed` until evidenced:\n");
+  for (const p of PRODUCT_IDENTITIES) {
+    const c = byName.get(p.name);
+    if (!c) {
+      console.log(`  !! "${p.name}" not found — skipped`);
+      continue;
+    }
+    if (c.productName === p.productName) {
+      console.log(`  = ${p.name}: already "${p.productName}"`);
+      continue;
+    }
+    if (c.productName !== null) {
+      console.log(`  !! ${p.name}: already names "${c.productName}" — left alone for a human`);
+      continue;
+    }
+    if (c.abv === null) {
+      console.log(`  !! ${p.name}: no ABV to carry into the history row — skipped`);
+      continue;
+    }
+    console.log(`  ~ ${p.name} -> "${p.productName}"  (ABV ${c.abv}% still assumed)`);
+    console.log(`      evidence: ${p.evidence}`);
+    if (!WRITE) continue;
+    await db.insert(componentAbvHistory).values({
+      componentId: c.id,
+      abv: c.abv,
+      productName: p.productName,
+      effectiveDate: TODAY,
+      source: "assumed",
+      sourceRef: null,
+      notes: `Product identified; ABV not yet evidenced. ${p.evidence}`,
+    });
+    await db
+      .update(components)
+      .set({ productName: p.productName, updatedAt: new Date() })
       .where(eq(components.id, c.id));
   }
 
