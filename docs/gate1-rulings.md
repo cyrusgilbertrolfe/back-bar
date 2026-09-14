@@ -278,9 +278,9 @@ Still open on cost:
 
 - **Calvados.** Recorded 700 ml at £18.95. An inbox summary reports Avallen
   bought as a 4.5 L at £152.38 — about 25% more per ml. Pack or price is wrong.
-- **Kahlúa.** Recorded £13.43 (the Matthew Clark price), but the most recent
-  orders — 60 in August, 90 in September 2026 — were from Master of Malt at
-  £15.36, about 14% more. If that is now the supplier, the cost is understated.
+- **Kahlúa.** ~~Recorded £13.43, but Master of Malt charged £15.36, about 14%
+  more.~~ **Wrong — corrected in §12.** £15.36 was the VAT-inclusive figure on an
+  order confirmation; the invoice price is £12.80 ex VAT.
 - **"Epsolon Blanco Tequila"** is misspelt; the product is Espolòn.
 
 ## 11. 13 Sept 2026 — Chinotto Nero is 24%
@@ -292,3 +292,41 @@ Exchange's listing; Royal Mile Whiskies' own listing is titled "Muyu Chinotto
 Nero Liqueur 24% 50cl". Neither page body could be read from here, so it rests
 on a listing title and Cyrus's reading. All three Clementini recipes are
 corrected. None carries a label figure yet, so Gate 1 still cannot check them.
+
+## 12. 13 Sept 2026 — invoices: what was actually paid, and two more wrong ABVs
+
+Cyrus supplied Master of Malt trade invoices 7971568 (27 Aug), 7982704 (1 Sep)
+and 7988955 (6 Sep), and Speciality Brands proforma 113450 (4 Aug, duty paid).
+Unlike the Matthew Clark price letter, these show what the business was
+actually charged, and each line prints the UK ABV.
+
+**Two ABVs were wrong, both 16.5% recorded against 16% on the invoice:**
+**Kahlúa** (in four recipes, including both Espresso Martinis) and **Cocchi
+Torino** (in seven). Six more were confirmed at their existing values and now
+carry an invoice as their source: Suze, Belle de Brillet, Akashi-Tai, Angostura
+Bitters, Bob's Vanilla Bitters, Cocchi Americano.
+
+**Eight costs now reflect prices paid** (all ex VAT):
+
+| Component | Was | Now | Evidence |
+|---|---|---|---|
+| Kahlúa | £13.43 / 70cl | £12.80 | MoM 7988955, 7971568 |
+| Suze | £22.00 / 70cl | £12.30 | MoM 7982704, 7971568 |
+| Belle de Brillet | £21.67 / 70cl | £24.90 | MoM 7982704, 7971568 |
+| Akashi-Tai | £34.50 / 72cl | £33.20 | MoM 7971568 |
+| Angostura Bitters | £12.00 / 148ml | £10.13 / **200ml** | MoM 7982704 |
+| Bob's Vanilla Bitters | none | £12.54 / 10cl | MoM 7971568 |
+| Cocchi Americano | £18.42 / 75cl | £15.66 | Speciality 113450 |
+| Calvados (Avallen) | £18.95 / 700ml | £152.38 / **4.5L** | Cyrus, 13 Sept |
+
+Cocchi Torino's £18.05 already matched and now cites the proforma. The
+Speciality Brands document is a proforma, not a tax invoice, and is recorded as
+such.
+
+**A correction to §10.** It said Kahlúa at Master of Malt cost £15.36, about 14%
+more than the recorded price. £15.36 is the VAT-inclusive total from an order
+confirmation email. The invoice price is £12.80 ex VAT — cheaper, not dearer.
+
+**Still without a price paid:** Carpano Antica and Chinotto Nero appear on none
+of these documents. Their costs stand as recorded, Chinotto's marked
+`placeholder`.
