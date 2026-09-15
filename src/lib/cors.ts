@@ -14,8 +14,15 @@
 // hardcode a single origin. Reflect a known-good origin from an allowlist, and
 // always send `Vary: Origin` so a CDN cannot cache one origin's header and
 // serve it to another.
+//
+// It happened again on 19 Aug 2026 when the shop moved to myattsfields.com and
+// this list was not updated. Add the new origin here in the same change as any
+// future domain move.
 
 const ALLOWED_ORIGINS = new Set([
+  // current shop, live since 19 Aug 2026
+  'https://myattsfields.com',
+  'https://www.myattsfields.com',
   'https://myattsfields.london',
   'https://www.myattsfields.london',
   'https://mfc.london', // legacy: still redirects, and it is printed on the bottle labels
@@ -23,7 +30,7 @@ const ALLOWED_ORIGINS = new Set([
   'https://mfclondon.myshopify.com', // Shopify's own preview/admin origin
 ])
 
-const DEFAULT_ORIGIN = 'https://myattsfields.london'
+const DEFAULT_ORIGIN = 'https://myattsfields.com'
 
 /**
  * Build CORS headers for a request, reflecting the caller's origin when it is
