@@ -10,6 +10,12 @@ import {
   type ClientRecipeView,
 } from "@/lib/drinks-db";
 import { GATE_1_TOLERANCE_POINTS } from "@/lib/erp/canon";
+import { listCaseLabelLines, listClientSkus } from "@/lib/labels/case-label-data";
+
+import SkuIdentityForm from "./_SkuIdentityForm";
+
+/** Real capitals for the case-label panel: small caps would lowercase codes like FM-APPR. */
+const allCaps = { textTransform: "uppercase" as const, letterSpacing: "0.06em" };
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +98,8 @@ export default async function DrinkDetailPage({
           </>
         )}
 
+        <CaseLabelsPanel drinkId={drink.id} drinkSlug={drink.slug} />
+
         {/* Add-a-recipe-for-this-drink */}
         {missingClients.length > 0 && (
           <div style={{ marginTop: 28, display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -115,6 +123,90 @@ export default async function DrinkDetailPage({
         )}
       </main>
     </div>
+  );
+}
+
+/**
+ * Outer-case labels for partner orders, e.g. Fortnum's. Only appears for a
+ * drink sold under a partner's name. The label comes from the order line and
+ * inherits the product's identity from the SKU; see lib/labels.
+ */
+async function CaseLabelsPanel({ drinkId, drinkSlug }: { drinkId: number; drinkSlug: string }) {
+  const [clientSkus, lines] = await Promise.all([listClientSkus(drinkId), listCaseLabelLines(drinkId)]);
+  if (clientSkus.length === 0) return null;
+
+  return (
+    <section style={{ marginTop: 40, borderTop: `1px solid ${COLOR.rule}`, paddingTop: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <h2 style={{ fontSize: 10, color: COLOR.muted, ...allCaps, margin: 0 }}>Case labels</h2>
+        <a
+          href="/api/case-labels/calibration"
+          target="_blank"
+          style={{ fontSize: 11, color: COLOR.accent, textDecoration: "underline", textUnderlineOffset: 3, ...allCaps }}
+        >
+          Calibration sheet
+        </a>
+      </div>
+
+      {lines.length === 0 ? (
+        <p style={{ fontSize: 13, color: COLOR.muted, marginTop: 12 }}>No open orders for this drink.</p>
+      ) : (
+        <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0" }}>
+          {lines.map((l) => (
+            <li key={l.lineId} style={{ borderBottom: `1px solid ${COLOR.rule}`, padding: "14px 0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                <div style={{ ...tabularNums }}>
+                  <div style={{ fontFamily: FONT.serif, fontSize: 16 }}>
+                    {l.orderNumber} · {l.customerName}
+                  </div>
+                  <div style={{ fontSize: 12, color: COLOR.muted, marginTop: 2 }}>
+                    {l.cases} cases{l.facts ? ` of ${l.facts.unitsPerCase}` : ""} · {l.skuCode}
+                    {l.raisedOn ? ` · raised ${l.raisedOn}` : ""}
+                  </div>
+                </div>
+                {l.problems.length === 0 && (
+                  <form action={`/api/case-labels/${l.lineId}`} method="get" target="_blank" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <label style={{ fontSize: 11, color: COLOR.muted }}>
+                      start at label{" "}
+                      <select name="start" defaultValue="1" style={{ fontSize: 12, padding: "4px 6px" }}>
+                        {[1, 2, 3, 4].map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      type="submit"
+                      style={{ background: COLOR.ink, color: COLOR.paper, border: "none", padding: "8px 14px", fontSize: 12, cursor: "pointer", ...allCaps }}
+                    >
+                      Download {l.cases} labels
+                    </button>
+                  </form>
+                )}
+              </div>
+              {l.problems.length > 0 && (
+                <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 12, color: COLOR.flag, lineHeight: 1.55 }}>
+                  {l.problems.map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {clientSkus.map((s) => (
+        <details key={s.skuId} style={{ marginTop: 16 }}>
+          <summary style={{ cursor: "pointer", fontSize: 11, color: COLOR.muted, ...allCaps }}>
+            {s.clientName} identity · {s.code}
+            {s.shortCode ? ` · ${s.shortCode}` : " · no short code yet"}
+          </summary>
+          <SkuIdentityForm drinkSlug={drinkSlug} sku={s} />
+        </details>
+      ))}
+    </section>
   );
 }
 
