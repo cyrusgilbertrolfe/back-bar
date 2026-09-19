@@ -612,6 +612,34 @@ export const skus = pgTable(
     active: boolean("active").notNull().default(true),
 
     /**
+     * How this format is known to the client who buys it. Added 19 Sep 2026
+     * for the Fortnum's case labels.
+     *
+     * These live on the SKU, not the drink and not the order. The drink is
+     * ours: "Apples & Pears". The client's name for it, "Apples 'n' Pears
+     * Cocktail 19% 50cl", carries their spelling, a strength and a size, so
+     * it would be wrong on our own-brand bottle of the same liquid. And it
+     * does not change from one purchase order to the next, so it is entered
+     * once here rather than retyped per order. The order line keeps its own
+     * verbatim copy (wholesale_order_lines.customer_description) and the two
+     * are compared, never merged: a disagreement is how a wrong case size or
+     * a wrong bottle gets caught.
+     *
+     * short_code is ours, the "Your item number" on their PO. Standard agreed
+     * by Cyrus 19 Sep 2026: client prefix, hyphen, four-letter mnemonic of the
+     * drink in capitals (FM-EDAQ, FM-APPR). Assigned once, never changed or
+     * reused. No size in the code unless one drink ships to the same client
+     * in two sizes, then a suffix (-35, -50).
+     */
+    shortCode: text("short_code").unique(),
+    /** Their code for this product, e.g. 5248400 at Fortnum's. */
+    customerItemCode: text("customer_item_code"),
+    /** Their description, VERBATIM off their PO. */
+    customerDescription: text("customer_description"),
+    /** Bottles per outer case, as the client has it set up. */
+    unitsPerCase: integer("units_per_case"),
+
+    /**
      * What the PHYSICAL LABEL says. Added 30 Aug 2026.
      *
      * This is not the computed ABV and must never be confused with it. Back
