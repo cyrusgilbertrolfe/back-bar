@@ -152,6 +152,44 @@ function wrap(s: string, font: PDFFont, size: number, width: number): string[] {
   return lines;
 }
 
+/**
+ * Greedy wrap into the fewest lines, then narrowed until just before it would
+ * need another line, so the lines come out even. Without this a two-line
+ * description ends in a widow ("50cl" alone), which Cyrus rejected on sight.
+ */
+function wrapBalanced(s: string, font: PDFFont, size: number, width: number): string[] {
+  const lines = wrap(s, font, size, width);
+  if (lines.length < 2) return lines;
+  let lo = 0;
+  let hi = width;
+  while (hi - lo > 0.25) {
+    const mid = (lo + hi) / 2;
+    if (wrap(s, font, size, mid).length > lines.length) lo = mid;
+    else hi = mid;
+  }
+  return wrap(s, font, size, hi);
+}
+
+/**
+ * One line only when it can be set large; otherwise two balanced lines, which
+ * fill the space better than one small line (Cyrus, 19 Sep 2026). A very long
+ * description may take a third.
+ */
+function setDescription(s: string, font: PDFFont, width: number): { size: number; lines: string[] } {
+  const oneLine = fitSize(s, font, 17, width);
+  if (oneLine >= 18) return { size: oneLine, lines: [s] };
+  for (const [maxLines, from, floor] of [
+    [2, 20, 13],
+    [3, 13, 9],
+  ] as const) {
+    for (let size: number = from; size >= floor; size -= 0.5) {
+      const lines = wrapBalanced(s, font, size, width);
+      if (lines.length <= maxLines) return { size, lines };
+    }
+  }
+  return { size: 9, lines: wrapBalanced(s, font, 9, width).slice(0, 3) };
+}
+
 const PAD_X = 8;
 const CAPTION_SIZE = 6.5;
 const CAPTION_TRACKING = 0.14;
@@ -183,19 +221,11 @@ function drawLabel(pen: LabelPen, f: Fonts, facts: CaseLabelFacts) {
 
   // ── Their description, wrapped, shrinking rather than overflowing ───────
   caption(`${facts.clientShortName} product description`, left, 75);
-  // Large while it fits on two lines; a long description may take a third.
-  let descSize = 17;
-  let lines = wrap(facts.customerDescription, f.buch, descSize, width);
-  while (lines.length > 2 && descSize > 13) {
-    descSize -= 0.5;
-    lines = wrap(facts.customerDescription, f.buch, descSize, width);
-  }
-  while (lines.length > 3 && descSize > 9) {
-    descSize -= 0.5;
-    lines = wrap(facts.customerDescription, f.buch, descSize, width);
-  }
+  const { size: descSize, lines } = setDescription(facts.customerDescription, f.buch, width);
   const leading = (descSize * 1.2) / MM;
-  lines.slice(0, 3).forEach((l, i) => pen.text(l, left, 81.5 + i * leading, f.buch, descSize));
+  // First baseline hangs a cap height below the caption, whatever the size.
+  const firstBaseline = 77 + (descSize * 0.72) / MM;
+  lines.slice(0, 3).forEach((l, i) => pen.text(l, left, firstBaseline + i * leading, f.buch, descSize));
 
   pen.rule(left, right, 98, 0.3);
 
