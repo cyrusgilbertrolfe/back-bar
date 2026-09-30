@@ -5,6 +5,7 @@ import Link from "next/link";
 import { setAgreedRrp, setAgreedWholesale } from "@/app/actions/pricing";
 import type { PricingConfigView, SkuRow } from "../finance-types";
 import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
+import { CostTotalProvenance } from "@/components/CostSourceBadge";
 
 const GBP = (n: number) =>
   new Intl.NumberFormat("en-GB", {
@@ -395,7 +396,9 @@ export default function PricingClient({ rows: serverRows, config }: Props) {
               const isEditingWholesale = editingId === r.skuId && editingField === "wholesale";
               const isUnsavedRrpEdit = localRrpEdits[r.skuId] !== undefined;
               const isUnsavedWholesaleEdit = localWholesaleEdits[r.skuId] !== undefined;
-              const hasCostFlags = r.unsourced.length + r.placeholders.length + r.problems.length > 0;
+              // Placeholders are flagged separately, under the COGS figure. The ⚑ is
+              // for structural problems and unsourced lines.
+              const hasCostFlags = r.unsourced.length + r.problems.length > 0;
 
               return (
                 <tr key={r.skuId} style={{ borderBottom: `1px solid ${COLOR.rule}` }} className="pricing-row">
@@ -465,12 +468,18 @@ export default function PricingClient({ rows: serverRows, config }: Props) {
                     {GBP(r.cogs)}
                     {hasCostFlags && (
                       <span
-                        title={[...r.problems, ...r.unsourced.map((u) => `Unsourced: ${u}`), ...r.placeholders.map((p) => `Placeholder: ${p}`)].join("\n")}
+                        title={[...r.problems, ...r.unsourced.map((u) => `Unsourced: ${u}`)].join("\n")}
                         style={{ marginLeft: 6, fontSize: 10, color: COLOR.flag, cursor: "help" }}
                       >
                         ⚑
                       </span>
                     )}
+                    <CostTotalProvenance
+                      source={r.costSource}
+                      asOf={r.costAsOf}
+                      placeholders={r.placeholders.length}
+                      unsourced={r.unsourcedLines}
+                    />
                   </td>
 
                   {/* Shipping */}

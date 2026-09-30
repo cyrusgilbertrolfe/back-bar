@@ -13,6 +13,8 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, components, drinks, recipeLines, recipes, skus } from "@/db/schema";
 import { abvComputed, declaredAbvFor, gateOne } from "@/lib/erp/canon";
+import { priceProvenanceFor } from "@/lib/erp/ingredients";
+import type { CostSource } from "@/lib/erp/provenance";
 
 /** True when a Postgres connection string is configured. Lets pages degrade to
  * a setup state instead of throwing when the DB isn't wired yet. */
@@ -294,7 +296,15 @@ export type CalcRecipe = {
   drinkName: string;
   clientSlug: string;
   method: string | null;
-  lines: { componentName: string; percentage: number; unitCost: number; uom: string }[];
+  lines: {
+    componentName: string;
+    percentage: number;
+    unitCost: number;
+    uom: string;
+    /** Where unitCost came from, and the date it applies from. */
+    source: CostSource;
+    setAt: string | null;
+  }[];
   skus: { sizeMl: number; code: string }[];
 };
 
@@ -312,6 +322,7 @@ export async function getCalcRecipe(clientSlug: string, drinkSlug: string): Prom
 
   const lines = await db
     .select({
+      componentId: components.id,
       componentName: components.name,
       percentage: recipeLines.percentage,
       unitCost: components.unitCost,
@@ -321,6 +332,8 @@ export async function getCalcRecipe(clientSlug: string, drinkSlug: string): Prom
     .innerJoin(components, eq(components.id, recipeLines.componentId))
     .where(eq(recipeLines.recipeId, row.recipeId))
     .orderBy(asc(recipeLines.displayOrder));
+
+  const provenance = await priceProvenanceFor(lines.map((l) => l.componentId));
 
   const skuRows = await db
     .select({ sizeMl: skus.sizeMl, code: skus.code })
@@ -338,6 +351,8 @@ export async function getCalcRecipe(clientSlug: string, drinkSlug: string): Prom
       percentage: Number(l.percentage),
       unitCost: Number(l.unitCost),
       uom: l.uom,
+      source: provenance.get(l.componentId)?.source ?? "unsourced",
+      setAt: provenance.get(l.componentId)?.setAt ?? null,
     })),
     skus: skuRows,
   };

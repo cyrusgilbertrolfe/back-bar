@@ -31,8 +31,10 @@ import {
   systemSettings,
   SETTING_KEYS,
 } from "@/db/schema";
+import { perUomCost } from "@/lib/erp/ingredients";
+import { summariseProvenance, type CostSource } from "@/lib/erp/provenance";
 
-export type CostSource = "inbound" | "manual" | "placeholder" | "unsourced";
+export type { CostSource };
 
 export interface CostLine {
   /** 'liquid' for recipe ingredients, otherwise the bill-of-materials role. */
@@ -77,6 +79,13 @@ export interface SkuCost {
 
   /** Share of `subtotal` that traces to a supplier invoice, 0 to 100. */
   invoiceBackedPct: number;
+  /** Worst source across the in-COGS lines: placeholder > unsourced > manual > inbound. Null with no lines. */
+  costSource: CostSource | null;
+  /**
+   * The OLDEST setAt among the in-COGS lines, because a total is only as
+   * current as its stalest input. Null when any in-COGS line has no date.
+   */
+  costAsOf: string | null;
   /** Lines whose cost is hand-typed or missing. Named, never silently absorbed. */
   unsourced: string[];
   /**
@@ -85,6 +94,12 @@ export interface SkuCost {
    * an oversight, and the two deserve different attention.
    */
   placeholders: string[];
+  /**
+   * How many in-COGS lines have source "unsourced" exactly, i.e. no price
+   * history at all. Narrower than `unsourced` above, which also names the
+   * hand-typed (manual) lines. Placeholder lines are `placeholders.length`.
+   */
+  unsourcedLines: number;
   /** Structural problems, e.g. no current recipe for this client. */
   problems: string[];
 }
@@ -98,26 +113,6 @@ function n(v: string | number | null | undefined): number {
 function round(x: number, dp = 4): number {
   const f = 10 ** dp;
   return Math.round(x * f) / f;
-}
-
-/**
- * Cost per unit of measure for a component.
- *
- * Prefers pack_cost / pack_size for anything sold in bulk, because pack_cost is
- * numeric(12,2) while the derived unit_cost is numeric(12,4): for a £15.41
- * litre of vodka the cached unit cost rounds 0.01541 to 0.0154, which is a
- * fifth of a penny adrift on a 700ml bottle. For dry goods sold as each, the
- * pack columns round sub-penny costs the other way, so unit_cost wins there.
- */
-function perUomCost(c: {
-  packSize: string | null;
-  packCost: string | null;
-  unitCost: string | null;
-}): number {
-  const size = n(c.packSize);
-  const cost = n(c.packCost);
-  if (size > 1 && cost > 0) return cost / size;
-  return n(c.unitCost);
 }
 
 async function wastagePct(): Promise<number> {
@@ -276,6 +271,8 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
     .filter((l) => l.source === "placeholder")
     .map((l) => `${l.name} (£${round(l.cost, 2).toFixed(2)})`);
 
+  const { costSource, costAsOf } = summariseProvenance(inCogs);
+
   const pct = await wastagePct();
   const wastage = subtotal * pct;
 
@@ -295,8 +292,11 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
     wastage: round(wastage),
     total: round(subtotal + wastage),
     invoiceBackedPct: subtotal > 0 ? round((invoiceBacked / subtotal) * 100, 1) : 0,
+    costSource,
+    costAsOf,
     unsourced,
     placeholders,
+    unsourcedLines: inCogs.filter((l) => l.source === "unsourced").length,
     problems,
   };
 }

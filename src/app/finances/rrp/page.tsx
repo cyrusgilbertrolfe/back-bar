@@ -34,7 +34,11 @@ export default async function RrpPage() {
     shipping: p.shipping,
     cogs: p.cost.total,
     rulePrice: p.rulePrice,
+    costSource: p.costSource,
+    costAsOf: p.costAsOf,
+    invoiceBackedPct: p.invoiceBackedPct,
     unsourced: p.cost.unsourced,
+    unsourcedLines: p.cost.unsourcedLines,
     placeholders: p.cost.placeholders,
     problems: p.cost.problems,
   }));

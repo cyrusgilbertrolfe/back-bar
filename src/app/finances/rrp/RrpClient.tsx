@@ -11,6 +11,7 @@ import {
 } from "@/app/actions/rrp";
 import type { PricingConfigView, SkuRow } from "../finance-types";
 import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
+import { CostTotalProvenance } from "@/components/CostSourceBadge";
 
 const GBP = (n: number) =>
   new Intl.NumberFormat("en-GB", {
@@ -538,6 +539,12 @@ export default function RrpClient({
                     title="COGS x markup + shipping. Formula output, not an agreed price."
                   >
                     {GBP(x.floor)}
+                    <CostTotalProvenance
+                      source={r.costSource}
+                      asOf={r.costAsOf}
+                      placeholders={r.placeholders.length}
+                      unsourced={r.unsourcedLines}
+                    />
                   </td>
                   <td style={{ padding: "16px 12px", textAlign: "right", fontFamily: FONT.mono, color: COLOR.muted }}>
                     {GBP(x.retailerTest)}

@@ -28,12 +28,15 @@ export const ingredientTools: ToolDefinition[] = [
     title: "List ingredients",
     description:
       "List every ingredient in the buying master with pack size, pack cost, " +
-      "per-UOM unit cost, when the price was set, its provenance " +
-      "(inbound = from a supplier invoice, manual, placeholder, or none), and " +
+      "per-UOM unit cost, when that price took effect (unitCostSetAt: the " +
+      "date of the newest price-history entry, the same entry provenance " +
+      "comes from), its provenance (inbound = from a supplier invoice, " +
+      "manual, placeholder, or unsourced = no sourced price), and " +
       "its ABV. abvMissing is true when a component of type 'ingredient' " +
       "(the type that should carry alcohol) has no ABV recorded, so a gap is " +
       "visible without doing the arithmetic. Optionally filter by name " +
-      "substring or to unsourced entries only.",
+      "substring or to unsourced entries only. A placeholder price is a " +
+      "stand-in known to be wrong: do not quote it as a real cost.",
     access: "read",
     inputSchema: {
       type: "object",
@@ -54,7 +57,7 @@ export const ingredientTools: ToolDefinition[] = [
       const unsourcedOnly = args["unsourced_only"] === true || args["unsourced_only"] === "true";
       let rows = await listIngredients();
       if (unsourcedOnly) {
-        rows = rows.filter((r) => r.provenance === "none" || r.provenance === "placeholder");
+        rows = rows.filter((r) => r.provenance === "unsourced" || r.provenance === "placeholder");
       }
       if (name) {
         const needle = name.toLowerCase();
@@ -85,7 +88,8 @@ export const ingredientTools: ToolDefinition[] = [
     title: "Get ingredient price history",
     description:
       "Return one ingredient and its full dated price-change history (per-UOM " +
-      "unit cost, source, notes), newest first. Use list_ingredients to find " +
+      "unit cost, source, notes), newest first. A source of 'placeholder' " +
+      "marks a figure known to be wrong. Use list_ingredients to find " +
       "the numeric ingredient id.",
     access: "read",
     inputSchema: {

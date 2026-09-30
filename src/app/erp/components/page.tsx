@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { components, suppliers } from "@/db/schema";
 import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
 import { buttonPrimary } from "../_components/forms";
+import CostSourceBadge from "@/components/CostSourceBadge";
+import { listIngredients } from "@/lib/erp/ingredients";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +26,6 @@ export default async function ComponentsPage() {
       packSize: components.packSize,
       packCost: components.packCost,
       unitCost: components.unitCost,
-      unitCostSetAt: components.unitCostSetAt,
       reorderThreshold: components.reorderThreshold,
       active: components.active,
       supplierName: suppliers.name,
@@ -32,6 +33,12 @@ export default async function ComponentsPage() {
     .from(components)
     .leftJoin(suppliers, eq(suppliers.id, components.defaultSupplierId))
     .orderBy(asc(components.type), asc(components.name));
+
+  // Source and as-of date come from the newest price-history row, the same
+  // read the ingredient register uses, so this list cannot disagree with it.
+  const priced = new Map(
+    (await listIngredients({ includeInactive: true })).map((i) => [i.id, i]),
+  );
 
   // Group by type for readability — cocktail people think in categories.
   const grouped = rows.reduce<Record<string, typeof rows>>((acc, r) => {
@@ -107,7 +114,7 @@ export default async function ComponentsPage() {
                     <Th align="right">Pack cost</Th>
                     <Th align="right">Unit cost</Th>
                     <Th>Supplier</Th>
-                    <Th align="right">Set</Th>
+                    <Th align="right">Source · as of</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -143,7 +150,11 @@ export default async function ComponentsPage() {
                         {c.supplierName || <span style={{ color: COLOR.mutedLight }}>—</span>}
                       </Td>
                       <Td align="right" muted>
-                        {c.unitCostSetAt ? c.unitCostSetAt.toISOString().slice(0, 10) : "—"}
+                        <CostSourceBadge
+                          source={priced.get(c.id)?.provenance}
+                          date={priced.get(c.id)?.unitCostSetAt ?? null}
+                          fontSize={11}
+                        />
                       </Td>
                     </tr>
                   ))}
