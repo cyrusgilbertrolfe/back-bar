@@ -69,6 +69,28 @@ export function perUomCost(c: {
   return n(c.unitCost) ?? 0;
 }
 
+/**
+ * Where the operative price came from, and when. The newest history row
+ * decides both, but only while it describes the price actually in use: a price
+ * changed without a history row (the 20 Jul 2026 reconciliation did this to
+ * four components) would otherwise borrow an older row's source and date. When
+ * the two disagree, the price in use has no record behind it, so it reads
+ * "unsourced", dated from when the cached cost was set. Added 2 Oct 2026.
+ */
+export function operativeProvenance(
+  c: { packSize: string | null; packCost: string | null; unitCost: string | null; unitCostSetAt: Date | null },
+  h: { unitCost: string; source: string; effectiveDate: string } | undefined,
+): { source: CostSource; setAt: string | null } {
+  const cachedDate = c.unitCostSetAt ? c.unitCostSetAt.toISOString().slice(0, 10) : null;
+  if (!h) return { source: "unsourced", setAt: cachedDate };
+  const inUse = perUomCost(c);
+  const recorded = n(h.unitCost) ?? 0;
+  // History is stored to 4dp; the operative figure may be pack/size unrounded.
+  const tolerance = Math.max(0.0001, recorded * 0.005);
+  if (Math.abs(inUse - recorded) > tolerance) return { source: "unsourced", setAt: cachedDate };
+  return { source: toCostSource(h.source), setAt: h.effectiveDate };
+}
+
 /** The newest price-history row per component. Ties keep the first row seen. */
 function newestByComponent<T extends { componentId: number; effectiveDate: string }>(
   history: T[],
@@ -95,18 +117,20 @@ export async function priceProvenanceFor(
   if (ids.length === 0) return out;
   const [comps, history] = await Promise.all([
     db
-      .select({ id: components.id, unitCostSetAt: components.unitCostSetAt })
+      .select({
+        id: components.id,
+        packSize: components.packSize,
+        packCost: components.packCost,
+        unitCost: components.unitCost,
+        unitCostSetAt: components.unitCostSetAt,
+      })
       .from(components)
       .where(inArray(components.id, ids)),
     db.select().from(componentPriceHistory).where(inArray(componentPriceHistory.componentId, ids)),
   ]);
   const newest = newestByComponent(history);
   for (const c of comps) {
-    const h = newest.get(c.id);
-    out.set(c.id, {
-      source: toCostSource(h?.source),
-      setAt: h?.effectiveDate ?? (c.unitCostSetAt ? c.unitCostSetAt.toISOString().slice(0, 10) : null),
-    });
+    out.set(c.id, operativeProvenance(c, newest.get(c.id)));
   }
   return out;
 }
@@ -116,12 +140,14 @@ export async function listIngredients(opts?: { includeInactive?: boolean }): Pro
   const history = await db.select().from(componentPriceHistory);
 
   // The newest history row per component decides both the source and the
-  // date, so the two can never describe different prices.
+  // date, so the two can never describe different prices, and it counts only
+  // while it matches the price in use (operativeProvenance).
   const newest = newestByComponent(history);
 
   return all
     .filter((c) => opts?.includeInactive || c.active)
-    .map((c) => ({
+    .map((c) => ({ c, prov: operativeProvenance(c, newest.get(c.id)) }))
+    .map(({ c, prov }) => ({
       id: c.id,
       name: c.name,
       type: c.type,
@@ -129,13 +155,11 @@ export async function listIngredients(opts?: { includeInactive?: boolean }): Pro
       packSize: n(c.packSize),
       packCost: n(c.packCost),
       unitCost: perUomCost(c),
-      unitCostSetAt:
-        newest.get(c.id)?.effectiveDate ??
-        (c.unitCostSetAt ? c.unitCostSetAt.toISOString().slice(0, 10) : null),
+      unitCostSetAt: prov.setAt,
       abv: n(c.abv),
       active: c.active,
       notes: c.notes,
-      provenance: toCostSource(newest.get(c.id)?.source),
+      provenance: prov.source,
       isSubRecipe: c.type === "sub_recipe",
     }))
     .sort((a, b) => a.name.localeCompare(b.name));

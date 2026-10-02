@@ -31,7 +31,7 @@ import {
   systemSettings,
   SETTING_KEYS,
 } from "@/db/schema";
-import { perUomCost } from "@/lib/erp/ingredients";
+import { operativeProvenance, perUomCost } from "@/lib/erp/ingredients";
 import { summariseProvenance, type CostSource } from "@/lib/erp/provenance";
 
 export type { CostSource };
@@ -124,16 +124,24 @@ async function wastagePct(): Promise<number> {
 }
 
 /** Newest price-history source for each component id in the set. */
-async function sourcesFor(ids: number[]): Promise<Map<number, { source: CostSource; setAt: string | null }>> {
+async function sourcesFor(
+  comps: Map<number, typeof components.$inferSelect>,
+  ids: number[],
+): Promise<Map<number, { source: CostSource; setAt: string | null }>> {
   const out = new Map<number, { source: CostSource; setAt: string | null }>();
   if (ids.length === 0) return out;
   const rows = await db.select().from(componentPriceHistory);
+  const newest = new Map<number, (typeof rows)[number]>();
   for (const r of rows) {
     if (!ids.includes(r.componentId)) continue;
-    const prev = out.get(r.componentId);
-    if (!prev || (prev.setAt ?? "") < r.effectiveDate) {
-      out.set(r.componentId, { source: r.source as CostSource, setAt: r.effectiveDate });
-    }
+    const prev = newest.get(r.componentId);
+    if (!prev || prev.effectiveDate < r.effectiveDate) newest.set(r.componentId, r);
+  }
+  // The same rule as the ingredients list: the newest row counts only while it
+  // matches the price in use, otherwise the line reads unsourced.
+  for (const id of ids) {
+    const c = comps.get(id);
+    if (c) out.set(id, operativeProvenance(c, newest.get(id)));
   }
   return out;
 }
@@ -250,7 +258,7 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
 
   // ── Provenance ───────────────────────────────────────────────────────────
   const all = [...liquid, ...packaging, ...excluded];
-  const srcMap = await sourcesFor(all.map((l) => l.componentId));
+  const srcMap = await sourcesFor(compById, all.map((l) => l.componentId));
   for (const l of all) {
     const s = srcMap.get(l.componentId);
     if (s) {
