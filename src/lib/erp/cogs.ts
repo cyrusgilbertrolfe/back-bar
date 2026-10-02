@@ -31,7 +31,7 @@ import {
   systemSettings,
   SETTING_KEYS,
 } from "@/db/schema";
-import { operativeProvenance, perUomCost } from "@/lib/erp/ingredients";
+import { newestByComponent, operativeProvenance, perUomCost } from "@/lib/erp/ingredients";
 import { summariseProvenance, type CostSource } from "@/lib/erp/provenance";
 
 export type { CostSource };
@@ -86,7 +86,11 @@ export interface SkuCost {
    * current as its stalest input. Null when any in-COGS line has no date.
    */
   costAsOf: string | null;
-  /** Lines whose cost is hand-typed or missing. Named, never silently absorbed. */
+  /**
+   * Lines whose price in use has no record behind it. Named, never silently
+   * absorbed. Manual prices are NOT here: entering the best figure we have by
+   * hand is the standard way of working, not a defect (Cyrus, 2 Oct 2026).
+   */
   unsourced: string[];
   /**
    * Lines standing on a placeholder. Separated from `unsourced` because a
@@ -95,9 +99,9 @@ export interface SkuCost {
    */
   placeholders: string[];
   /**
-   * How many in-COGS lines have source "unsourced" exactly, i.e. no price
-   * history at all. Narrower than `unsourced` above, which also names the
-   * hand-typed (manual) lines. Placeholder lines are `placeholders.length`.
+   * How many in-COGS lines read "unsourced": no price history, or a price in
+   * use that its newest history row does not describe. Equal to
+   * `unsourced.length`. Placeholder lines are `placeholders.length`.
    */
   unsourcedLines: number;
   /** Structural problems, e.g. no current recipe for this client. */
@@ -131,12 +135,7 @@ async function sourcesFor(
   const out = new Map<number, { source: CostSource; setAt: string | null }>();
   if (ids.length === 0) return out;
   const rows = await db.select().from(componentPriceHistory);
-  const newest = new Map<number, (typeof rows)[number]>();
-  for (const r of rows) {
-    if (!ids.includes(r.componentId)) continue;
-    const prev = newest.get(r.componentId);
-    if (!prev || prev.effectiveDate < r.effectiveDate) newest.set(r.componentId, r);
-  }
+  const newest = newestByComponent(rows.filter((r) => ids.includes(r.componentId)));
   // The same rule as the ingredients list: the newest row counts only while it
   // matches the price in use, otherwise the line reads unsourced.
   for (const id of ids) {
@@ -273,8 +272,8 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
     .filter((l) => l.source === "inbound")
     .reduce((s, l) => s + l.cost, 0);
   const unsourced = inCogs
-    .filter((l) => l.source !== "inbound" && l.source !== "placeholder")
-    .map((l) => `${l.name} (${l.source}, £${round(l.cost, 2).toFixed(2)})`);
+    .filter((l) => l.source === "unsourced")
+    .map((l) => `${l.name} (£${round(l.cost, 2).toFixed(2)})`);
   const placeholders = inCogs
     .filter((l) => l.source === "placeholder")
     .map((l) => `${l.name} (£${round(l.cost, 2).toFixed(2)})`);

@@ -121,7 +121,7 @@ export default function ProfitabilityClient({ breakdowns, summary }: Props) {
           }}
         >
           <p style={{ fontSize: 11, color: COLOR.flag, marginBottom: 8, ...smallCaps }}>
-            Cost lines without an invoice behind them
+            Cost lines with no record behind them
           </p>
           <p
             style={{
@@ -134,9 +134,10 @@ export default function ProfitabilityClient({ breakdowns, summary }: Props) {
               maxWidth: 720,
             }}
           >
-            These lines are in the COGS at their current figure, but the figure is hand-typed
-            or a declared placeholder rather than sourced from a supplier invoice. They are
-            named here so nobody mistakes the totals for fully verified ones.
+            These lines are in the COGS at their current figure, but nothing records where
+            the figure came from, or it is a declared placeholder. They are named here so
+            nobody mistakes the totals for traced ones. Prices entered by hand from the best
+            information we have are the standard way of working and are not listed.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {summary.unsourcedNames.map((name) => (

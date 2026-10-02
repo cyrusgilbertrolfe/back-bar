@@ -370,14 +370,6 @@ export default function PnlClient({ rows: serverRows, config }: Props) {
                         {GBP(x.cogsDelta)}
                       </span>
                     )}
-                    {x.r.unsourced.length > 0 && (
-                      <span
-                        title={x.r.unsourced.map((u) => `Unsourced: ${u}`).join("\n")}
-                        style={{ marginLeft: 6, fontSize: 10, color: COLOR.flag, cursor: "help" }}
-                      >
-                        ⚑
-                      </span>
-                    )}
                     <CostTotalProvenance
                       source={x.r.costSource}
                       asOf={x.r.costAsOf}

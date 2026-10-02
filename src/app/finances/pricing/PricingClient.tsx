@@ -396,9 +396,9 @@ export default function PricingClient({ rows: serverRows, config }: Props) {
               const isEditingWholesale = editingId === r.skuId && editingField === "wholesale";
               const isUnsavedRrpEdit = localRrpEdits[r.skuId] !== undefined;
               const isUnsavedWholesaleEdit = localWholesaleEdits[r.skuId] !== undefined;
-              // Placeholders are flagged separately, under the COGS figure. The ⚑ is
-              // for structural problems and unsourced lines.
-              const hasCostFlags = r.unsourced.length + r.problems.length > 0;
+              // Placeholders and unsourced lines are flagged by the badge under the
+              // COGS figure. The ⚑ is for structural problems only.
+              const hasCostFlags = r.problems.length > 0;
 
               return (
                 <tr key={r.skuId} style={{ borderBottom: `1px solid ${COLOR.rule}` }} className="pricing-row">
@@ -468,7 +468,7 @@ export default function PricingClient({ rows: serverRows, config }: Props) {
                     {GBP(r.cogs)}
                     {hasCostFlags && (
                       <span
-                        title={[...r.problems, ...r.unsourced.map((u) => `Unsourced: ${u}`)].join("\n")}
+                        title={r.problems.join("\n")}
                         style={{ marginLeft: 6, fontSize: 10, color: COLOR.flag, cursor: "help" }}
                       >
                         ⚑

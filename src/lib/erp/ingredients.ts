@@ -91,14 +91,24 @@ export function operativeProvenance(
   return { source: toCostSource(h.source), setAt: h.effectiveDate };
 }
 
-/** The newest price-history row per component. Ties keep the first row seen. */
-function newestByComponent<T extends { componentId: number; effectiveDate: string }>(
+/**
+ * The newest price-history row per component. Two rows on the same date are
+ * settled by id, so the one written later wins (espresso has two on 4 Aug 2026:
+ * the measured yield, then the fully loaded figure).
+ */
+export function newestByComponent<T extends { id: number; componentId: number; effectiveDate: string }>(
   history: T[],
 ): Map<number, T> {
   const newest = new Map<number, T>();
   for (const h of history) {
     const prev = newest.get(h.componentId);
-    if (!prev || prev.effectiveDate < h.effectiveDate) newest.set(h.componentId, h);
+    if (
+      !prev ||
+      prev.effectiveDate < h.effectiveDate ||
+      (prev.effectiveDate === h.effectiveDate && prev.id < h.id)
+    ) {
+      newest.set(h.componentId, h);
+    }
   }
   return newest;
 }
