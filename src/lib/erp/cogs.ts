@@ -31,8 +31,10 @@ import {
   systemSettings,
   SETTING_KEYS,
 } from "@/db/schema";
+import { newestByComponent, operativeProvenance, perUomCost } from "@/lib/erp/ingredients";
+import { summariseProvenance, type CostSource } from "@/lib/erp/provenance";
 
-export type CostSource = "inbound" | "manual" | "placeholder" | "unsourced";
+export type { CostSource };
 
 export interface CostLine {
   /** 'liquid' for recipe ingredients, otherwise the bill-of-materials role. */
@@ -77,7 +79,18 @@ export interface SkuCost {
 
   /** Share of `subtotal` that traces to a supplier invoice, 0 to 100. */
   invoiceBackedPct: number;
-  /** Lines whose cost is hand-typed or missing. Named, never silently absorbed. */
+  /** Worst source across the in-COGS lines: placeholder > unsourced > manual > inbound. Null with no lines. */
+  costSource: CostSource | null;
+  /**
+   * The OLDEST setAt among the in-COGS lines, because a total is only as
+   * current as its stalest input. Null when any in-COGS line has no date.
+   */
+  costAsOf: string | null;
+  /**
+   * Lines whose price in use has no record behind it. Named, never silently
+   * absorbed. Manual prices are NOT here: entering the best figure we have by
+   * hand is the standard way of working, not a defect (Cyrus, 2 Oct 2026).
+   */
   unsourced: string[];
   /**
    * Lines standing on a placeholder. Separated from `unsourced` because a
@@ -85,6 +98,12 @@ export interface SkuCost {
    * an oversight, and the two deserve different attention.
    */
   placeholders: string[];
+  /**
+   * How many in-COGS lines read "unsourced": no price history, or a price in
+   * use that its newest history row does not describe. Equal to
+   * `unsourced.length`. Placeholder lines are `placeholders.length`.
+   */
+  unsourcedLines: number;
   /** Structural problems, e.g. no current recipe for this client. */
   problems: string[];
 }
@@ -100,26 +119,6 @@ function round(x: number, dp = 4): number {
   return Math.round(x * f) / f;
 }
 
-/**
- * Cost per unit of measure for a component.
- *
- * Prefers pack_cost / pack_size for anything sold in bulk, because pack_cost is
- * numeric(12,2) while the derived unit_cost is numeric(12,4): for a £15.41
- * litre of vodka the cached unit cost rounds 0.01541 to 0.0154, which is a
- * fifth of a penny adrift on a 700ml bottle. For dry goods sold as each, the
- * pack columns round sub-penny costs the other way, so unit_cost wins there.
- */
-function perUomCost(c: {
-  packSize: string | null;
-  packCost: string | null;
-  unitCost: string | null;
-}): number {
-  const size = n(c.packSize);
-  const cost = n(c.packCost);
-  if (size > 1 && cost > 0) return cost / size;
-  return n(c.unitCost);
-}
-
 async function wastagePct(): Promise<number> {
   const rows = await db
     .select()
@@ -129,16 +128,19 @@ async function wastagePct(): Promise<number> {
 }
 
 /** Newest price-history source for each component id in the set. */
-async function sourcesFor(ids: number[]): Promise<Map<number, { source: CostSource; setAt: string | null }>> {
+async function sourcesFor(
+  comps: Map<number, typeof components.$inferSelect>,
+  ids: number[],
+): Promise<Map<number, { source: CostSource; setAt: string | null }>> {
   const out = new Map<number, { source: CostSource; setAt: string | null }>();
   if (ids.length === 0) return out;
   const rows = await db.select().from(componentPriceHistory);
-  for (const r of rows) {
-    if (!ids.includes(r.componentId)) continue;
-    const prev = out.get(r.componentId);
-    if (!prev || (prev.setAt ?? "") < r.effectiveDate) {
-      out.set(r.componentId, { source: r.source as CostSource, setAt: r.effectiveDate });
-    }
+  const newest = newestByComponent(rows.filter((r) => ids.includes(r.componentId)));
+  // The same rule as the ingredients list: the newest row counts only while it
+  // matches the price in use, otherwise the line reads unsourced.
+  for (const id of ids) {
+    const c = comps.get(id);
+    if (c) out.set(id, operativeProvenance(c, newest.get(id)));
   }
   return out;
 }
@@ -255,7 +257,7 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
 
   // ── Provenance ───────────────────────────────────────────────────────────
   const all = [...liquid, ...packaging, ...excluded];
-  const srcMap = await sourcesFor(all.map((l) => l.componentId));
+  const srcMap = await sourcesFor(compById, all.map((l) => l.componentId));
   for (const l of all) {
     const s = srcMap.get(l.componentId);
     if (s) {
@@ -270,11 +272,13 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
     .filter((l) => l.source === "inbound")
     .reduce((s, l) => s + l.cost, 0);
   const unsourced = inCogs
-    .filter((l) => l.source !== "inbound" && l.source !== "placeholder")
-    .map((l) => `${l.name} (${l.source}, £${round(l.cost, 2).toFixed(2)})`);
+    .filter((l) => l.source === "unsourced")
+    .map((l) => `${l.name} (£${round(l.cost, 2).toFixed(2)})`);
   const placeholders = inCogs
     .filter((l) => l.source === "placeholder")
     .map((l) => `${l.name} (£${round(l.cost, 2).toFixed(2)})`);
+
+  const { costSource, costAsOf } = summariseProvenance(inCogs);
 
   const pct = await wastagePct();
   const wastage = subtotal * pct;
@@ -295,8 +299,11 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
     wastage: round(wastage),
     total: round(subtotal + wastage),
     invoiceBackedPct: subtotal > 0 ? round((invoiceBacked / subtotal) * 100, 1) : 0,
+    costSource,
+    costAsOf,
     unsourced,
     placeholders,
+    unsourcedLines: inCogs.filter((l) => l.source === "unsourced").length,
     problems,
   };
 }

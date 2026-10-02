@@ -7,6 +7,8 @@ import {
   listClientsWithRecipes,
   listDrinksForClient,
 } from "@/lib/drinks-db";
+import CostSourceBadge from "@/components/CostSourceBadge";
+import { costCaveat, summariseProvenance, type CostSource } from "@/lib/erp/provenance";
 import { listAnchorOptions, planBatchFromAnchor, type AnchorPlan } from "@/lib/erp/batch";
 
 export const dynamic = "force-dynamic";
@@ -273,6 +275,11 @@ function Output({
   });
   const totalCost = rows.reduce((a, r) => a + r.lineCost, 0);
   const costPerMl = targetMl > 0 ? totalCost / targetMl : 0;
+  const prov = summariseProvenance(rows.map((r) => ({ source: r.source, setAt: r.setAt })));
+  const caveat = costCaveat({
+    placeholders: rows.filter((r) => r.source === "placeholder").length,
+    unsourced: rows.filter((r) => r.source === "unsourced").length,
+  });
 
   return (
     <section>
@@ -308,6 +315,7 @@ function Output({
             <Th align="right">Volume</Th>
             <Th align="right">Unit price</Th>
             <Th align="right">Line cost</Th>
+            <Th align="right">Source · as of</Th>
           </tr>
         </thead>
         <tbody>
@@ -320,6 +328,7 @@ function Output({
                 £{r.unitCost.toFixed(4)}<span style={{ fontSize: 11, color: COLOR.mutedLight }}>/{r.uom}</span>
               </Td>
               <Td align="right">£{r.lineCost.toFixed(2)}</Td>
+              <Td align="right"><CostSourceBadge source={r.source} date={r.setAt} block /></Td>
             </tr>
           ))}
           <tr style={{ borderTop: `2px solid ${COLOR.ink}` }}>
@@ -328,6 +337,9 @@ function Output({
             <Td align="right" muted>{targetMl.toLocaleString()} ml</Td>
             <Td align="right" />
             <Td align="right"><strong>£{totalCost.toFixed(2)}</strong></Td>
+            <Td align="right">
+              <TotalProvenance source={prov.costSource} asOf={prov.costAsOf} caveat={caveat} />
+            </Td>
           </tr>
         </tbody>
       </table>
@@ -365,6 +377,7 @@ function Output({
  */
 function AnchorOutput({ plan }: { plan: AnchorPlan }) {
   const anchorLine = plan.lines.find((l) => l.isAnchor);
+  const caveat = costCaveat({ placeholders: plan.placeholderLines, unsourced: plan.unsourcedLines });
 
   return (
     <section>
@@ -407,6 +420,7 @@ function AnchorOutput({ plan }: { plan: AnchorPlan }) {
             <Th align="right">Open</Th>
             <Th align="right">Left in last</Th>
             <Th align="right">Line cost</Th>
+            <Th align="right">Source · as of</Th>
           </tr>
         </thead>
         <tbody>
@@ -429,6 +443,7 @@ function AnchorOutput({ plan }: { plan: AnchorPlan }) {
               <Td align="right" muted>{l.bottlesToOpen ?? "—"}</Td>
               <Td align="right" muted>{l.leftover === null ? "—" : `${l.leftover.toLocaleString()} ${l.uom}`}</Td>
               <Td align="right">£{l.cost.toFixed(2)}</Td>
+              <Td align="right"><CostSourceBadge source={l.source} date={l.setAt} block /></Td>
             </tr>
           ))}
           <tr style={{ borderTop: `2px solid ${COLOR.ink}` }}>
@@ -438,6 +453,9 @@ function AnchorOutput({ plan }: { plan: AnchorPlan }) {
             <Td align="right" />
             <Td align="right" muted>£{plan.costPerLitre.toFixed(2)}/L</Td>
             <Td align="right"><strong>£{plan.totalCost.toFixed(2)}</strong></Td>
+            <Td align="right">
+              <TotalProvenance source={plan.costSource} asOf={plan.costAsOf} caveat={caveat} />
+            </Td>
           </tr>
         </tbody>
       </table>
@@ -550,6 +568,26 @@ function Th({ children, align = "left" }: { children?: React.ReactNode; align?: 
 function Td({ children, align = "left", muted }: { children?: React.ReactNode; align?: "left" | "right"; muted?: boolean }) {
   return (
     <td style={{ padding: "12px", textAlign: align, color: muted ? COLOR.muted : COLOR.ink }}>{children}</td>
+  );
+}
+
+/** Batch total provenance: worst source, oldest input, and what is inside it. */
+function TotalProvenance({
+  source,
+  asOf,
+  caveat,
+}: {
+  source: CostSource | null;
+  asOf: string | null;
+  caveat: string | null;
+}) {
+  return (
+    <div>
+      <CostSourceBadge source={source} date={asOf} block />
+      {caveat && (
+        <div style={{ marginTop: 4, fontSize: 10, color: COLOR.flag, ...smallCaps }}>{caveat}</div>
+      )}
+    </div>
   );
 }
 

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { SkuCost, CostLine } from "@/lib/erp/cogs";
 import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
+import CostSourceBadge from "@/components/CostSourceBadge";
+import { costCaveat } from "@/lib/erp/provenance";
 
 const fmt = (n: number) =>
   n.toLocaleString("en-GB", { style: "currency", currency: "GBP", minimumFractionDigits: 2 });
@@ -22,13 +24,6 @@ export type CogsPageSummary = {
   wastagePct: number;
   unsourcedNames: string[];
   placeholderNames: string[];
-};
-
-const SOURCE_META: Record<string, { label: string; color: string }> = {
-  inbound: { label: "Invoice", color: COLOR.positive },
-  manual: { label: "Manual", color: COLOR.accent },
-  placeholder: { label: "Placeholder", color: COLOR.flag },
-  unsourced: { label: "Unsourced", color: COLOR.flag },
 };
 
 type Filter = "all" | "clean" | "unsourced" | "placeholders" | "problems";
@@ -126,7 +121,7 @@ export default function ProfitabilityClient({ breakdowns, summary }: Props) {
           }}
         >
           <p style={{ fontSize: 11, color: COLOR.flag, marginBottom: 8, ...smallCaps }}>
-            Cost lines without an invoice behind them
+            Cost lines with no record behind them
           </p>
           <p
             style={{
@@ -139,9 +134,10 @@ export default function ProfitabilityClient({ breakdowns, summary }: Props) {
               maxWidth: 720,
             }}
           >
-            These lines are in the COGS at their current figure, but the figure is hand-typed
-            or a declared placeholder rather than sourced from a supplier invoice. They are
-            named here so nobody mistakes the totals for fully verified ones.
+            These lines are in the COGS at their current figure, but nothing records where
+            the figure came from, or it is a declared placeholder. They are named here so
+            nobody mistakes the totals for traced ones. Prices entered by hand from the best
+            information we have are the standard way of working and are not listed.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {summary.unsourcedNames.map((name) => (
@@ -381,6 +377,7 @@ function thStyle(align: "left" | "right" | "center") {
 
 function SkuDetail({ breakdown: b }: { breakdown: SkuCost }) {
   const meta = skuStatus(b);
+  const caveat = costCaveat({ placeholders: b.placeholders.length, unsourced: b.unsourcedLines });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
@@ -403,6 +400,17 @@ function SkuDetail({ breakdown: b }: { breakdown: SkuCost }) {
             <p style={{ fontSize: 11, color: COLOR.accent, ...smallCaps }}>
               {b.sizeMl}ml · {b.clientName ?? "no client"} · {b.skuCode}
             </p>
+            <div style={{ marginTop: 8 }}>
+              <span style={{ fontSize: 10, color: COLOR.muted, marginRight: 8, ...smallCaps }}>
+                Weakest source, oldest input
+              </span>
+              <CostSourceBadge source={b.costSource} date={b.costAsOf} />
+            </div>
+            {caveat && (
+              <p style={{ fontSize: 11, color: COLOR.flag, marginTop: 6, ...smallCaps }}>
+                {caveat}
+              </p>
+            )}
           </div>
           <span
             style={{
@@ -552,12 +560,11 @@ function LineTable({
             <th style={thStyle("right")}>Qty</th>
             <th style={thStyle("right")}>Unit cost</th>
             <th style={thStyle("right")}>Cost</th>
-            <th style={thStyle("center")}>Source</th>
+            <th style={thStyle("right")}>Source · as of</th>
           </tr>
         </thead>
         <tbody>
           {lines.map((line) => {
-            const src = SOURCE_META[line.source] ?? SOURCE_META.unsourced;
             return (
               <tr key={`${line.kind}-${line.componentId}`} style={{ borderBottom: `1px solid ${COLOR.rule}` }}>
                 <td
@@ -580,17 +587,10 @@ function LineTable({
                     ? `${line.quantity.toFixed(1)} ml`
                     : `× ${line.quantity.toLocaleString("en-GB")}`}
                 </td>
-                <td style={numCellStyle(COLOR.muted)} title={line.setAt ? `Set ${line.setAt}` : "Never set"}>
-                  £{line.unitCost.toFixed(4)}
-                </td>
+                <td style={numCellStyle(COLOR.muted)}>£{line.unitCost.toFixed(4)}</td>
                 <td style={numCellStyle(COLOR.ink)}>{fmt(line.cost)}</td>
-                <td style={{ padding: "12px 12px", textAlign: "center" }}>
-                  <span
-                    style={{ fontSize: 9, color: src.color, ...smallCaps }}
-                    title={line.setAt ? `${src.label}, ${line.setAt}` : src.label}
-                  >
-                    {src.label}
-                  </span>
+                <td style={{ padding: "12px 12px", textAlign: "right" }}>
+                  <CostSourceBadge source={line.source} date={line.setAt} fontSize={10} block />
                 </td>
               </tr>
             );

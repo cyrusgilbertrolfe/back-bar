@@ -3,6 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 import { updateIngredientPrice } from "@/app/actions/ingredients";
 import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
+import CostSourceBadge from "@/components/CostSourceBadge";
+import type { CostSource } from "@/lib/erp/provenance";
 
 // Plain serialisable shapes passed down from the server page. These mirror
 // @/lib/erp/ingredients but carry no server-only imports.
@@ -16,7 +18,7 @@ export type ClientIngredient = {
   /** £ per UOM, the operative costing figure. */
   unitCost: number;
   unitCostSetAt: string | null;
-  provenance: "inbound" | "manual" | "placeholder" | "none";
+  provenance: CostSource;
   isSubRecipe: boolean;
   notes: string | null;
 };
@@ -56,16 +58,6 @@ const fmtMl = (n: number) =>
 const fmtDate = (iso: string) => {
   const d = new Date(iso + "T00:00:00");
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-};
-
-const PROVENANCE_META: Record<
-  ClientIngredient["provenance"],
-  { label: string; color: string }
-> = {
-  inbound: { label: "Invoice-backed", color: COLOR.positive },
-  manual: { label: "Manual entry", color: COLOR.accent },
-  placeholder: { label: "Placeholder", color: COLOR.flag },
-  none: { label: "No sourced price", color: COLOR.flag },
 };
 
 type Props = {
@@ -133,7 +125,7 @@ export default function IngredientsClient({
           <colgroup>
             <col />
             <col style={{ width: 76 }} />
-            <col style={{ width: 82 }} />
+            <col style={{ width: 104 }} />
             <col style={{ width: 56 }} />
           </colgroup>
           <thead>
@@ -157,7 +149,7 @@ export default function IngredientsClient({
                 ing.packSize && ing.packSize > 1 && ing.packCost !== null
                   ? ing.packCost
                   : ing.unitCost;
-              const priced = ing.provenance !== "none" || displayPrice > 0;
+              const priced = ing.provenance !== "unsourced" || displayPrice > 0;
               return (
                 <tr
                   key={ing.id}
@@ -186,14 +178,6 @@ export default function IngredientsClient({
                         made
                       </span>
                     )}
-                    {(ing.provenance === "none" || ing.provenance === "placeholder") && (
-                      <span
-                        style={{ marginLeft: 8, fontSize: 9, color: COLOR.flag, ...smallCaps }}
-                        title={PROVENANCE_META[ing.provenance].label}
-                      >
-                        {ing.provenance === "none" ? "unsourced" : "placeholder"}
-                      </span>
-                    )}
                   </td>
                   <td
                     style={{
@@ -220,6 +204,9 @@ export default function IngredientsClient({
                     }}
                   >
                     {priced ? fmt(displayPrice) : "none"}
+                    <div>
+                      <CostSourceBadge source={ing.provenance} date={ing.unitCostSetAt} fontSize={9} block />
+                    </div>
                   </td>
                   <td
                     style={{
@@ -352,8 +339,6 @@ function IngredientDetail({
       .sort((a, b) => Math.abs(b.deltaPer500) - Math.abs(a.deltaPer500));
   }, [usage, ingredient.uom, currentUnit, newUnit]);
 
-  const prov = PROVENANCE_META[ingredient.provenance];
-
   function handleSave() {
     if (!changed || !newPriceValid) return;
     setFeedback(null);
@@ -392,12 +377,15 @@ function IngredientDetail({
           {pricedByPack
             ? `${ingredient.packSize} ${ingredient.uom} · ${fmt(ingredient.packCost ?? 0)}`
             : `£${ingredient.unitCost.toFixed(4)} / ${ingredient.uom}`}
-          {ingredient.unitCostSetAt ? ` · set ${fmtDate(ingredient.unitCostSetAt)}` : " · never set"}
         </p>
-        <p style={{ fontSize: 10, color: prov.color, marginTop: 6, ...smallCaps }}>
-          {prov.label}
-          {ingredient.provenance === "none" &&
-            " · this figure has no invoice or manual entry behind it"}
+        <p style={{ marginTop: 6 }}>
+          <CostSourceBadge source={ingredient.provenance} date={ingredient.unitCostSetAt} fontSize={11} />
+          <span style={{ fontSize: 10, color: COLOR.flag, ...smallCaps }}>
+            {ingredient.provenance === "unsourced" &&
+              " · this figure has no invoice or manual entry behind it"}
+            {ingredient.provenance === "placeholder" &&
+              " · a stand-in price, known to be wrong"}
+          </span>
         </p>
         {ingredient.notes && (
           <p
@@ -678,16 +666,10 @@ function IngredientDetail({
                     style={{
                       padding: "12px 12px",
                       fontSize: 10,
-                      color:
-                        h.source === "inbound"
-                          ? COLOR.positive
-                          : h.source === "placeholder"
-                          ? COLOR.flag
-                          : COLOR.muted,
-                      ...smallCaps,
+                      textAlign: "left",
                     }}
                   >
-                    {h.source}
+                    <CostSourceBadge source={h.source} date={h.date} fontSize={10} />
                   </td>
                   <td
                     style={{

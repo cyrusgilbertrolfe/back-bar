@@ -27,6 +27,7 @@ import {
   SETTING_KEYS,
 } from "@/db/schema";
 import { computeSkuCost, type SkuCost } from "@/lib/erp/cogs";
+import type { CostSource } from "@/lib/erp/provenance";
 
 export interface PricingConfig {
   /** Wholesale markup on COGS, e.g. 1.40. */
@@ -55,6 +56,10 @@ export interface SkuProfitability {
   wholesaleEffectiveFrom: string | null;
 
   cost: SkuCost;
+  /** Provenance of `cost.total`, lifted from the cost rollup. See SkuCost. */
+  costSource: CostSource | null;
+  costAsOf: string | null;
+  invoiceBackedPct: number;
 
   /** wholesale - COGS - shipping. Null without an agreed price. */
   margin: number | null;
@@ -152,6 +157,9 @@ export async function computeSkuProfitability(
     shipping,
     wholesaleEffectiveFrom: wholesaleRow?.effectiveFrom ?? null,
     cost,
+    costSource: cost.costSource,
+    costAsOf: cost.costAsOf,
+    invoiceBackedPct: cost.invoiceBackedPct,
     margin,
     marginPct:
       wholesale === null || wholesale === 0 || margin === null
@@ -164,12 +172,26 @@ export async function computeSkuProfitability(
   };
 }
 
+/** How many SKUs to roll up at once. Matches ROLLUP_CONCURRENCY in cogs.ts. */
+const PROFIT_CONCURRENCY = 8;
+
 /** Every active SKU, costed and priced. Worst margin first. */
 export async function computeAllProfitability(): Promise<SkuProfitability[]> {
   const cfg = await getPricingConfig();
   const rows = await db.select().from(skus).where(eq(skus.active, true));
-  const out: SkuProfitability[] = [];
-  for (const r of rows) out.push(await computeSkuProfitability(r.id, cfg));
+
+  // Bounded parallelism, as in computeAllSkuCosts: each rollup is a run of
+  // round trips, so the wall time is latency and not work. Written back by
+  // index so the order does not depend on which finishes first.
+  const out: SkuProfitability[] = new Array(rows.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(PROFIT_CONCURRENCY, rows.length) }, async () => {
+      for (let i = next++; i < rows.length; i = next++) {
+        out[i] = await computeSkuProfitability(rows[i].id, cfg);
+      }
+    }),
+  );
   return out.sort((a, b) => {
     if (a.marginPct === null && b.marginPct === null) return a.code.localeCompare(b.code);
     if (a.marginPct === null) return 1;

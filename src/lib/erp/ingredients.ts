@@ -12,12 +12,14 @@
  * number without those is not data.
  */
 
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { components, componentPriceHistory, type Component } from "@/db/schema";
+import { toCostSource, type CostSource } from "@/lib/erp/provenance";
 
-export type PriceProvenance = "inbound" | "manual" | "placeholder" | "none";
+/** The shared cost vocabulary. A component with no history reads "unsourced". */
+export type PriceProvenance = CostSource;
 
 export interface IngredientRow {
   id: number;
@@ -29,6 +31,11 @@ export interface IngredientRow {
   packCost: number | null;
   /** £ per UOM. The operative figure for costing. */
   unitCost: number;
+  /**
+   * When the operative price took effect: the newest price-history date when
+   * there is history (the same row `provenance` comes from), else the date the
+   * cached unit cost was set.
+   */
   unitCostSetAt: string | null;
   abv: number | null;
   active: boolean;
@@ -62,28 +69,95 @@ export function perUomCost(c: {
   return n(c.unitCost) ?? 0;
 }
 
+/**
+ * Where the operative price came from, and when. The newest history row
+ * decides both, but only while it describes the price actually in use: a price
+ * changed without a history row (the 20 Jul 2026 reconciliation did this to
+ * four components) would otherwise borrow an older row's source and date. When
+ * the two disagree, the price in use has no record behind it, so it reads
+ * "unsourced", dated from when the cached cost was set. Added 2 Oct 2026.
+ */
+export function operativeProvenance(
+  c: { packSize: string | null; packCost: string | null; unitCost: string | null; unitCostSetAt: Date | null },
+  h: { unitCost: string; source: string; effectiveDate: string } | undefined,
+): { source: CostSource; setAt: string | null } {
+  const cachedDate = c.unitCostSetAt ? c.unitCostSetAt.toISOString().slice(0, 10) : null;
+  if (!h) return { source: "unsourced", setAt: cachedDate };
+  const inUse = perUomCost(c);
+  const recorded = n(h.unitCost) ?? 0;
+  // History is stored to 4dp; the operative figure may be pack/size unrounded.
+  const tolerance = Math.max(0.0001, recorded * 0.005);
+  if (Math.abs(inUse - recorded) > tolerance) return { source: "unsourced", setAt: cachedDate };
+  return { source: toCostSource(h.source), setAt: h.effectiveDate };
+}
+
+/**
+ * The newest price-history row per component. Two rows on the same date are
+ * settled by id, so the one written later wins (espresso has two on 4 Aug 2026:
+ * the measured yield, then the fully loaded figure).
+ */
+export function newestByComponent<T extends { id: number; componentId: number; effectiveDate: string }>(
+  history: T[],
+): Map<number, T> {
+  const newest = new Map<number, T>();
+  for (const h of history) {
+    const prev = newest.get(h.componentId);
+    if (
+      !prev ||
+      prev.effectiveDate < h.effectiveDate ||
+      (prev.effectiveDate === h.effectiveDate && prev.id < h.id)
+    ) {
+      newest.set(h.componentId, h);
+    }
+  }
+  return newest;
+}
+
+/**
+ * Source and as-of date for the operative price of each component, on the same
+ * rule listIngredients uses: the newest history row decides both, and a
+ * component with no history falls back to the date its cached unit cost was set
+ * and reads as unsourced. For callers that already hold their own cost figures
+ * (the calculators) and only need to say where those figures came from.
+ */
+export async function priceProvenanceFor(
+  ids: number[],
+): Promise<Map<number, { source: CostSource; setAt: string | null }>> {
+  const out = new Map<number, { source: CostSource; setAt: string | null }>();
+  if (ids.length === 0) return out;
+  const [comps, history] = await Promise.all([
+    db
+      .select({
+        id: components.id,
+        packSize: components.packSize,
+        packCost: components.packCost,
+        unitCost: components.unitCost,
+        unitCostSetAt: components.unitCostSetAt,
+      })
+      .from(components)
+      .where(inArray(components.id, ids)),
+    db.select().from(componentPriceHistory).where(inArray(componentPriceHistory.componentId, ids)),
+  ]);
+  const newest = newestByComponent(history);
+  for (const c of comps) {
+    out.set(c.id, operativeProvenance(c, newest.get(c.id)));
+  }
+  return out;
+}
+
 export async function listIngredients(opts?: { includeInactive?: boolean }): Promise<IngredientRow[]> {
   const all = await db.select().from(components);
   const history = await db.select().from(componentPriceHistory);
 
-  const newestSource = new Map<number, PriceProvenance>();
-  for (const h of history) {
-    const prev = newestSource.get(h.componentId);
-    if (!prev) newestSource.set(h.componentId, h.source as PriceProvenance);
-  }
-  // Re-walk in date order so the newest row wins.
-  const byComponent = new Map<number, typeof history>();
-  for (const h of history) {
-    byComponent.set(h.componentId, [...(byComponent.get(h.componentId) ?? []), h]);
-  }
-  for (const [id, rows] of byComponent) {
-    rows.sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate));
-    newestSource.set(id, rows[0].source as PriceProvenance);
-  }
+  // The newest history row per component decides both the source and the
+  // date, so the two can never describe different prices, and it counts only
+  // while it matches the price in use (operativeProvenance).
+  const newest = newestByComponent(history);
 
   return all
     .filter((c) => opts?.includeInactive || c.active)
-    .map((c) => ({
+    .map((c) => ({ c, prov: operativeProvenance(c, newest.get(c.id)) }))
+    .map(({ c, prov }) => ({
       id: c.id,
       name: c.name,
       type: c.type,
@@ -91,11 +165,11 @@ export async function listIngredients(opts?: { includeInactive?: boolean }): Pro
       packSize: n(c.packSize),
       packCost: n(c.packCost),
       unitCost: perUomCost(c),
-      unitCostSetAt: c.unitCostSetAt ? c.unitCostSetAt.toISOString().slice(0, 10) : null,
+      unitCostSetAt: prov.setAt,
       abv: n(c.abv),
       active: c.active,
       notes: c.notes,
-      provenance: newestSource.get(c.id) ?? "none",
+      provenance: prov.source,
       isSubRecipe: c.type === "sub_recipe",
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -130,5 +204,5 @@ export async function getPriceHistory(componentId: number): Promise<PriceHistory
 /** Ingredients with no sourced price, the standing gap list. */
 export async function listUnsourced(): Promise<IngredientRow[]> {
   const rows = await listIngredients();
-  return rows.filter((r) => r.provenance === "none" || r.provenance === "placeholder");
+  return rows.filter((r) => r.provenance === "unsourced" || r.provenance === "placeholder");
 }

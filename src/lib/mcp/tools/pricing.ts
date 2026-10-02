@@ -15,9 +15,20 @@
 import { computeAllProfitability, getPricingConfig } from "@/lib/erp/pricing";
 import { db } from "@/db";
 import { skus } from "@/db/schema";
+import { costCaveat, type CostSource } from "@/lib/erp/provenance";
 import type { ToolArgs, ToolDefinition } from "../types";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** One line of a COGS build, as exposed by get_drink. */
+interface CostLineView {
+  name: string;
+  /** 'liquid' for recipe ingredients, otherwise the bill-of-materials role. */
+  kind: string;
+  cost: number;
+  source: CostSource;
+  setAt: string | null;
+}
 
 interface DrinkView {
   skuId: number;
@@ -30,6 +41,18 @@ interface DrinkView {
   rrp: number | null;
   /** Full COGS: liquid + primary packaging + wastage. */
   cogs: number;
+  /**
+   * Where cogs comes from: the WORST source across its lines (placeholder,
+   * then unsourced, then manual, then inbound = supplier invoice). A
+   * 'placeholder' means a line is a stand-in known to be wrong, so cogs is too.
+   */
+  costSource: CostSource | null;
+  /** The OLDEST input date behind cogs (YYYY-MM-DD); null if any input is undated. */
+  costAsOf: string | null;
+  /** Share of the COGS subtotal that traces to a supplier invoice, 0 to 100. */
+  invoiceBackedPct: number;
+  /** Set when cogs includes placeholder or unsourced lines; null otherwise. */
+  costWarning: string | null;
   shipping: number;
   /** Agreed wholesale ex VAT, or null when none is agreed. */
   wholesale: number | null;
@@ -48,8 +71,19 @@ interface DrinkView {
   problems: string[];
 }
 
+/** A DrinkView plus its cost lines, which only get_drink returns. */
+type DrinkRecord = DrinkView & { costLines: CostLineView[]; unsourcedLines: number };
+
+/** list_drinks and get_pricing_config do not carry the per-line detail. */
+function withoutLines(record: DrinkRecord): DrinkView {
+  const { costLines, unsourcedLines, ...view } = record;
+  void costLines;
+  void unsourcedLines;
+  return view;
+}
+
 /** Build the DB view of every active SKU. */
-async function buildDrinks(): Promise<DrinkView[]> {
+async function buildDrinks(): Promise<DrinkRecord[]> {
   const [profitability, skuRows] = await Promise.all([
     computeAllProfitability(),
     db.select({ id: skus.id, gtin: skus.gtin }).from(skus),
@@ -65,6 +99,13 @@ async function buildDrinks(): Promise<DrinkView[]> {
     ean: gtinById.get(p.skuId) ?? null,
     rrp: p.rrp,
     cogs: round2(p.cost.total),
+    costSource: p.costSource,
+    costAsOf: p.costAsOf,
+    invoiceBackedPct: p.invoiceBackedPct,
+    costWarning: costCaveat({
+      placeholders: p.cost.placeholders.length,
+      unsourced: p.cost.unsourcedLines,
+    }),
     shipping: round2(p.shipping),
     wholesale: p.wholesale,
     wholesaleEffectiveFrom: p.wholesaleEffectiveFrom,
@@ -76,6 +117,14 @@ async function buildDrinks(): Promise<DrinkView[]> {
     unsourced: p.cost.unsourced,
     placeholders: p.cost.placeholders,
     problems: p.cost.problems,
+    unsourcedLines: p.cost.unsourcedLines,
+    costLines: [...p.cost.liquid, ...p.cost.packaging].map((l) => ({
+      name: l.name,
+      kind: l.kind,
+      cost: round2(l.cost),
+      source: l.source,
+      setAt: l.setAt,
+    })),
   }));
 }
 
@@ -91,8 +140,12 @@ export const pricingTools: ToolDefinition[] = [
     description:
       "List every drink/SKU with size, EAN barcode, agreed RRP, database COGS, " +
       "agreed wholesale price (null when none is agreed), the formula rule " +
-      "price, the gap between them, and the retailer test. Optionally filter " +
-      "by size (e.g. '250ml') or by name substring.",
+      "price, the gap between them, and the retailer test. Every COGS carries " +
+      "its provenance: costSource (worst source across its lines), costAsOf " +
+      "(oldest input date) and invoiceBackedPct. A costSource of 'placeholder' " +
+      "means COGS includes a stand-in price known to be wrong, so cogs, " +
+      "marginPct and rulePrice for that drink are wrong too; costWarning says " +
+      "so. Optionally filter by size (e.g. '250ml') or by name substring.",
     access: "read",
     inputSchema: {
       type: "object",
@@ -109,7 +162,7 @@ export const pricingTools: ToolDefinition[] = [
       additionalProperties: false,
     },
     handler: async (args) => {
-      let drinks = await buildDrinks();
+      let drinks = (await buildDrinks()).map(withoutLines);
       const size = str(args, "size");
       const name = str(args, "name");
       if (size) {
@@ -129,7 +182,10 @@ export const pricingTools: ToolDefinition[] = [
     description:
       "Look up a single drink/SKU by its numeric sku id, code (e.g. " +
       "'negroni-250'), EAN barcode, or name. When matched by name, every size " +
-      "of that drink is returned.",
+      "of that drink is returned. Also returns costLines (name, kind, cost, " +
+      "source, setAt for each line in COGS, excluding wastage) so a figure can " +
+      "be traced. A costSource of 'placeholder' means COGS includes a stand-in " +
+      "price known to be wrong; check costLines for which line.",
     access: "read",
     inputSchema: {
       type: "object",
@@ -148,7 +204,7 @@ export const pricingTools: ToolDefinition[] = [
         throw new Error("Provide one of: id, ean, name.");
       }
       const drinks = await buildDrinks();
-      let matches: DrinkView[] = [];
+      let matches: DrinkRecord[] = [];
       if (idArg) {
         const numeric = Number(idArg);
         matches = drinks.filter(
@@ -173,7 +229,9 @@ export const pricingTools: ToolDefinition[] = [
       "Return the wholesale pricing assumptions from the database (markup on " +
       "COGS, retailer margin, VAT rate, price-list effective date) and summary " +
       "stats: SKU count, how many have an agreed wholesale price, retailer-test " +
-      "pass rate, average agreed wholesale and average margin.",
+      "pass rate, average agreed wholesale and average margin, plus how many " +
+      "SKUs have placeholder or unsourced lines inside their COGS (those SKUs' " +
+      "margins are not reliable, and averageMarginPct includes them).",
     access: "read",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     handler: async () => {
@@ -204,6 +262,11 @@ export const pricingTools: ToolDefinition[] = [
           averageMarginPct: avg(
             priced.map((d) => d.marginPct).filter((m): m is number => m !== null),
           ),
+          skusWithPlaceholderOrUnsourcedCogs: drinks.filter(
+            (d) => d.placeholders.length > 0 || d.unsourcedLines > 0,
+          ).length,
+          skusWithPlaceholderCogs: drinks.filter((d) => d.placeholders.length > 0).length,
+          skusWithUnsourcedCogs: drinks.filter((d) => d.unsourcedLines > 0).length,
         },
       };
     },

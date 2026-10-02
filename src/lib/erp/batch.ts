@@ -20,7 +20,8 @@ import { and, asc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { clients, components, drinks, recipeLines, recipes, skus } from "@/db/schema";
-import { perUomCost } from "@/lib/erp/ingredients";
+import { perUomCost, priceProvenanceFor } from "@/lib/erp/ingredients";
+import { summariseProvenance, type CostSource } from "@/lib/erp/provenance";
 
 export interface AnchorOption {
   componentId: number;
@@ -45,6 +46,9 @@ export interface AnchorLine {
   leftover: number | null;
   unitCost: number;
   cost: number;
+  /** Where unitCost came from, and the date it applies from. */
+  source: CostSource;
+  setAt: string | null;
   isAnchor: boolean;
 }
 
@@ -70,6 +74,12 @@ export interface AnchorPlan {
   lines: AnchorLine[];
   totalCost: number;
   costPerLitre: number;
+  /** Worst source across the lines, and the oldest input date. See provenance.ts. */
+  costSource: CostSource | null;
+  costAsOf: string | null;
+  /** Lines standing on a placeholder or with no sourced price. */
+  placeholderLines: number;
+  unsourcedLines: number;
 
   yields: BatchYield[];
   warnings: string[];
@@ -188,6 +198,8 @@ export async function planBatchFromAnchor(
     );
   }
 
+  const provenance = await priceProvenanceFor(r.lines.map((l) => l.componentId));
+
   const lines: AnchorLine[] = r.lines.map((l) => {
     const pct = n(l.percentage);
     const quantity = (pct / 100) * batchMl;
@@ -209,6 +221,8 @@ export async function planBatchFromAnchor(
       leftover: bottlesToOpen === null || pack === null ? null : round(bottlesToOpen * pack - quantity, 1),
       unitCost,
       cost: round(unitCost * quantity, 4),
+      source: provenance.get(l.componentId)?.source ?? "unsourced",
+      setAt: provenance.get(l.componentId)?.setAt ?? null,
       isAnchor: l.componentId === anchorComponentId,
     };
   });
@@ -243,6 +257,9 @@ export async function planBatchFromAnchor(
     lines,
     totalCost,
     costPerLitre: batchMl > 0 ? round((totalCost / batchMl) * 1000) : 0,
+    ...summariseProvenance(lines),
+    placeholderLines: lines.filter((l) => l.source === "placeholder").length,
+    unsourcedLines: lines.filter((l) => l.source === "unsourced").length,
     yields: skuRows.map((s) => ({
       code: s.code,
       sizeMl: s.sizeMl,

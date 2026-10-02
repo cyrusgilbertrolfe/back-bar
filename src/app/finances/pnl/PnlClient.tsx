@@ -14,6 +14,7 @@ import {
 } from "@/lib/pnl-data";
 import type { PricingConfigView, SkuRow } from "../finance-types";
 import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
+import { CostTotalProvenance } from "@/components/CostSourceBadge";
 
 const GBP = (n: number) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", minimumFractionDigits: 2 }).format(n);
@@ -369,14 +370,12 @@ export default function PnlClient({ rows: serverRows, config }: Props) {
                         {GBP(x.cogsDelta)}
                       </span>
                     )}
-                    {(x.r.unsourced.length > 0 || x.r.placeholders.length > 0) && (
-                      <span
-                        title={[...x.r.unsourced.map((u) => `Unsourced: ${u}`), ...x.r.placeholders.map((p) => `Placeholder: ${p}`)].join("\n")}
-                        style={{ marginLeft: 6, fontSize: 10, color: COLOR.flag, cursor: "help" }}
-                      >
-                        ⚑
-                      </span>
-                    )}
+                    <CostTotalProvenance
+                      source={x.r.costSource}
+                      asOf={x.r.costAsOf}
+                      placeholders={x.r.placeholders.length}
+                      unsourced={x.r.unsourcedLines}
+                    />
                   </td>
                   <td style={{ padding: "16px 12px", textAlign: "right", fontFamily: FONT.mono, color: x.revenue === null ? COLOR.mutedLight : COLOR.inkSoft }}>
                     {x.revenue === null ? (
@@ -500,7 +499,7 @@ function BreakdownCard({
   vat: number;
   bottles: number;
 }) {
-  const lines: { label: string; value: string; strong?: boolean; muted?: boolean; rule?: boolean }[] = [];
+  const lines: { label: string; value: string; strong?: boolean; muted?: boolean; rule?: boolean; cogs?: boolean }[] = [];
 
   if (row.missing) {
     return (
@@ -533,7 +532,7 @@ function BreakdownCard({
     lines.push({ label: "RRP inc VAT (agreed)", value: GBP(s.rrpIncVat) });
     lines.push({ label: `− VAT (1/${Math.round(vat / (vat - 1))})`, value: `− ${GBP(s.vatAmount)}`, muted: true });
     lines.push({ label: "= Revenue ex VAT", value: GBP(s.revenueExVat), rule: true });
-    lines.push({ label: `− COGS (${COST_SCENARIOS[scenario].label})`, value: `− ${GBP(s.cogs)}`, muted: true });
+    lines.push({ label: `− COGS (${COST_SCENARIOS[scenario].label})`, value: `− ${GBP(s.cogs)}`, muted: true, cogs: true });
     lines.push({
       label: `− Fulfilment (box ${GBP(s.boxPerBottle)} + pick&pack ${GBP(s.pickPackPerBottle)} + fees ${GBP(s.paymentPerBottle)}, per bottle @ ${bottles})`,
       value: `− ${GBP(s.fulfilmentPerBottle)}`,
@@ -542,7 +541,7 @@ function BreakdownCard({
     lines.push({ label: "= Contribution", value: GBP(s.contribution), strong: true, rule: true });
   } else if (row.revenue !== null && row.fulfilment !== null && row.contribution !== null) {
     lines.push({ label: "Wholesale price (agreed)", value: GBP(row.revenue) });
-    lines.push({ label: `− COGS (${COST_SCENARIOS[scenario].label})`, value: `− ${GBP(row.cogs)}`, muted: true });
+    lines.push({ label: `− COGS (${COST_SCENARIOS[scenario].label})`, value: `− ${GBP(row.cogs)}`, muted: true, cogs: true });
     lines.push({ label: "− Freight allocation (per bottle)", value: `− ${GBP(row.fulfilment)}`, muted: true });
     lines.push({ label: "= Contribution", value: GBP(row.contribution), strong: true, rule: true });
   }
@@ -587,6 +586,16 @@ function BreakdownCard({
               }}
             >
               {l.label}
+              {l.cogs && (
+                <CostTotalProvenance
+                  source={row.r.costSource}
+                  asOf={row.r.costAsOf}
+                  placeholders={row.r.placeholders.length}
+                  unsourced={row.r.unsourcedLines}
+                  align="left"
+                  fontSize={10}
+                />
+              )}
             </span>
             <span
               style={{

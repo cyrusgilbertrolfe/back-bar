@@ -3,6 +3,7 @@ import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { components, suppliers, componentPriceHistory } from "@/db/schema";
 import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
+import CostSourceBadge from "@/components/CostSourceBadge";
 import { ComponentFormBody } from "../_form";
 import { buttonGhost } from "../../_components/forms";
 import { updateComponent, setComponentActive } from "../actions";
@@ -79,7 +80,9 @@ export default async function EditComponentPage({
               <tr key={h.id} style={{ borderBottom: `1px solid ${COLOR.rule}` }}>
                 <td style={td()}>{h.effectiveDate}</td>
                 <td style={td("right")}>£{Number(h.unitCost).toFixed(4)}</td>
-                <td style={td()}>{h.source}</td>
+                <td style={td()}>
+                  <CostSourceBadge source={h.source} date={h.effectiveDate} fontSize={11} />
+                </td>
                 <td style={td()}>
                   <span style={{ color: COLOR.muted }}>{h.notes ?? "—"}</span>
                 </td>
