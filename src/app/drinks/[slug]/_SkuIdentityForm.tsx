@@ -31,7 +31,7 @@ export default function SkuIdentityForm({ drinkSlug, sku }: { drinkSlug: string;
         <input name="customerItemCode" defaultValue={sku.customerItemCode ?? ""} style={inputStyle} />
       </label>
       <label style={{ gridColumn: "1 / -1" }}>
-        <span style={labelStyle}>{sku.clientName} product description, exactly as on their PO</span>
+        <span style={labelStyle}>{sku.clientName} product description, exactly as on their PO (ours if they issue none)</span>
         <input name="customerDescription" defaultValue={sku.customerDescription ?? ""} style={inputStyle} />
       </label>
       <label>

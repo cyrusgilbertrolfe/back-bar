@@ -45,8 +45,12 @@ function labelOrigin(position: number): { x: number; y: number } {
 }
 
 export type CaseLabelFacts = {
-  purchaseOrder: string;
-  customerItemCode: string;
+  /** Their PO number, or our dispatch number for a customer who issues no PO. */
+  orderNumber: string;
+  /** True when orderNumber is our dispatch number, e.g. CRPS-DN00001 for Cripps. */
+  orderNumberIsOurs: boolean;
+  /** Their code for the product; null for a customer who has none (Cripps). */
+  customerItemCode: string | null;
   customerDescription: string;
   supplierSku: string;
   unitsPerCase: number;
@@ -190,11 +194,27 @@ function setDescription(s: string, font: PDFFont, width: number): { size: number
   return { size: 9, lines: wrapBalanced(s, font, 9, width).slice(0, 3) };
 }
 
+/**
+ * The largest size, from 44 pt down, at which the text sets in balanced lines
+ * that fit the width and the band between the rules with air above and below.
+ * A short product name lands well above the order number's 30 pt.
+ */
+function setProductHeadline(s: string, font: PDFFont, width: number): { size: number; lines: string[] } {
+  const room = 36;
+  for (let size = 44; size >= 9; size -= 0.5) {
+    const lines = wrapBalanced(s, font, size, width);
+    const fitsWide = lines.every((l) => font.widthOfTextAtSize(l, size) / MM <= width);
+    const fitsTall = (size * 0.72) / MM + ((lines.length - 1) * size * 1.05) / MM <= room;
+    if (fitsWide && fitsTall) return { size, lines };
+  }
+  return { size: 9, lines: wrapBalanced(s, font, 9, width) };
+}
+
 const PAD_X = 8;
 const CAPTION_SIZE = 6.5;
 const CAPTION_TRACKING = 0.14;
 
-function drawLabel(pen: LabelPen, f: Fonts, facts: CaseLabelFacts) {
+function drawLabel(pen: LabelPen, f: Fonts, facts: CaseLabelFacts, caseNo: number, caseCount: number) {
   const left = PAD_X;
   const right = SHEET.labelW - PAD_X;
   const width = right - left;
@@ -209,23 +229,37 @@ function drawLabel(pen: LabelPen, f: Fonts, facts: CaseLabelFacts) {
   pen.text(mark, (SHEET.labelW - markW) / 2, 17, f.wordmark, markSize, markTracking);
   pen.rule(left, right, 22.5, 0.75);
 
-  // ── Purchase order, the thing Goods In reads first ──────────────────────
-  caption("Purchase order", left, 30);
-  pen.text(facts.purchaseOrder, left, 42, f.kraftig, fitSize(facts.purchaseOrder, f.kraftig, 30, width), 0.01);
+  // ── The order number, the thing Goods In reads first ────────────────────
+  caption(facts.orderNumberIsOurs ? "Dispatch number" : "Purchase order", left, 30);
+  const orderSize = fitSize(facts.orderNumber, f.kraftig, 30, width);
+  pen.text(facts.orderNumber, left, 42, f.kraftig, orderSize, 0.01);
 
   pen.rule(left, right, 48, 0.3);
 
-  // ── Their product reference ──────────────────────────────────────────────
-  caption(`${facts.clientShortName} product reference`, left, 55);
-  pen.text(facts.customerItemCode, left, 66, f.kraftig, fitSize(facts.customerItemCode, f.kraftig, 24, width), 0.02);
+  if (facts.customerItemCode) {
+    // ── Their product reference and their description, verbatim ──────────
+    caption(`${facts.clientShortName} product reference`, left, 55);
+    pen.text(facts.customerItemCode, left, 66, f.kraftig, fitSize(facts.customerItemCode, f.kraftig, 24, width), 0.02);
 
-  // ── Their description, wrapped, shrinking rather than overflowing ───────
-  caption(`${facts.clientShortName} product description`, left, 75);
-  const { size: descSize, lines } = setDescription(facts.customerDescription, f.buch, width);
-  const leading = (descSize * 1.2) / MM;
-  // First baseline hangs a cap height below the caption, whatever the size.
-  const firstBaseline = 77 + (descSize * 0.72) / MM;
-  lines.slice(0, 3).forEach((l, i) => pen.text(l, left, firstBaseline + i * leading, f.buch, descSize));
+    caption(`${facts.clientShortName} product description`, left, 75);
+    const { size: descSize, lines } = setDescription(facts.customerDescription, f.buch, width);
+    const leading = (descSize * 1.2) / MM;
+    // First baseline hangs a cap height below the caption, whatever the size.
+    const firstBaseline = 77 + (descSize * 0.72) / MM;
+    lines.slice(0, 3).forEach((l, i) => pen.text(l, left, firstBaseline + i * leading, f.buch, descSize));
+  } else {
+    // ── No reference: the words are ours, so the product is the headline ──
+    // In capitals and larger than the dispatch number, on as many lines as
+    // it takes (Cyrus, 7 Oct 2026), centred in the band between the rules.
+    const { size, lines } = setProductHeadline(facts.customerDescription.toUpperCase(), f.kraftig, width);
+    const captionCap = (CAPTION_SIZE * 0.72) / MM;
+    const cap = (size * 0.72) / MM;
+    const leading = (size * 1.05) / MM;
+    const blockH = captionCap + 3 + cap + (lines.length - 1) * leading;
+    const captionY = 48 + (50 - blockH) / 2 + captionCap;
+    caption("Product", left, captionY);
+    lines.forEach((l, i) => pen.text(l, left, captionY + 3 + cap + i * leading, f.kraftig, size));
+  }
 
   pen.rule(left, right, 98, 0.3);
 
@@ -243,6 +277,12 @@ function drawLabel(pen: LabelPen, f: Fonts, facts: CaseLabelFacts) {
     : "Myatt’s Fields Ltd";
   pen.text(from, left, 126.5, f.buch, 7);
   pen.text("11 Upstall Street, London SE5 9JE", left, 130.5, f.buch, 7);
+
+  // ── Which case of the shipment, so Goods In can count it complete ───────
+  // (Cyrus, 7 Oct 2026.) Set right, across both footer lines.
+  const caseOf = `Case ${caseNo} of ${caseCount}`;
+  const caseSize = 12;
+  pen.text(caseOf, right - f.kraftig.widthOfTextAtSize(caseOf, caseSize) / MM, 130.5, f.kraftig, caseSize);
 }
 
 export async function buildCaseLabelsPdf(
@@ -254,7 +294,7 @@ export async function buildCaseLabelsPdf(
   if (!(count > 0)) throw new Error("Nothing to print: the label count must be at least 1.");
   const startAt = Math.min(Math.max(Math.floor(opts.startAt ?? 1), 1), SHEET.perSheet);
 
-  const { doc, fonts } = await newDoc(fontBytes, `Case labels ${facts.purchaseOrder} ${facts.supplierSku}`);
+  const { doc, fonts } = await newDoc(fontBytes, `Case labels ${facts.orderNumber} ${facts.supplierSku}`);
 
   let page: PDFPage | null = null;
   let position = startAt;
@@ -264,7 +304,7 @@ export async function buildCaseLabelsPdf(
       if (n > 0) position = 1;
     }
     const o = labelOrigin(position);
-    drawLabel(new LabelPen(page, o.x, o.y), fonts, facts);
+    drawLabel(new LabelPen(page, o.x, o.y), fonts, facts, n + 1, count);
     position++;
   }
   return doc.save();

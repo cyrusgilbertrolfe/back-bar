@@ -36,7 +36,7 @@ async function main() {
     out,
     await buildCaseLabelsPdf(line.facts, { count: line.cases, startAt: Number(arg("start") ?? 1) }, fonts),
   );
-  console.log(`Wrote ${out}: ${line.cases} labels, ${line.facts.purchaseOrder} ${line.facts.supplierSku}`);
+  console.log(`Wrote ${out}: ${line.cases} labels, ${line.facts.orderNumber} ${line.facts.supplierSku}`);
 }
 
 main().catch((e) => {

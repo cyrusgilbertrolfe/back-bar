@@ -1,0 +1,1 @@
+ALTER TABLE "customers" ADD COLUMN "issues_purchase_orders" boolean DEFAULT true NOT NULL;

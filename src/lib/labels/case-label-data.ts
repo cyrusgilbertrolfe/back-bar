@@ -34,7 +34,9 @@ export type CaseLabelLine = {
 
 /** The short caption prefix, "F&M" for Fortnum's. */
 function clientShortName(customerName: string): string {
-  return /fortnum/i.test(customerName) ? "F&M" : customerName;
+  if (/fortnum/i.test(customerName)) return "F&M";
+  if (/cripps/i.test(customerName)) return "Cripps";
+  return customerName;
 }
 
 /** Quote marks differ between a PO PDF and a keyboard; nothing else may. */
@@ -56,6 +58,7 @@ const lineQuery = () =>
       status: wholesaleOrders.status,
       customerName: customers.name,
       accountCode: customers.accountCode,
+      issuesPurchaseOrders: customers.issuesPurchaseOrders,
       skuCode: skus.code,
       shortCode: skus.shortCode,
       skuItemCode: skus.customerItemCode,
@@ -75,7 +78,8 @@ function resolve(r: Row): CaseLabelLine {
   if (!Number.isInteger(cases)) problems.push(`The order line is for ${r.qty} cases, which is not a whole number.`);
 
   if (!r.shortCode) problems.push("The SKU has no short code (supplier SKU).");
-  if (!r.skuItemCode) problems.push("The SKU has no customer product reference.");
+  // A customer who issues no PO has no product reference for us either.
+  if (!r.skuItemCode && r.issuesPurchaseOrders) problems.push("The SKU has no customer product reference.");
   if (!r.skuDescription) problems.push("The SKU has no customer product description.");
   if (!r.skuUnitsPerCase) problems.push("The SKU has no case quantity.");
 
@@ -87,9 +91,10 @@ function resolve(r: Row): CaseLabelLine {
     problems.push(`The PO is for cases of ${r.lineUnitsPerCase}; the SKU says cases of ${r.skuUnitsPerCase}.`);
 
   const facts: CaseLabelFacts | null =
-    r.shortCode && r.skuItemCode && r.skuDescription && r.skuUnitsPerCase
+    r.shortCode && (r.skuItemCode || !r.issuesPurchaseOrders) && r.skuDescription && r.skuUnitsPerCase
       ? {
-          purchaseOrder: r.orderNumber,
+          orderNumber: r.orderNumber,
+          orderNumberIsOurs: !r.issuesPurchaseOrders,
           customerItemCode: r.skuItemCode,
           customerDescription: r.skuDescription,
           supplierSku: r.shortCode,
