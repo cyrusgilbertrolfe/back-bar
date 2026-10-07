@@ -627,14 +627,15 @@ export const skus = pgTable(
      *
      * short_code is ours, the "Your item number" on their PO. Standard agreed
      * by Cyrus 19 Sep 2026: client prefix, hyphen, four-letter mnemonic of the
-     * drink in capitals (FM-EDAQ, FM-APPR). Assigned once, never changed or
-     * reused. No size in the code unless one drink ships to the same client
+     * drink in capitals (FM-EDAQ, FM-APPR). Cripps took CRPS-EM on Cyrus's
+     * ruling of 7 Oct 2026, so the mnemonic may be two to four letters.
+     * Assigned once, never changed or reused. No size in the code unless one drink ships to the same client
      * in two sizes, then a suffix (-35, -50).
      */
     shortCode: text("short_code").unique(),
     /** Their code for this product, e.g. 5248400 at Fortnum's. */
     customerItemCode: text("customer_item_code"),
-    /** Their description, VERBATIM off their PO. */
+    /** Their description, VERBATIM off their PO; ours when they issue none. */
     customerDescription: text("customer_description"),
     /** Bottles per outer case, as the client has it set up. */
     unitsPerCase: integer("units_per_case"),
@@ -788,6 +789,13 @@ export const customers = pgTable("customers", {
   quickbooksCustomerId: text("quickbooks_customer_id"),
   /** Their code for us, e.g. MY010 at Fortnum's. */
   accountCode: text("account_code"),
+  /**
+   * False for a customer who orders without a purchase order, e.g. Cripps
+   * (7 Oct 2026). Their shipments are then numbered by us, a dispatch number
+   * (CRPS-DN00001) held in wholesale_orders.order_number, and the case label
+   * captions it "Dispatch number" rather than "Purchase order".
+   */
+  issuesPurchaseOrders: boolean("issues_purchase_orders").notNull().default(true),
   isActive: boolean("is_active").notNull().default(true),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

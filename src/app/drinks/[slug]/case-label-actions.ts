@@ -8,8 +8,8 @@ import { skus } from "@/db/schema";
 
 export type IdentityState = { error: string } | { saved: true } | null;
 
-/** Client prefix, hyphen, four-letter mnemonic, optional size suffix: FM-APPR, FM-EDAQ-35. */
-const SHORT_CODE = /^[A-Z]{2,4}-[A-Z]{4}(-\d{2,3})?$/;
+/** Client prefix, hyphen, mnemonic, optional size suffix: FM-APPR, FM-EDAQ-35, CRPS-EM. */
+const SHORT_CODE = /^[A-Z]{2,4}-[A-Z]{2,4}(-\d{2,3})?$/;
 
 const text = (v: FormDataEntryValue | null) => {
   const s = String(v ?? "").trim();
@@ -41,7 +41,7 @@ export async function saveSkuIdentity(
     return { error: `The short code ${sku.shortCode} is permanent and cannot be changed.` };
   }
   if (shortCode && !SHORT_CODE.test(shortCode)) {
-    return { error: "A short code is the client prefix, a hyphen and four capital letters, e.g. FM-APPR." };
+    return { error: "A short code is the client prefix, a hyphen and two to four capital letters, e.g. FM-APPR." };
   }
   if (unitsPerCase !== null && !(Number.isInteger(unitsPerCase) && unitsPerCase > 0)) {
     return { error: "Case quantity must be a whole number of bottles." };
