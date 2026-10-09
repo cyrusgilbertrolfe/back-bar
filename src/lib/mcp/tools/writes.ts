@@ -136,8 +136,10 @@ export const writeTools: ToolDefinition[] = [
       "Update the current price of one ingredient in the buying master. For " +
       "pack-priced components (pack size > 1) the price is the PACK cost, e.g. " +
       "the bottle price; otherwise it is the per-unit cost. Appends a dated " +
-      "manual entry to the price history. Find the numeric ingredient id with " +
-      "list_ingredients.",
+      "manual entry to the price history. When the price was read from a " +
+      "supplier invoice, pass invoice_supplier and invoice_ref so it counts as " +
+      "invoice-backed; both may be given at an unchanged price to record that a " +
+      "new invoice confirms it. Find the numeric ingredient id with list_ingredients.",
     access: "write",
     inputSchema: {
       type: "object",
@@ -154,6 +156,14 @@ export const writeTools: ToolDefinition[] = [
           type: "string",
           description: "Optional note recorded with the price-history entry.",
         },
+        invoice_supplier: {
+          type: "string",
+          description: "Who issued the invoice the price was read from, e.g. \"Matthew Clark\". Give with invoice_ref.",
+        },
+        invoice_ref: {
+          type: "string",
+          description: "The invoice number as printed, e.g. \"4417302\". Give with invoice_supplier.",
+        },
       },
       required: ["ingredient_id", "price"],
       additionalProperties: false,
@@ -165,8 +175,9 @@ export const writeTools: ToolDefinition[] = [
       }
       const price = num(args, "price");
       const note = str(args, "note") ?? undefined;
+      const invoice = { supplier: str(args, "invoice_supplier"), ref: str(args, "invoice_ref") };
 
-      const result = await updateIngredientPrice(componentId, price, note);
+      const result = await updateIngredientPrice(componentId, price, note, invoice);
       if (!result.ok) throw new Error(result.error);
       return {
         ok: true,

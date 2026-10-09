@@ -11,8 +11,9 @@
  * each bill-of-materials row is what decides, so the rule lives in the data
  * and not buried in this file.
  *
- * Every figure carries its provenance. A cost sourced from a supplier invoice
- * is 'inbound'; one typed in by hand is 'manual'. The rollup reports the split
+ * Every figure carries its provenance. A cost whose price history names the
+ * invoice it was read from is 'inbound' (shown as Invoice); one typed in with
+ * nothing to point to is 'manual'. The rollup reports the split
  * so nobody can mistake a hand-loaded April figure for a verified one.
  */
 
@@ -48,6 +49,8 @@ export interface CostLine {
   cost: number;
   source: CostSource;
   setAt: string | null;
+  /** The invoice behind the price in use, e.g. "Matthew Clark 4417302", or null. */
+  invoice: string | null;
   /** The component's unit of measure: ml, g, each or m. */
   uom: string;
   /** How the supplier sells it, e.g. 700 (ml) at £15.41. Null when not recorded. */
@@ -150,8 +153,8 @@ async function wastagePct(): Promise<number> {
 async function sourcesFor(
   comps: Map<number, typeof components.$inferSelect>,
   ids: number[],
-): Promise<Map<number, { source: CostSource; setAt: string | null }>> {
-  const out = new Map<number, { source: CostSource; setAt: string | null }>();
+): Promise<Map<number, { source: CostSource; setAt: string | null; invoice: string | null }>> {
+  const out = new Map<number, { source: CostSource; setAt: string | null; invoice: string | null }>();
   if (ids.length === 0) return out;
   const rows = await db.select().from(componentPriceHistory);
   const newest = newestByComponent(rows.filter((r) => ids.includes(r.componentId)));
@@ -230,6 +233,7 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
           cost,
           source: "unsourced",
           setAt: c.unitCostSetAt ? c.unitCostSetAt.toISOString().slice(0, 10) : null,
+          invoice: null,
           ...packOf(c),
           percentage: n(l.percentage),
         });
@@ -263,6 +267,7 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
       cost,
       source: "unsourced",
       setAt: c.unitCostSetAt ? c.unitCostSetAt.toISOString().slice(0, 10) : null,
+      invoice: null,
       ...packOf(c),
       suppliedByCustomer: b.suppliedByCustomer,
     };
@@ -285,6 +290,7 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
     if (s) {
       l.source = s.source;
       l.setAt = s.setAt;
+      l.invoice = s.invoice;
     }
   }
 

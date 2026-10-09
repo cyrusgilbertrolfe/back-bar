@@ -104,6 +104,26 @@ export function ComponentFormBody({
         defaultPackCost={component?.packCost ?? null}
       />
 
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        {/* Both start empty on purpose: see readInvoice in actions.ts. */}
+        <Field
+          label="Invoice from (supplier)"
+          name="invoiceSupplier"
+          placeholder="e.g. Matthew Clark"
+          defaultValue=""
+        />
+        <Field
+          label="Invoice number"
+          name="invoiceRef"
+          placeholder="As printed, e.g. 4417302"
+          defaultValue=""
+        />
+      </div>
+      <p style={{ fontSize: 11, color: COLOR.muted, margin: "-8px 0 0" }}>
+        Name the invoice the price was read from and it counts as invoice-backed. Give it at
+        an unchanged price to record that a new invoice confirms the price.
+      </p>
+
       <Select
         label="Default supplier"
         name="defaultSupplierId"

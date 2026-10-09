@@ -39,17 +39,30 @@ export type UpdatePriceResult =
  * one (e.g. £15.17 for a 700ml bottle), otherwise it is the unit cost
  * directly (each-priced dry goods). The cached per-UOM unit cost is re-derived
  * and a manual price-history row is appended either way.
+ *
+ * `invoice` names the invoice the price was read from. With it the row counts
+ * as invoice-backed; it may be given at an unchanged price, which records that
+ * a new invoice confirms the price in use. Supplier and number go together.
  */
 export async function updateIngredientPrice(
   componentId: number,
   newPrice: number,
   note?: string,
+  invoice?: { supplier?: string | null; ref?: string | null },
 ): Promise<UpdatePriceResult> {
   if (!Number.isInteger(componentId) || componentId <= 0) {
     return { ok: false, error: "componentId must be a positive integer." };
   }
   if (!Number.isFinite(newPrice) || newPrice < 0) {
     return { ok: false, error: "Price must be a non-negative number." };
+  }
+  const invoiceSupplier = invoice?.supplier?.trim() || null;
+  const invoiceRef = invoice?.ref?.trim() || null;
+  if (!invoiceSupplier !== !invoiceRef) {
+    return {
+      ok: false,
+      error: "Give both the supplier and the invoice number, or neither, so the invoice can be found again.",
+    };
   }
 
   try {
@@ -112,6 +125,8 @@ export async function updateIngredientPrice(
       uom: existing.uom,
       effectiveDate: today,
       source: "manual",
+      invoiceSupplier,
+      invoiceRef,
       notes: [note?.trim(), `Back Bar ingredient editor: ${before} to ${after}`]
         .filter(Boolean)
         .join(" | "),

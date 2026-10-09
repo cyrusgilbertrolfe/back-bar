@@ -30,7 +30,8 @@ export const ingredientTools: ToolDefinition[] = [
       "List every ingredient in the buying master with pack size, pack cost, " +
       "per-UOM unit cost, when that price took effect (unitCostSetAt: the " +
       "date of the newest price-history entry, the same entry provenance " +
-      "comes from), its provenance (inbound = from a supplier invoice, " +
+      "comes from), its provenance (inbound = read from a supplier invoice, " +
+      "named in `invoice` as supplier and number; " +
       "manual, placeholder, or unsourced = no sourced price), and " +
       "its ABV. abvMissing is true when a component of type 'ingredient' " +
       "(the type that should carry alcohol) has no ABV recorded, so a gap is " +
@@ -77,6 +78,7 @@ export const ingredientTools: ToolDefinition[] = [
           abv: r.abv,
           abvMissing: r.type === "ingredient" && (r.abv === null || r.abv === 0),
           provenance: r.provenance,
+          invoice: r.invoice,
           isSubRecipe: r.isSubRecipe,
           notes: r.notes,
         })),
@@ -88,7 +90,7 @@ export const ingredientTools: ToolDefinition[] = [
     title: "Get ingredient price history",
     description:
       "Return one ingredient and its full dated price-change history (per-UOM " +
-      "unit cost, source, notes), newest first. A source of 'placeholder' " +
+      "unit cost, source, the invoice it was read from, notes), newest first. A source of 'placeholder' " +
       "marks a figure known to be wrong. Use list_ingredients to find " +
       "the numeric ingredient id.",
     access: "read",
@@ -119,6 +121,7 @@ export const ingredientTools: ToolDefinition[] = [
           unitCost: ingredient.unitCost,
           unitCostSetAt: ingredient.unitCostSetAt,
           provenance: ingredient.provenance,
+          invoice: ingredient.invoice,
           notes: ingredient.notes,
         },
         priceHistory: history,

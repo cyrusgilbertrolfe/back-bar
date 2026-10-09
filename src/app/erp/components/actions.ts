@@ -214,6 +214,24 @@ function resolveAbvChange(
   };
 }
 
+/**
+ * The invoice the price was read from, if the form names one. Supplier and
+ * number go together: one without the other cannot be found again, so it is
+ * refused rather than half-recorded. Both fields start empty on every load, so
+ * a new price can never inherit the last one's invoice.
+ */
+function readInvoice(form: FormData): { invoiceSupplier: string; invoiceRef: string } | null {
+  const invoiceSupplier = readStr(form, "invoiceSupplier");
+  const invoiceRef = readStr(form, "invoiceRef");
+  if (!invoiceSupplier && !invoiceRef) return null;
+  if (!invoiceSupplier || !invoiceRef) {
+    throw new Error(
+      "Give both the supplier and the invoice number, or neither, so the invoice can be found again.",
+    );
+  }
+  return { invoiceSupplier, invoiceRef };
+}
+
 function abvHistoryRow(componentId: number, change: AbvChange): NewComponentAbvHistoryRow {
   return {
     componentId,
@@ -229,6 +247,7 @@ function abvHistoryRow(componentId: number, change: AbvChange): NewComponentAbvH
 export async function createComponent(form: FormData) {
   const payload = buildPayload(form);
   const abvChange = resolveAbvChange(form, null, payload.abv ?? null, payload.productName ?? null);
+  const invoice = readInvoice(form);
 
   const [inserted] = await db
     .insert(components)
@@ -247,6 +266,7 @@ export async function createComponent(form: FormData) {
     uom: payload.uom,
     effectiveDate: new Date().toISOString().slice(0, 10),
     source: "manual",
+    ...invoice,
     notes: `Initial price set on creation: pack ${payload.packSize}${payload.uom} @ £${payload.packCost}`,
   };
   await db.insert(componentPriceHistory).values(historyRow);
@@ -272,6 +292,7 @@ export async function updateComponent(id: number, form: FormData) {
     payload.abv ?? null,
     payload.productName ?? null,
   );
+  const invoice = readInvoice(form);
 
   await db
     .update(components)
@@ -289,7 +310,9 @@ export async function updateComponent(id: number, form: FormData) {
   const packSizeChanged =
     Number(existing.packSize ?? "NaN") !== Number(payload.packSize);
 
-  if (packCostChanged || packSizeChanged) {
+  // An invoice named at an unchanged price still earns a row: it records that a
+  // new invoice confirms the price in use, which is what makes it invoice-backed.
+  if (packCostChanged || packSizeChanged || invoice) {
     const before = `${existing.packSize ?? "?"}${existing.uom} @ £${existing.packCost ?? "?"}`;
     const after = `${payload.packSize}${payload.uom} @ £${payload.packCost}`;
     const historyRow: NewComponentPriceHistoryRow = {
@@ -300,7 +323,11 @@ export async function updateComponent(id: number, form: FormData) {
       uom: payload.uom,
       effectiveDate: new Date().toISOString().slice(0, 10),
       source: "manual",
-      notes: `Manual edit: ${before} → ${after}`,
+      ...invoice,
+      notes:
+        packCostChanged || packSizeChanged
+          ? `Manual edit: ${before} → ${after}`
+          : `Price confirmed by invoice: ${after}`,
     };
     await db.insert(componentPriceHistory).values(historyRow);
   }

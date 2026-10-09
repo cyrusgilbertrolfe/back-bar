@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { components, suppliers, componentPriceHistory } from "@/db/schema";
 import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
 import CostSourceBadge from "@/components/CostSourceBadge";
+import { historySource, invoiceLabel } from "@/lib/erp/ingredients";
 import { ComponentFormBody } from "../_form";
 import { buttonGhost } from "../../_components/forms";
 import { updateComponent, setComponentActive } from "../actions";
@@ -81,7 +82,10 @@ export default async function EditComponentPage({
                 <td style={td()}>{h.effectiveDate}</td>
                 <td style={td("right")}>£{Number(h.unitCost).toFixed(4)}</td>
                 <td style={td()}>
-                  <CostSourceBadge source={h.source} date={h.effectiveDate} fontSize={11} />
+                  <CostSourceBadge source={historySource(h)} date={h.effectiveDate} fontSize={11} />
+                  {invoiceLabel(h) && (
+                    <div style={{ fontSize: 11, color: COLOR.muted, marginTop: 2 }}>{invoiceLabel(h)}</div>
+                  )}
                 </td>
                 <td style={td()}>
                   <span style={{ color: COLOR.muted }}>{h.notes ?? "—"}</span>

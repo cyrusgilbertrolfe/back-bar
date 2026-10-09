@@ -31,6 +31,8 @@ export interface RollupNode {
   /** Where the price came from and when, on leaves that carry one. */
   source?: CostSource;
   setAt?: string | null;
+  /** The invoice behind the price, e.g. "Matthew Clark 4417302". */
+  invoice?: string | null;
   /** The component behind the line, for a link to its price and history. */
   componentId?: number;
   /** Shown but not summed: excluded from COGS, or a constituent of a sub-recipe. */
@@ -97,7 +99,7 @@ type RecipeRow = typeof componentRecipes.$inferSelect;
 interface Ctx {
   comps: Map<number, ComponentRow>;
   recipesByParent: Map<number, RecipeRow[]>;
-  prov: Map<number, { source: CostSource; setAt: string | null }>;
+  prov: Map<number, { source: CostSource; setAt: string | null; invoice: string | null }>;
 }
 
 /**
@@ -145,6 +147,7 @@ function constituents(
       working: `${scaled} × ${unitPrice(unit, child.uom)}` + (pack ? ` (${pack})` : ""),
       source: p?.source,
       setAt: p?.setAt ?? null,
+      invoice: p?.invoice ?? null,
       componentId: child.id,
       outside: true,
       children: [],
@@ -196,6 +199,7 @@ function lineNode(l: CostLine, b: SkuCost, ctx: Ctx, keyPrefix: string, outside:
     working: lineWorking(l, b.sizeMl),
     source: l.source,
     setAt: l.setAt,
+    invoice: l.invoice,
     componentId: l.componentId,
     outside,
     children: [],
