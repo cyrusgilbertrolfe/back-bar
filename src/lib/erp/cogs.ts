@@ -32,7 +32,13 @@ import {
   systemSettings,
   SETTING_KEYS,
 } from "@/db/schema";
-import { newestByComponent, operativeProvenance, perUomCost } from "@/lib/erp/ingredients";
+import {
+  historySource,
+  invoiceLabel,
+  newestByComponent,
+  operativeProvenance,
+  perUomCost,
+} from "@/lib/erp/ingredients";
 import { summariseProvenance, type CostSource } from "@/lib/erp/provenance";
 
 export type { CostSource };
@@ -167,8 +173,46 @@ async function sourcesFor(
   return out;
 }
 
-export async function computeSkuCost(skuId: number): Promise<SkuCost> {
+/**
+ * Options for costing a SKU.
+ *
+ * `asOf` (YYYY-MM-DD) reconstructs the COGS as it stood at the end of that day,
+ * for the movement report's history (added 9 Oct 2026): each component at its
+ * newest price-history row dated on or before it, and the recipe version
+ * created by then. The bill of materials and the wastage rate are not dated,
+ * so today's are used; a reconstructed figure is therefore approximate, and
+ * says so in `problems` wherever a price had to be borrowed from today.
+ */
+export interface CostOptions {
+  asOf?: string;
+}
+
+/** The newest price-history row per component dated on or before `asOf`, and the newest of all. */
+async function pricesAt(asOf: string) {
+  const rows = await db.select().from(componentPriceHistory);
+  return { at: newestByComponent(rows.filter((r) => r.effectiveDate <= asOf)), newest: newestByComponent(rows) };
+}
+
+export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Promise<SkuCost> {
   const problems: string[] = [];
+  const asOf = opts.asOf;
+  const historic = asOf ? await pricesAt(asOf) : null;
+  /** £ per UOM: the price in use, or under `asOf` the price recorded by then. */
+  const unitCostOf = (c: typeof components.$inferSelect): number => {
+    if (!historic) return perUomCost(c);
+    const newest = historic.newest.get(c.id);
+    // A price in use with no record behind it cannot be dated, so it stands
+    // throughout rather than appearing to jump on the day tracking began.
+    if (operativeProvenance(c, newest).source === "unsourced") return perUomCost(c);
+    const h = historic.at.get(c.id);
+    if (!h) {
+      problems.push(`No price recorded for ${c.name} by ${asOf}, so today's is used`);
+      return perUomCost(c);
+    }
+    // History keeps 4dp, which over a 5 litre format is pence. While the row is
+    // the one still in use, take the exact figure the live COGS uses.
+    return h.id === newest?.id ? perUomCost(c) : n(h.unitCost);
+  };
 
   const [sku] = await db.select().from(skus).where(eq(skus.id, skuId));
   if (!sku) throw new Error(`No SKU with id ${skuId}`);
@@ -188,16 +232,27 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
   let liquidTotal = 0;
 
   if (sku.drinkId && sku.clientId) {
-    const recipeRows = await db
-      .select()
-      .from(recipes)
-      .where(
-        and(
-          eq(recipes.drinkId, sku.drinkId),
-          eq(recipes.clientId, sku.clientId),
-          eq(recipes.isCurrent, true),
-        ),
-      );
+    const recipeRows = asOf
+      ? // The latest version that existed by the end of `asOf`.
+        (
+          await db
+            .select()
+            .from(recipes)
+            .where(and(eq(recipes.drinkId, sku.drinkId), eq(recipes.clientId, sku.clientId)))
+        )
+          .filter((r) => r.createdAt.toISOString().slice(0, 10) <= asOf)
+          .sort((a, b) => b.version - a.version)
+          .slice(0, 1)
+      : await db
+          .select()
+          .from(recipes)
+          .where(
+            and(
+              eq(recipes.drinkId, sku.drinkId),
+              eq(recipes.clientId, sku.clientId),
+              eq(recipes.isCurrent, true),
+            ),
+          );
 
     if (recipeRows.length === 0) {
       problems.push(
@@ -221,7 +276,7 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
           continue;
         }
         const ml = (n(l.percentage) / 100) * sku.sizeMl;
-        const unit = perUomCost(c);
+        const unit = unitCostOf(c);
         const cost = ml * unit;
         liquidTotal += cost;
         liquid.push({
@@ -255,7 +310,7 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
       problems.push(`Bill of materials references missing component ${b.componentId}`);
       continue;
     }
-    const unit = perUomCost(c);
+    const unit = unitCostOf(c);
     const qty = n(b.quantity);
     const cost = unit * qty;
     const line: CostLine = {
@@ -284,7 +339,14 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
 
   // ── Provenance ───────────────────────────────────────────────────────────
   const all = [...liquid, ...packaging, ...excluded];
-  const srcMap = await sourcesFor(compById, all.map((l) => l.componentId));
+  const srcMap = historic
+    ? new Map(
+        [...historic.at].map(([id, h]) => [
+          id,
+          { source: historySource(h), setAt: h.effectiveDate, invoice: invoiceLabel(h) },
+        ]),
+      )
+    : await sourcesFor(compById, all.map((l) => l.componentId));
   for (const l of all) {
     const s = srcMap.get(l.componentId);
     if (s) {
@@ -352,7 +414,7 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
  */
 const ROLLUP_CONCURRENCY = 8;
 
-export async function computeAllSkuCosts(): Promise<SkuCost[]> {
+export async function computeAllSkuCosts(opts: CostOptions = {}): Promise<SkuCost[]> {
   const rows = await db.select().from(skus).where(eq(skus.active, true));
 
   // Bounded parallelism. Results are written back by index so the order is
@@ -363,7 +425,7 @@ export async function computeAllSkuCosts(): Promise<SkuCost[]> {
   await Promise.all(
     Array.from({ length: Math.min(ROLLUP_CONCURRENCY, rows.length) }, async () => {
       for (let i = next++; i < rows.length; i = next++) {
-        out[i] = await computeSkuCost(rows[i].id);
+        out[i] = await computeSkuCost(rows[i].id, opts);
       }
     }),
   );

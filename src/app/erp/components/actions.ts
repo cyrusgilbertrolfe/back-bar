@@ -13,6 +13,7 @@ import {
   type NewComponentAbvHistoryRow,
   type NewComponentPriceHistoryRow,
 } from "@/db/schema";
+import { scheduleCogsSnapshot } from "@/lib/erp/cogs-movement";
 
 const COMPONENT_TYPES = ["ingredient", "sub_recipe", "dry_good", "packaging"] as const;
 const UOMS = ["ml", "g", "each", "m"] as const;
@@ -330,6 +331,7 @@ export async function updateComponent(id: number, form: FormData) {
           : `Price confirmed by invoice: ${after}`,
     };
     await db.insert(componentPriceHistory).values(historyRow);
+    scheduleCogsSnapshot(`price: ${payload.name}`);
   }
 
   // The ABV counterpart of the block above: a changed ABV or product is an

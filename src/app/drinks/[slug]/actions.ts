@@ -6,6 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, drinks, recipeLines, recipes } from "@/db/schema";
 import { abvFromLines, componentAbvById, declaredAbvFor, gateOne } from "@/lib/erp/canon";
+import { scheduleCogsSnapshot } from "@/lib/erp/cogs-movement";
 
 export type RecipeLineInput = { componentId: number; percentage: number };
 
@@ -166,6 +167,7 @@ export async function saveRecipeEdit(
     ]);
   }
 
+  scheduleCogsSnapshot(`recipe: ${drinkSlug} (${clientSlug})`);
   revalidatePath(`/drinks/${drinkSlug}`);
   revalidatePath("/drinks");
   redirect(`/drinks/${drinkSlug}?client=${clientSlug}`);
@@ -197,6 +199,7 @@ export async function createRecipeForClient(
 
   await createRecipe(drinkId, clientId, lines, method, String(form.get("createdBy") ?? "") || null);
 
+  scheduleCogsSnapshot(`recipe: ${drinkSlug} (${clientSlug})`);
   revalidatePath(`/drinks/${drinkSlug}`);
   revalidatePath("/drinks");
   redirect(`/drinks/${drinkSlug}?client=${clientSlug}`);

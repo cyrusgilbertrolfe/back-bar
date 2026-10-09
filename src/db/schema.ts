@@ -1036,6 +1036,49 @@ export type NewWholesaleOrderBooking = typeof wholesaleOrderBookings.$inferInser
 export type PurchaseCommitment = typeof purchaseCommitments.$inferSelect;
 export type NewPurchaseCommitment = typeof purchaseCommitments.$inferInsert;
 
+// ─── COGS snapshots ─────────────────────────────────────────────────────────
+
+/**
+ * One SKU's COGS at a moment, line by line, so a movement can be seen and
+ * explained (Cyrus, 9 Oct 2026: "we definitely want to track COGS movement").
+ *
+ * COGS is computed live and never stored, so until this table a figure that
+ * moved left no trace: week 3 closed at a 104-SKU total of £3,493.02 and a
+ * week later it read £3,493.29 with nothing to say why. A row is written only
+ * when a SKU's figure differs from its last snapshot: after any price, recipe
+ * or wastage save, and by a daily check that catches changes made by scripts.
+ *
+ * `lines` holds every in-COGS line as computeSkuCost produced it, so the
+ * report can name the component, quantity or price that moved. A
+ * `reconstructed` row was rebuilt afterwards from dated price history and
+ * recipe versions, with today's bill of materials and wastage, so it is
+ * approximate and the report says so.
+ */
+export const skuCogsSnapshots = pgTable(
+  "sku_cogs_snapshots",
+  {
+    id: serial("id").primaryKey(),
+    skuId: integer("sku_id")
+      .notNull()
+      .references(() => skus.id, { onDelete: "cascade" }),
+    /** The day the figures describe. Equals the day taken, except when reconstructed. */
+    asOf: date("as_of").notNull(),
+    total: numeric("total", { precision: 12, scale: 4 }).notNull(),
+    liquidTotal: numeric("liquid_total", { precision: 12, scale: 4 }).notNull(),
+    packagingTotal: numeric("packaging_total", { precision: 12, scale: 4 }).notNull(),
+    wastage: numeric("wastage", { precision: 12, scale: 4 }).notNull(),
+    wastagePct: numeric("wastage_pct", { precision: 8, scale: 6 }).notNull(),
+    lines: jsonb("lines").notNull(),
+    /** What prompted it: "price: Campari", "recipe: Negroni", "daily check", "baseline". */
+    trigger: text("trigger").notNull(),
+    reconstructed: boolean("reconstructed").notNull().default(false),
+    takenAt: timestamp("taken_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("sku_cogs_snapshots_sku_as_of_idx").on(t.skuId, t.asOf)],
+);
+
+export type SkuCogsSnapshot = typeof skuCogsSnapshots.$inferSelect;
+
 // ─── Setting keys ───────────────────────────────────────────────────────────
 
 export const SETTING_KEYS = {
