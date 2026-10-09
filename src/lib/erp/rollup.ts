@@ -18,7 +18,7 @@
 import { db } from "@/db";
 import { components, componentRecipes } from "@/db/schema";
 import { computeSkuCost, type CostLine, type SkuCost } from "@/lib/erp/cogs";
-import { perUomCost, priceProvenanceFor } from "@/lib/erp/ingredients";
+import { perUomCost, priceProvenanceFor, type LandedSplit } from "@/lib/erp/ingredients";
 import type { CostSource } from "@/lib/erp/provenance";
 
 export interface RollupNode {
@@ -73,12 +73,27 @@ export function qty(x: number, uom: string): string {
   return `${x.toFixed(dp)} ${UOM_UNIT[uom] ?? uom}`;
 }
 
-function packPhrase(l: { packSize: number | null; packCost: number | null; uom: string; isSubRecipe: boolean }): string | null {
+function packPhrase(l: {
+  packSize: number | null;
+  packCost: number | null;
+  uom: string;
+  isSubRecipe: boolean;
+  landed?: LandedSplit | null;
+}): string | null {
   if (l.isSubRecipe) return "made in-house";
+  // A landed price shows its split: what the goods cost, and the fees on top.
+  const split = l.landed
+    ? `${money(l.landed.goods)} goods + ${money(l.landed.fees)} fees${l.landed.note ? `: ${l.landed.note}` : ""}`
+    : null;
   if (l.packSize && l.packSize > 1 && l.packCost) {
-    return `bought at ${gbp(l.packCost)} per ${qty(l.packSize, l.uom)}`;
+    return `bought at ${gbp(l.packCost)} per ${qty(l.packSize, l.uom)}${split ? `, ${split}` : ""}`;
   }
-  return null;
+  return split ? `landed: ${split}` : null;
+}
+
+/** £ to 2dp, or 4dp below a pound so a per-item fee is not shown as £0.06 for £0.0622. */
+function money(x: number): string {
+  return x < 1 ? `£${x.toFixed(4)}` : gbp(x);
 }
 
 function lineWorking(l: CostLine, sizeMl: number): string {
@@ -99,7 +114,7 @@ type RecipeRow = typeof componentRecipes.$inferSelect;
 interface Ctx {
   comps: Map<number, ComponentRow>;
   recipesByParent: Map<number, RecipeRow[]>;
-  prov: Map<number, { source: CostSource; setAt: string | null; invoice: string | null }>;
+  prov: Map<number, { source: CostSource; setAt: string | null; invoice: string | null; landed: LandedSplit | null }>;
 }
 
 /**
@@ -138,6 +153,7 @@ function constituents(
       packCost: child.packCost === null ? null : Number(child.packCost),
       uom: child.uom,
       isSubRecipe: isSub,
+      landed: p?.landed ?? null,
     });
     const scaled = `${qty(perBatch, child.uom)} per ${qty(yieldQty, parent.uom)} batch → ${qty(q, child.uom)}`;
     const node: RollupNode = {

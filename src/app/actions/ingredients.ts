@@ -44,12 +44,19 @@ export type UpdatePriceResult =
  * `invoice` names the invoice the price was read from. With it the row counts
  * as invoice-backed; it may be given at an unchanged price, which records that
  * a new invoice confirms the price in use. Supplier and number go together.
+ *
+ * `fees` makes the price landed (Cyrus, 2 Oct 2026): `newPrice` is then the
+ * goods per pack, `fees.perPack` this pack's share of the invoice's delivery,
+ * carriage and other fees (never EPR), and the price set is their sum. The
+ * split is recorded on the history row. Without it, `newPrice` is the whole
+ * pack cost and no split is recorded.
  */
 export async function updateIngredientPrice(
   componentId: number,
   newPrice: number,
   note?: string,
   invoice?: { supplier?: string | null; ref?: string | null },
+  fees?: { perPack: number; note?: string | null },
 ): Promise<UpdatePriceResult> {
   if (!Number.isInteger(componentId) || componentId <= 0) {
     return { ok: false, error: "componentId must be a positive integer." };
@@ -57,6 +64,15 @@ export async function updateIngredientPrice(
   if (!Number.isFinite(newPrice) || newPrice < 0) {
     return { ok: false, error: "Price must be a non-negative number." };
   }
+  if (fees && (!Number.isFinite(fees.perPack) || fees.perPack < 0)) {
+    return { ok: false, error: "Fees per pack must be zero or more." };
+  }
+  const feesNote = fees?.note?.trim() || null;
+  if (fees && fees.perPack > 0 && !feesNote) {
+    return { ok: false, error: "Say how the fees were worked out, so they can be checked." };
+  }
+  const goods = newPrice;
+  newPrice = fees ? goods + fees.perPack : goods;
   const invoiceSupplier = invoice?.supplier?.trim() || null;
   const invoiceRef = invoice?.ref?.trim() || null;
   if (!invoiceSupplier !== !invoiceRef) {
@@ -128,6 +144,9 @@ export async function updateIngredientPrice(
       source: "manual",
       invoiceSupplier,
       invoiceRef,
+      ...(fees
+        ? { goodsCost: goods.toFixed(4), feesCost: fees.perPack.toFixed(4), feesNote: fees.perPack > 0 ? feesNote : null }
+        : {}),
       notes: [note?.trim(), `Back Bar ingredient editor: ${before} to ${after}`]
         .filter(Boolean)
         .join(" | "),

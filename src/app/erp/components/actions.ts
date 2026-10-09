@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   components,
@@ -96,6 +96,22 @@ function readSupplier(form: FormData): number | null {
   return n;
 }
 
+/**
+ * The landed split from the form: goods per pack (required) and fees per pack
+ * (blank reads as none). Added 9 Oct 2026; see component_price_history.
+ */
+function readLanded(form: FormData): { goodsCost: string; feesCost: string; feesNote: string | null } {
+  const goodsCost = Number(readNonNegNum(form, "packGoods", "Goods per pack")).toFixed(4);
+  const fees = readStr(form, "packFees");
+  const feesNum = fees === null ? 0 : Number(fees);
+  if (!Number.isFinite(feesNum) || feesNum < 0) throw new Error("Fees per pack must be zero or more");
+  const feesNote = readStr(form, "feesNote");
+  if (feesNum > 0 && !feesNote) {
+    throw new Error("Say how the fees were worked out, e.g. \"Viamaster £57.95 over 932 bottles\", so they can be checked.");
+  }
+  return { goodsCost, feesCost: feesNum.toFixed(4), feesNote: feesNum > 0 ? feesNote : null };
+}
+
 function deriveUnitCost(packSize: string, packCost: string): string {
   const size = Number(packSize);
   const cost = Number(packCost);
@@ -110,7 +126,9 @@ function buildPayload(form: FormData): NewComponent {
   const uom = readEnum(form, "uom", UOMS, "UOM");
 
   const packSize = readPositiveNum(form, "packSize", "Pack size");
-  const packCost = readNonNegNum(form, "packCost", "Pack cost");
+  // The pack cost is landed: the goods plus this pack's share of the fees.
+  const { goodsCost, feesCost } = readLanded(form);
+  const packCost = (Number(goodsCost) + Number(feesCost)).toFixed(4);
 
   return {
     name,
@@ -268,6 +286,7 @@ export async function createComponent(form: FormData) {
     effectiveDate: new Date().toISOString().slice(0, 10),
     source: "manual",
     ...invoice,
+    ...readLanded(form),
     notes: `Initial price set on creation: pack ${payload.packSize}${payload.uom} @ £${payload.packCost}`,
   };
   await db.insert(componentPriceHistory).values(historyRow);
@@ -304,16 +323,29 @@ export async function updateComponent(id: number, form: FormData) {
     })
     .where(eq(components.id, id));
 
-  // If pack_cost or pack_size changed (compare numerically — Postgres normalises
+  // If the price or pack size changed (compare numerically — Postgres normalises
   // numeric representation), write a price-history row so the change is auditable.
+  // The unit cost is compared rather than pack_cost, which keeps only 2dp and
+  // would read every landed each-priced item (£0.8437) as changed on each save.
   const packCostChanged =
-    Number(existing.packCost ?? "NaN") !== Number(payload.packCost);
+    Number(existing.unitCost ?? "NaN") !== Number(payload.unitCost);
   const packSizeChanged =
     Number(existing.packSize ?? "NaN") !== Number(payload.packSize);
+  // Splitting an unchanged price into goods and fees is also worth a row.
+  const landed = readLanded(form);
+  const [newest] = await db
+    .select()
+    .from(componentPriceHistory)
+    .where(eq(componentPriceHistory.componentId, id))
+    .orderBy(desc(componentPriceHistory.effectiveDate), desc(componentPriceHistory.id))
+    .limit(1);
+  const splitChanged =
+    Number(landed.feesCost) > 0 &&
+    (newest?.feesCost == null || Number(newest.feesCost) !== Number(landed.feesCost));
 
   // An invoice named at an unchanged price still earns a row: it records that a
   // new invoice confirms the price in use, which is what makes it invoice-backed.
-  if (packCostChanged || packSizeChanged || invoice) {
+  if (packCostChanged || packSizeChanged || invoice || splitChanged) {
     const before = `${existing.packSize ?? "?"}${existing.uom} @ £${existing.packCost ?? "?"}`;
     const after = `${payload.packSize}${payload.uom} @ £${payload.packCost}`;
     const historyRow: NewComponentPriceHistoryRow = {
@@ -325,6 +357,7 @@ export async function updateComponent(id: number, form: FormData) {
       effectiveDate: new Date().toISOString().slice(0, 10),
       source: "manual",
       ...invoice,
+      ...landed,
       notes:
         packCostChanged || packSizeChanged
           ? `Manual edit: ${before} → ${after}`

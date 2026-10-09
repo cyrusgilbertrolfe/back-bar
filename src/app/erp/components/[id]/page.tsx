@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { components, suppliers, componentPriceHistory } from "@/db/schema";
 import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
 import CostSourceBadge from "@/components/CostSourceBadge";
-import { historySource, invoiceLabel } from "@/lib/erp/ingredients";
+import { historySource, invoiceLabel, landedSplit, operativeProvenance } from "@/lib/erp/ingredients";
 import { ComponentFormBody } from "../_form";
 import { buttonGhost } from "../../_components/forms";
 import { updateComponent, setComponentActive } from "../actions";
@@ -54,7 +54,7 @@ export default async function EditComponentPage({
       </div>
 
       <form action={updateAction}>
-        <ComponentFormBody component={component} suppliers={supplierRows} />
+        <ComponentFormBody component={component} suppliers={supplierRows} landed={operativeProvenance(component, history[0]).landed} />
       </form>
 
       <hr style={{ margin: "40px 0 24px", border: "none", borderTop: `1px solid ${COLOR.rule}` }} />
@@ -80,7 +80,14 @@ export default async function EditComponentPage({
             {history.map((h) => (
               <tr key={h.id} style={{ borderBottom: `1px solid ${COLOR.rule}` }}>
                 <td style={td()}>{h.effectiveDate}</td>
-                <td style={td("right")}>£{Number(h.unitCost).toFixed(4)}</td>
+                <td style={td("right")}>
+                  £{Number(h.unitCost).toFixed(4)}
+                  {landedSplit(h) && (
+                    <div style={{ fontSize: 11, color: COLOR.muted, marginTop: 2 }}>
+                      £{Number(h.goodsCost).toFixed(4)} goods + £{Number(h.feesCost).toFixed(4)} fees per pack
+                    </div>
+                  )}
+                </td>
                 <td style={td()}>
                   <CostSourceBadge source={historySource(h)} date={h.effectiveDate} fontSize={11} />
                   {invoiceLabel(h) && (

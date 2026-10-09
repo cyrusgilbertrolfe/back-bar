@@ -93,17 +93,33 @@ export function operativeProvenance(
         effectiveDate: string;
         invoiceSupplier?: string | null;
         invoiceRef?: string | null;
+        goodsCost?: string | null;
+        feesCost?: string | null;
+        feesNote?: string | null;
       }
     | undefined,
-): { source: CostSource; setAt: string | null; invoice: string | null } {
+): { source: CostSource; setAt: string | null; invoice: string | null; landed: LandedSplit | null } {
   const cachedDate = c.unitCostSetAt ? c.unitCostSetAt.toISOString().slice(0, 10) : null;
-  if (!h) return { source: "unsourced", setAt: cachedDate, invoice: null };
+  if (!h) return { source: "unsourced", setAt: cachedDate, invoice: null, landed: null };
   const inUse = perUomCost(c);
   const recorded = n(h.unitCost) ?? 0;
   // History is stored to 4dp; the operative figure may be pack/size unrounded.
   const tolerance = Math.max(0.0001, recorded * 0.005);
-  if (Math.abs(inUse - recorded) > tolerance) return { source: "unsourced", setAt: cachedDate, invoice: null };
-  return { source: historySource(h), setAt: h.effectiveDate, invoice: invoiceLabel(h) };
+  if (Math.abs(inUse - recorded) > tolerance) return { source: "unsourced", setAt: cachedDate, invoice: null, landed: null };
+  return { source: historySource(h), setAt: h.effectiveDate, invoice: invoiceLabel(h), landed: landedSplit(h) };
+}
+
+/** A pack price split into goods and fees, per pack, ex VAT. */
+export interface LandedSplit {
+  goods: number;
+  fees: number;
+  note: string | null;
+}
+
+/** The goods and fees a history row records, or null for a row entered before the split. */
+export function landedSplit(h: { goodsCost?: string | null; feesCost?: string | null; feesNote?: string | null }): LandedSplit | null {
+  if (h.goodsCost == null || h.feesCost == null) return null;
+  return { goods: Number(h.goodsCost), fees: Number(h.feesCost), note: h.feesNote ?? null };
 }
 
 /** A history row's source as the cost vocabulary reads it: naming an invoice makes it Invoice. */
@@ -150,8 +166,8 @@ export function newestByComponent<T extends { id: number; componentId: number; e
  */
 export async function priceProvenanceFor(
   ids: number[],
-): Promise<Map<number, { source: CostSource; setAt: string | null; invoice: string | null }>> {
-  const out = new Map<number, { source: CostSource; setAt: string | null; invoice: string | null }>();
+): Promise<Map<number, ReturnType<typeof operativeProvenance>>> {
+  const out = new Map<number, ReturnType<typeof operativeProvenance>>();
   if (ids.length === 0) return out;
   const [comps, history] = await Promise.all([
     db
