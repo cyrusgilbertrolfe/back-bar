@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Nav from "@/components/Nav";
 import { computeAllSkuCosts } from "@/lib/erp/cogs";
 import ProfitabilityClient, { type CogsPageSummary } from "./ProfitabilityClient";
@@ -73,6 +74,11 @@ export default async function ProfitabilityPage() {
           primary packaging from the bill of materials, and wastage on top. Carriage is the
           only thing out. Each line carries its provenance, so a hand-typed figure can never
           pass as an invoice-backed one. Click any SKU for the full breakdown.
+        </p>
+        <p style={{ marginTop: -24, marginBottom: 40 }}>
+          <Link href="/finances/cogs/movement" style={{ fontSize: 11, color: COLOR.ink, ...smallCaps }}>
+            What moved, and why →
+          </Link>
         </p>
         <ProfitabilityClient breakdowns={breakdowns} summary={summary} />
       </main>

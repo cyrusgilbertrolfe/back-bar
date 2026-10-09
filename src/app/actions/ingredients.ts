@@ -18,6 +18,7 @@ import {
   componentPriceHistory,
   type NewComponentPriceHistoryRow,
 } from "@/db/schema";
+import { scheduleCogsSnapshot } from "@/lib/erp/cogs-movement";
 
 export interface UpdatedIngredient {
   id: number;
@@ -132,6 +133,7 @@ export async function updateIngredientPrice(
         .join(" | "),
     };
     await db.insert(componentPriceHistory).values(historyRow);
+    scheduleCogsSnapshot(`price: ${existing.name}`);
 
     revalidatePath("/finances/ingredients");
     revalidatePath("/finances/pricing");

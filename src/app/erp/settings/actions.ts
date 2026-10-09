@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { systemSettings, SETTING_KEYS } from "@/db/schema";
+import { scheduleCogsSnapshot } from "@/lib/erp/cogs-movement";
 
 function readStr(form: FormData, key: string): string {
   const raw = form.get(key);
@@ -46,6 +47,7 @@ export async function updateSettings(form: FormData) {
   await upsert(SETTING_KEYS.LABOUR_RATE_GBP_PER_HOUR, labourRate);
   await upsert(SETTING_KEYS.NEXT_SERIAL_NUMBER, String(nextSerialNum));
 
+  scheduleCogsSnapshot("wastage setting");
   revalidatePath("/erp/settings");
   revalidatePath("/erp");
 }

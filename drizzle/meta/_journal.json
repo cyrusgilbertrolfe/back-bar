@@ -134,6 +134,13 @@
       "when": 1791546954250,
       "tag": "0018_price_invoice_reference",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791552137792,
+      "tag": "0019_cogs_snapshots",
+      "breakpoints": true
     }
   ]
 }
