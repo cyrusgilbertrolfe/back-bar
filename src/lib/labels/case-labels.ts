@@ -195,17 +195,28 @@ function setDescription(s: string, font: PDFFont, width: number): { size: number
 }
 
 /**
- * The largest size, from 44 pt down, at which the text sets in balanced lines
- * that fit the width and the band between the rules with air above and below.
- * A short product name lands well above the order number's 30 pt.
+ * The fewest balanced lines at which the text still sets larger than minSize,
+ * at the largest size that fits the width and the band between the rules with
+ * air above and below. Fewest lines first, so a size like "70CL" stays with
+ * its word rather than sitting alone on the last line (Cyrus, 7 Oct 2026).
  */
-function setProductHeadline(s: string, font: PDFFont, width: number): { size: number; lines: string[] } {
+function setProductHeadline(s: string, font: PDFFont, width: number, minSize: number): { size: number; lines: string[] } {
   const room = 36;
-  for (let size = 44; size >= 9; size -= 0.5) {
+  const fits = (size: number, maxLines: number) => {
     const lines = wrapBalanced(s, font, size, width);
-    const fitsWide = lines.every((l) => font.widthOfTextAtSize(l, size) / MM <= width);
-    const fitsTall = (size * 0.72) / MM + ((lines.length - 1) * size * 1.05) / MM <= room;
-    if (fitsWide && fitsTall) return { size, lines };
+    const wide = lines.every((l) => font.widthOfTextAtSize(l, size) / MM <= width);
+    const tall = (size * 0.72) / MM + ((lines.length - 1) * size * 1.05) / MM <= room;
+    return wide && tall && lines.length <= maxLines ? lines : null;
+  };
+  for (let maxLines = 1; maxLines <= 4; maxLines++) {
+    for (let size = 44; size > minSize; size -= 0.5) {
+      const lines = fits(size, maxLines);
+      if (lines) return { size, lines };
+    }
+  }
+  for (let size = minSize; size >= 9; size -= 0.5) {
+    const lines = fits(size, 4);
+    if (lines) return { size, lines };
   }
   return { size: 9, lines: wrapBalanced(s, font, 9, width) };
 }
@@ -251,7 +262,7 @@ function drawLabel(pen: LabelPen, f: Fonts, facts: CaseLabelFacts, caseNo: numbe
     // ── No reference: the words are ours, so the product is the headline ──
     // In capitals and larger than the dispatch number, on as many lines as
     // it takes (Cyrus, 7 Oct 2026), centred in the band between the rules.
-    const { size, lines } = setProductHeadline(facts.customerDescription.toUpperCase(), f.kraftig, width);
+    const { size, lines } = setProductHeadline(facts.customerDescription.toUpperCase(), f.kraftig, width, orderSize);
     const captionCap = (CAPTION_SIZE * 0.72) / MM;
     const cap = (size * 0.72) / MM;
     const leading = (size * 1.05) / MM;
@@ -270,19 +281,20 @@ function drawLabel(pen: LabelPen, f: Fonts, facts: CaseLabelFacts, caseNo: numbe
   caption("Case quantity", col2, 105);
   pen.text(String(facts.unitsPerCase), col2, 115, f.leicht, 20);
 
-  // ── Who it is from ───────────────────────────────────────────────────────
+  // ── Who it is from, and which case of the shipment ─────────────────────
+  // All in capitals to match the captions (Cyrus, 7 Oct 2026). The case
+  // number lets Goods In count a shipment complete.
   pen.rule(left, right, 121, 0.75);
   const from = facts.supplierAccountCode
     ? `Myatt’s Fields Ltd · Supplier ${facts.supplierAccountCode}`
     : "Myatt’s Fields Ltd";
-  pen.text(from, left, 126.5, f.buch, 7);
-  pen.text("11 Upstall Street, London SE5 9JE", left, 130.5, f.buch, 7);
+  caption(from, left, 126.5);
+  caption("11 Upstall Street, London SE5 9JE", left, 130.5);
 
-  // ── Which case of the shipment, so Goods In can count it complete ───────
-  // (Cyrus, 7 Oct 2026.) Set right, across both footer lines.
-  const caseOf = `Case ${caseNo} of ${caseCount}`;
-  const caseSize = 12;
-  pen.text(caseOf, right - f.kraftig.widthOfTextAtSize(caseOf, caseSize) / MM, 130.5, f.kraftig, caseSize);
+  const caseOf = `CASE ${caseNo} OF ${caseCount}`;
+  const caseSize = 11;
+  const caseTracking = 0.06;
+  pen.text(caseOf, right - trackedWidth(caseOf, f.kraftig, caseSize, caseTracking), 130.5, f.kraftig, caseSize, caseTracking);
 }
 
 export async function buildCaseLabelsPdf(
