@@ -218,6 +218,9 @@ function Row({ node, depth, hasChildren }: { node: RollupNode; depth: number; ha
       </div>
       <div className="rollup-badge" style={{ textAlign: "right" }}>
         {node.source && !top && <CostSourceBadge source={node.source} date={node.setAt ?? null} fontSize={10} block />}
+        {node.invoice && !top && (
+          <div style={{ fontFamily: FONT.mono, fontSize: 10, color: COLOR.muted, marginTop: 2 }}>{node.invoice}</div>
+        )}
       </div>
     </div>
   );

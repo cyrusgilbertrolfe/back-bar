@@ -19,6 +19,8 @@ export type ClientIngredient = {
   unitCost: number;
   unitCostSetAt: string | null;
   provenance: CostSource;
+  /** The invoice behind the price in use, e.g. "Matthew Clark 4417302", or null. */
+  invoice: string | null;
   isSubRecipe: boolean;
   notes: string | null;
 };
@@ -304,12 +306,18 @@ function IngredientDetail({
 
   const [newPriceStr, setNewPriceStr] = useState(currentEditPrice.toString());
   const [note, setNote] = useState("");
+  const [invoiceSupplier, setInvoiceSupplier] = useState("");
+  const [invoiceRef, setInvoiceRef] = useState("");
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
 
   const newPrice = Number(newPriceStr);
   const newPriceValid = Number.isFinite(newPrice) && newPrice >= 0;
   const changed = newPriceValid && Math.abs(newPrice - currentEditPrice) > 0.0005;
+  // An invoice alone, at the same price, is worth saving: it confirms the price.
+  const hasInvoice = invoiceSupplier.trim() !== "" && invoiceRef.trim() !== "";
+  const halfInvoice = (invoiceSupplier.trim() !== "") !== (invoiceRef.trim() !== "");
+  const canSave = newPriceValid && (changed || hasInvoice) && !halfInvoice;
 
   const currentUnit = ingredient.unitCost;
   const newUnit = newPriceValid
@@ -340,16 +348,23 @@ function IngredientDetail({
   }, [usage, ingredient.uom, currentUnit, newUnit]);
 
   function handleSave() {
-    if (!changed || !newPriceValid) return;
+    if (!canSave) return;
     setFeedback(null);
     startTransition(async () => {
-      const res = await updateIngredientPrice(ingredient.id, newPrice, note);
+      const res = await updateIngredientPrice(ingredient.id, newPrice, note, {
+        supplier: invoiceSupplier,
+        ref: invoiceRef,
+      });
       if (res.ok) {
         setFeedback({
           kind: "ok",
-          msg: "Saved to the database and stamped in the price history.",
+          msg: changed
+            ? "Saved to the database and stamped in the price history."
+            : "Price confirmed by the invoice and stamped in the price history.",
         });
         setNote("");
+        setInvoiceSupplier("");
+        setInvoiceRef("");
       } else {
         setFeedback({ kind: "err", msg: res.error });
       }
@@ -380,6 +395,9 @@ function IngredientDetail({
         </p>
         <p style={{ marginTop: 6 }}>
           <CostSourceBadge source={ingredient.provenance} date={ingredient.unitCostSetAt} fontSize={11} />
+          {ingredient.invoice && (
+            <span style={{ fontSize: 11, color: COLOR.muted, fontFamily: FONT.mono }}> {ingredient.invoice}</span>
+          )}
           <span style={{ fontSize: 10, color: COLOR.flag, ...smallCaps }}>
             {ingredient.provenance === "unsourced" &&
               " · this figure has no invoice or manual entry behind it"}
@@ -446,6 +464,34 @@ function IngredientDetail({
           </label>
         </div>
 
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 8 }}>
+          <label style={{ flex: 1, minWidth: 200 }}>
+            <span style={{ fontSize: 10, color: COLOR.muted, ...smallCaps }}>Invoice from (supplier)</span>
+            <input
+              type="text"
+              value={invoiceSupplier}
+              onChange={(e) => setInvoiceSupplier(e.target.value)}
+              placeholder="e.g. Matthew Clark"
+              style={inputStyle()}
+            />
+          </label>
+          <label style={{ flex: 1.4, minWidth: 240 }}>
+            <span style={{ fontSize: 10, color: COLOR.muted, ...smallCaps }}>Invoice number</span>
+            <input
+              type="text"
+              value={invoiceRef}
+              onChange={(e) => setInvoiceRef(e.target.value)}
+              placeholder="As printed, e.g. 4417302"
+              style={inputStyle()}
+            />
+          </label>
+        </div>
+        <p style={{ fontSize: 11, color: halfInvoice ? COLOR.flag : COLOR.muted, marginBottom: 20 }}>
+          {halfInvoice
+            ? "Give both the supplier and the invoice number, or neither."
+            : "Name the invoice the price was read from and it counts as invoice-backed. At an unchanged price, it records that the invoice confirms it."}
+        </p>
+
         <div
           style={{
             display: "grid",
@@ -472,20 +518,20 @@ function IngredientDetail({
 
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <button
-            disabled={!changed || isPending}
+            disabled={!canSave || isPending}
             onClick={handleSave}
             style={{
-              background: changed && !isPending ? COLOR.ink : COLOR.rule,
+              background: canSave && !isPending ? COLOR.ink : COLOR.rule,
               color: COLOR.paper,
               border: "none",
               padding: "10px 20px",
               fontSize: 11,
-              cursor: changed && !isPending ? "pointer" : "default",
-              opacity: !changed ? 0.5 : 1,
+              cursor: canSave && !isPending ? "pointer" : "default",
+              opacity: !canSave ? 0.5 : 1,
               ...smallCaps,
             }}
           >
-            {isPending ? "Saving…" : "Save price change"}
+            {isPending ? "Saving…" : changed ? "Save price change" : "Confirm price by invoice"}
           </button>
           {feedback && (
             <span

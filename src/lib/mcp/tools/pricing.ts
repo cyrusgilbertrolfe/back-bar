@@ -28,6 +28,8 @@ interface CostLineView {
   cost: number;
   source: CostSource;
   setAt: string | null;
+  /** The invoice behind the price, e.g. "Matthew Clark 4417302", or null. */
+  invoice: string | null;
 }
 
 interface DrinkView {
@@ -124,6 +126,7 @@ async function buildDrinks(): Promise<DrinkRecord[]> {
       cost: round2(l.cost),
       source: l.source,
       setAt: l.setAt,
+      invoice: l.invoice,
     })),
   }));
 }

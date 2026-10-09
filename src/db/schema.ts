@@ -237,6 +237,19 @@ export const componentPriceHistory = pgTable(
     source: priceSourceEnum("source").notNull(),
     /** For inbound-sourced rows, the inbound id; null for manual entries. */
     sourceId: text("source_id"),
+    /**
+     * The invoice this price was read from: who issued it and its number, as
+     * printed ("Matthew Clark", "4417302"). Added 9 Oct 2026, roadmap week 4.
+     *
+     * Until then "invoice" meant only an `inbound` goods-receipt row, which was
+     * never built, so a price copied from an invoice just paid still read
+     * "manual" and 0% of COGS was invoice-backed whatever the truth. A row
+     * carrying both fields now counts as invoice-backed; "manual" means typed
+     * with nothing to point to. Free text, like `component_abv_history`'s
+     * source_ref, because the suppliers table is empty.
+     */
+    invoiceSupplier: text("invoice_supplier"),
+    invoiceRef: text("invoice_ref"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

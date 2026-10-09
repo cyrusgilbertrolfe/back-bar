@@ -41,6 +41,8 @@ export interface IngredientRow {
   active: boolean;
   notes: string | null;
   provenance: PriceProvenance;
+  /** The invoice behind the price in use, e.g. "Matthew Clark 4417302", or null. */
+  invoice: string | null;
   /** True when this is a sub-recipe we make rather than buy. */
   isSubRecipe: boolean;
 }
@@ -76,19 +78,45 @@ export function perUomCost(c: {
  * four components) would otherwise borrow an older row's source and date. When
  * the two disagree, the price in use has no record behind it, so it reads
  * "unsourced", dated from when the cached cost was set. Added 2 Oct 2026.
+ *
+ * A row that names its invoice (supplier and number) reads "inbound", shown as
+ * Invoice, whatever its stored source: the price was copied from an invoice,
+ * and that is what invoice-backed means (Cyrus, 2 Oct 2026; built 9 Oct 2026).
+ * A placeholder stays a placeholder even with an invoice beside it.
  */
 export function operativeProvenance(
   c: { packSize: string | null; packCost: string | null; unitCost: string | null; unitCostSetAt: Date | null },
-  h: { unitCost: string; source: string; effectiveDate: string } | undefined,
-): { source: CostSource; setAt: string | null } {
+  h:
+    | {
+        unitCost: string;
+        source: string;
+        effectiveDate: string;
+        invoiceSupplier?: string | null;
+        invoiceRef?: string | null;
+      }
+    | undefined,
+): { source: CostSource; setAt: string | null; invoice: string | null } {
   const cachedDate = c.unitCostSetAt ? c.unitCostSetAt.toISOString().slice(0, 10) : null;
-  if (!h) return { source: "unsourced", setAt: cachedDate };
+  if (!h) return { source: "unsourced", setAt: cachedDate, invoice: null };
   const inUse = perUomCost(c);
   const recorded = n(h.unitCost) ?? 0;
   // History is stored to 4dp; the operative figure may be pack/size unrounded.
   const tolerance = Math.max(0.0001, recorded * 0.005);
-  if (Math.abs(inUse - recorded) > tolerance) return { source: "unsourced", setAt: cachedDate };
-  return { source: toCostSource(h.source), setAt: h.effectiveDate };
+  if (Math.abs(inUse - recorded) > tolerance) return { source: "unsourced", setAt: cachedDate, invoice: null };
+  return { source: historySource(h), setAt: h.effectiveDate, invoice: invoiceLabel(h) };
+}
+
+/** A history row's source as the cost vocabulary reads it: naming an invoice makes it Invoice. */
+export function historySource(h: { source: string; invoiceSupplier?: string | null; invoiceRef?: string | null }): CostSource {
+  const stored = toCostSource(h.source);
+  return invoiceLabel(h) && stored !== "placeholder" ? "inbound" : stored;
+}
+
+/** "Matthew Clark 4417302", or null unless the row names both supplier and number. */
+export function invoiceLabel(h: { invoiceSupplier?: string | null; invoiceRef?: string | null }): string | null {
+  const supplier = h.invoiceSupplier?.trim();
+  const ref = h.invoiceRef?.trim();
+  return supplier && ref ? `${supplier} ${ref}` : null;
 }
 
 /**
@@ -122,8 +150,8 @@ export function newestByComponent<T extends { id: number; componentId: number; e
  */
 export async function priceProvenanceFor(
   ids: number[],
-): Promise<Map<number, { source: CostSource; setAt: string | null }>> {
-  const out = new Map<number, { source: CostSource; setAt: string | null }>();
+): Promise<Map<number, { source: CostSource; setAt: string | null; invoice: string | null }>> {
+  const out = new Map<number, { source: CostSource; setAt: string | null; invoice: string | null }>();
   if (ids.length === 0) return out;
   const [comps, history] = await Promise.all([
     db
@@ -170,6 +198,7 @@ export async function listIngredients(opts?: { includeInactive?: boolean }): Pro
       active: c.active,
       notes: c.notes,
       provenance: prov.source,
+      invoice: prov.invoice,
       isSubRecipe: c.type === "sub_recipe",
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -184,6 +213,7 @@ export interface PriceHistoryRow {
   effectiveDate: string;
   unitCost: number;
   source: string;
+  invoice: string | null;
   notes: string | null;
 }
 
@@ -196,7 +226,8 @@ export async function getPriceHistory(componentId: number): Promise<PriceHistory
   return rows.map((r) => ({
     effectiveDate: r.effectiveDate,
     unitCost: Number(r.unitCost),
-    source: r.source,
+    source: historySource(r),
+    invoice: invoiceLabel(r),
     notes: r.notes,
   }));
 }

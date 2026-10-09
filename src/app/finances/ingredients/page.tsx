@@ -81,6 +81,7 @@ export default async function IngredientsPage() {
     unitCost: i.unitCost,
     unitCostSetAt: i.unitCostSetAt,
     provenance: i.provenance,
+    invoice: i.invoice,
     isSubRecipe: i.isSubRecipe,
     notes: i.notes,
   }));
