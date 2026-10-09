@@ -363,7 +363,9 @@ export default function PnlClient({ rows: serverRows, config }: Props) {
                     )}
                   </td>
                   <td style={{ padding: "16px 12px", textAlign: "right", fontFamily: FONT.mono, color: COLOR.inkSoft }}>
-                    {GBP(x.cogs)}
+                    <Link href={`/finances/cogs/${x.r.skuId}`} title="See how this COGS is built" style={{ color: "inherit", textDecorationColor: COLOR.rule }}>
+                      {GBP(x.cogs)}
+                    </Link>
                     {scenario !== "today" && x.cogsDelta !== 0 && (
                       <span style={{ color: x.cogsDelta > 0 ? COLOR.flag : COLOR.positive, fontSize: 11, marginLeft: 6 }}>
                         {x.cogsDelta > 0 ? "+" : ""}

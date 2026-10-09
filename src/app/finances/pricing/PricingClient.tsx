@@ -465,7 +465,9 @@ export default function PricingClient({ rows: serverRows, config }: Props) {
                       color: COLOR.inkSoft,
                     }}
                   >
-                    {GBP(r.cogs)}
+                    <Link href={`/finances/cogs/${r.skuId}`} title="See how this COGS is built" style={{ color: "inherit", textDecorationColor: COLOR.rule }}>
+                      {GBP(r.cogs)}
+                    </Link>
                     {hasCostFlags && (
                       <span
                         title={r.problems.join("\n")}
