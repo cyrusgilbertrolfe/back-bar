@@ -63,12 +63,24 @@ function describeAbv(component?: Component): string {
   return parts.join(" · ");
 }
 
+/**
+ * The pack cost of a price never split into goods and fees, shown as its goods.
+ * A pack of one takes the 4dp unit cost, since pack_cost keeps only 2dp.
+ */
+function unsplitPackCost(component?: Component): string | null {
+  if (!component) return null;
+  return Number(component.packSize ?? 1) > 1 ? component.packCost : component.unitCost;
+}
+
 export function ComponentFormBody({
   component,
   suppliers,
+  landed,
 }: {
   component?: Component;
   suppliers: { id: number; name: string }[];
+  /** The goods and fees behind the price in use, when it was entered split. */
+  landed?: { goods: number; fees: number; note: string | null } | null;
 }) {
   const supplierOptions = suppliers.map((s) => ({ value: String(s.id), label: s.name }));
   const [uom, setUom] = useState<Uom>((component?.uom as Uom) ?? "ml");
@@ -101,7 +113,9 @@ export function ComponentFormBody({
       <PackPricer
         uom={uom}
         defaultPackSize={component?.packSize ?? null}
-        defaultPackCost={component?.packCost ?? null}
+        defaultGoods={landed ? landed.goods.toFixed(4) : unsplitPackCost(component)}
+        defaultFees={landed ? landed.fees.toFixed(4) : null}
+        defaultFeesNote={landed?.note ?? null}
       />
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>

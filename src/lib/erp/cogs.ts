@@ -35,9 +35,11 @@ import {
 import {
   historySource,
   invoiceLabel,
+  landedSplit,
   newestByComponent,
   operativeProvenance,
   perUomCost,
+  type LandedSplit,
 } from "@/lib/erp/ingredients";
 import { summariseProvenance, type CostSource } from "@/lib/erp/provenance";
 
@@ -57,6 +59,8 @@ export interface CostLine {
   setAt: string | null;
   /** The invoice behind the price in use, e.g. "Matthew Clark 4417302", or null. */
   invoice: string | null;
+  /** The pack price split into goods and fees, when the price was entered that way. */
+  landed: LandedSplit | null;
   /** The component's unit of measure: ml, g, each or m. */
   uom: string;
   /** How the supplier sells it, e.g. 700 (ml) at £15.41. Null when not recorded. */
@@ -159,8 +163,8 @@ async function wastagePct(): Promise<number> {
 async function sourcesFor(
   comps: Map<number, typeof components.$inferSelect>,
   ids: number[],
-): Promise<Map<number, { source: CostSource; setAt: string | null; invoice: string | null }>> {
-  const out = new Map<number, { source: CostSource; setAt: string | null; invoice: string | null }>();
+): Promise<Map<number, ReturnType<typeof operativeProvenance>>> {
+  const out = new Map<number, ReturnType<typeof operativeProvenance>>();
   if (ids.length === 0) return out;
   const rows = await db.select().from(componentPriceHistory);
   const newest = newestByComponent(rows.filter((r) => ids.includes(r.componentId)));
@@ -289,6 +293,7 @@ export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Pro
           source: "unsourced",
           setAt: c.unitCostSetAt ? c.unitCostSetAt.toISOString().slice(0, 10) : null,
           invoice: null,
+          landed: null,
           ...packOf(c),
           percentage: n(l.percentage),
         });
@@ -323,6 +328,7 @@ export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Pro
       source: "unsourced",
       setAt: c.unitCostSetAt ? c.unitCostSetAt.toISOString().slice(0, 10) : null,
       invoice: null,
+      landed: null,
       ...packOf(c),
       suppliedByCustomer: b.suppliedByCustomer,
     };
@@ -343,7 +349,7 @@ export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Pro
     ? new Map(
         [...historic.at].map(([id, h]) => [
           id,
-          { source: historySource(h), setAt: h.effectiveDate, invoice: invoiceLabel(h) },
+          { source: historySource(h), setAt: h.effectiveDate, invoice: invoiceLabel(h), landed: landedSplit(h) },
         ]),
       )
     : await sourcesFor(compById, all.map((l) => l.componentId));
@@ -353,6 +359,7 @@ export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Pro
       l.source = s.source;
       l.setAt = s.setAt;
       l.invoice = s.invoice;
+      l.landed = s.landed;
     }
   }
 

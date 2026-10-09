@@ -250,6 +250,20 @@ export const componentPriceHistory = pgTable(
      */
     invoiceSupplier: text("invoice_supplier"),
     invoiceRef: text("invoice_ref"),
+    /**
+     * The landed price split, per PACK, ex VAT (Cyrus, 2 Oct 2026: every cost
+     * is landed). `goods_cost` is what the goods line charges; `fees_cost` is
+     * this pack's share of the delivery, carriage, surcharges and other fees on
+     * the invoice, excluding EPR, which is its own bill-of-materials line. The
+     * pack price is their sum, so a landed figure is computed, not remembered.
+     * Fees go to the items an invoice prints them against, otherwise split by
+     * goods value (Cyrus, 9 Oct 2026). Both null on rows entered before the
+     * split, which state a pack price only.
+     */
+    goodsCost: numeric("goods_cost", { precision: 12, scale: 4 }),
+    feesCost: numeric("fees_cost", { precision: 12, scale: 4 }),
+    /** How the fees were arrived at, e.g. "Viamaster £57.95 over 932 bottles". */
+    feesNote: text("fees_note"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

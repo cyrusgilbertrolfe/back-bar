@@ -141,6 +141,13 @@
       "when": 1791552137792,
       "tag": "0019_cogs_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791553333267,
+      "tag": "0020_landed_cost_split",
+      "breakpoints": true
     }
   ]
 }

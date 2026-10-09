@@ -139,7 +139,12 @@ export const writeTools: ToolDefinition[] = [
       "manual entry to the price history. When the price was read from a " +
       "supplier invoice, pass invoice_supplier and invoice_ref so it counts as " +
       "invoice-backed; both may be given at an unchanged price to record that a " +
-      "new invoice confirms it. Find the numeric ingredient id with list_ingredients.",
+      "new invoice confirms it. Every cost is landed: when the invoice charges " +
+      "delivery, carriage or other fees (not EPR), pass price as the GOODS per " +
+      "pack and fees_per_pack as this pack's share, with fees_note saying how it " +
+      "was worked out; the price set is their sum. Fees printed against an item " +
+      "go to it; otherwise split them by goods value. Find the numeric ingredient " +
+      "id with list_ingredients.",
     access: "write",
     inputSchema: {
       type: "object",
@@ -164,6 +169,14 @@ export const writeTools: ToolDefinition[] = [
           type: "string",
           description: "The invoice number as printed, e.g. \"4417302\". Give with invoice_supplier.",
         },
+        fees_per_pack: {
+          type: "number",
+          description: "This pack's share of the invoice's fees, ex VAT, excluding EPR. When given, price is the goods per pack.",
+        },
+        fees_note: {
+          type: "string",
+          description: "How fees_per_pack was worked out, e.g. \"£18.98 carriage over £88.83 goods, by value\". Required with fees above zero.",
+        },
       },
       required: ["ingredient_id", "price"],
       additionalProperties: false,
@@ -177,7 +190,13 @@ export const writeTools: ToolDefinition[] = [
       const note = str(args, "note") ?? undefined;
       const invoice = { supplier: str(args, "invoice_supplier"), ref: str(args, "invoice_ref") };
 
-      const result = await updateIngredientPrice(componentId, price, note, invoice);
+      const feesArg = args["fees_per_pack"];
+      const fees =
+        feesArg === undefined || feesArg === null || feesArg === ""
+          ? undefined
+          : { perPack: num(args, "fees_per_pack"), note: str(args, "fees_note") };
+
+      const result = await updateIngredientPrice(componentId, price, note, invoice, fees);
       if (!result.ok) throw new Error(result.error);
       return {
         ok: true,
