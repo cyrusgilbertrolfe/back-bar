@@ -266,13 +266,23 @@ function describe(l: LineMovement): string {
     default: {
       const uom = l.kind === "liquid" ? "ml" : "each";
       const price =
-        l.unitFrom !== undefined && l.unitTo !== undefined
-          ? `price ${unitPrice(l.unitFrom, uom)} → ${unitPrice(l.unitTo, uom)}`
-          : "price";
+        l.unitFrom !== undefined && l.unitTo !== undefined ? `price ${priceChange(l.unitFrom, l.unitTo, uom)}` : "price";
       const inv = l.invoiceTo ? ` (${l.invoiceTo})` : "";
       return l.cause === "price and quantity" ? `${price}${inv}, and quantity changed` : `${price}${inv}`;
     }
   }
+}
+
+/**
+ * "£0.78 each → £0.84 each". When both round to the same figure (the 19mm cork,
+ * £0.1650 → £0.1671), they are shown to 4dp so the change is visible.
+ */
+function priceChange(from: number, to: number, uom: string): string {
+  const a = unitPrice(from, uom);
+  const b = unitPrice(to, uom);
+  if (a !== b) return `${a} → ${b}`;
+  const unit = uom === "each" ? "each" : `per ${uom}`;
+  return `£${from.toFixed(4)} ${unit} → £${to.toFixed(4)} ${unit}`;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
