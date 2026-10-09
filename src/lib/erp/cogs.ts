@@ -48,6 +48,15 @@ export interface CostLine {
   cost: number;
   source: CostSource;
   setAt: string | null;
+  /** The component's unit of measure: ml, g, each or m. */
+  uom: string;
+  /** How the supplier sells it, e.g. 700 (ml) at £15.41. Null when not recorded. */
+  packSize: number | null;
+  packCost: number | null;
+  /** Liquid lines only: the recipe percentage this line's ml was taken from. */
+  percentage?: number;
+  /** True when we make this component from others (a sub-recipe). */
+  isSubRecipe: boolean;
   /**
    * True when the customer supplies this component and we never pay for it.
    * Such a line is excluded from COGS but kept visible, so the absence is a
@@ -117,6 +126,16 @@ function n(v: string | number | null | undefined): number {
 function round(x: number, dp = 4): number {
   const f = 10 ** dp;
   return Math.round(x * f) / f;
+}
+
+/** The pack a component is bought in, and whether we make it, for a CostLine. */
+function packOf(c: typeof components.$inferSelect) {
+  return {
+    uom: c.uom,
+    packSize: c.packSize === null ? null : n(c.packSize),
+    packCost: c.packCost === null ? null : n(c.packCost),
+    isSubRecipe: c.type === "sub_recipe",
+  };
 }
 
 async function wastagePct(): Promise<number> {
@@ -211,6 +230,8 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
           cost,
           source: "unsourced",
           setAt: c.unitCostSetAt ? c.unitCostSetAt.toISOString().slice(0, 10) : null,
+          ...packOf(c),
+          percentage: n(l.percentage),
         });
       }
     }
@@ -242,6 +263,7 @@ export async function computeSkuCost(skuId: number): Promise<SkuCost> {
       cost,
       source: "unsourced",
       setAt: c.unitCostSetAt ? c.unitCostSetAt.toISOString().slice(0, 10) : null,
+      ...packOf(c),
       suppliedByCustomer: b.suppliedByCustomer,
     };
     // A customer-supplied component never enters COGS, whatever its role says,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { SkuCost, CostLine } from "@/lib/erp/cogs";
 import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
 import CostSourceBadge from "@/components/CostSourceBadge";
@@ -400,6 +401,12 @@ function SkuDetail({ breakdown: b }: { breakdown: SkuCost }) {
             <p style={{ fontSize: 11, color: COLOR.accent, ...smallCaps }}>
               {b.sizeMl}ml · {b.clientName ?? "no client"} · {b.skuCode}
             </p>
+            <Link
+              href={`/finances/cogs/${b.skuId}`}
+              style={{ display: "inline-block", marginTop: 8, fontSize: 11, color: COLOR.ink, ...smallCaps }}
+            >
+              Open the rollup, every step →
+            </Link>
             <div style={{ marginTop: 8 }}>
               <span style={{ fontSize: 10, color: COLOR.muted, marginRight: 8, ...smallCaps }}>
                 Weakest source, oldest input
