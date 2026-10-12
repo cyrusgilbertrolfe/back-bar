@@ -210,6 +210,10 @@ export default function PricingClient({ rows: serverRows, config }: Props) {
           <Link href="/finances/rrp" style={{ color: COLOR.accent, textDecoration: "underline", textUnderlineOffset: 3 }}>
             RRP page
           </Link>
+          . Which prices have had their cost move under them since they were set is in the{" "}
+          <Link href="/finances/price-review" style={{ color: COLOR.accent, textDecoration: "underline", textUnderlineOffset: 3 }}>
+            price review
+          </Link>
           .
         </p>
       </section>

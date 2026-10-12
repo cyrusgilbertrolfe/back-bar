@@ -26,6 +26,14 @@ const MODULES: HubModule[] = [
     status: "live",
   },
   {
+    href: "/finances/price-review",
+    label: "Price Review",
+    sublabel: "Cost moved since priced",
+    description:
+      "Every SKU's agreed price beside today's COGS, when the price was set, and a flag where cost has moved under it since. The list to take into the February price review.",
+    status: "live",
+  },
+  {
     href: "/finances/profitability",
     label: "COGS Build",
     sublabel: "Line-level cost of goods",

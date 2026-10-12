@@ -38,7 +38,7 @@ function r4(x: number): number {
   return Math.round(x * 10000) / 10000;
 }
 
-function linesOf(b: SkuCost): SnapshotLine[] {
+export function linesOf(b: SkuCost): SnapshotLine[] {
   return [...b.liquid, ...b.packaging].map((l: CostLine) => ({
     componentId: l.componentId,
     name: l.name,
@@ -201,7 +201,7 @@ export interface MovementReport {
   empty: boolean;
 }
 
-function explain(from: SnapshotLine[], to: SnapshotLine[]): LineMovement[] {
+export function explain(from: SnapshotLine[], to: SnapshotLine[]): LineMovement[] {
   const before = new Map(from.map((l) => [lineKey(l), l]));
   const after_ = new Map(to.map((l) => [lineKey(l), l]));
   const out: LineMovement[] = [];
