@@ -1,4 +1,5 @@
 import { recordCogsSnapshots } from "@/lib/erp/cogs-movement";
+import { COGS_CHECK_JOB, recordCronRun } from "@/lib/erp/cron-runs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -11,12 +12,20 @@ export const maxDuration = 60;
  * Vercel sends `Authorization: Bearer $CRON_SECRET`. The password gate in
  * proxy.ts lets this path through, so the secret is the only lock, and
  * without it set the route refuses every call.
+ *
+ * Every authorised run, quiet or failed, leaves a row in cron_runs.
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return new Response("Unauthorized", { status: 401 });
   }
-  const result = await recordCogsSnapshots("daily check");
-  return Response.json(result);
+  try {
+    const result = await recordCogsSnapshots("daily check");
+    await recordCronRun({ job: COGS_CHECK_JOB, ok: true, ...result });
+    return Response.json(result);
+  } catch (err) {
+    await recordCronRun({ job: COGS_CHECK_JOB, ok: false, error: String(err).slice(0, 500) });
+    throw err;
+  }
 }

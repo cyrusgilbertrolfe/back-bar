@@ -1093,6 +1093,30 @@ export const skuCogsSnapshots = pgTable(
 
 export type SkuCogsSnapshot = typeof skuCogsSnapshots.$inferSelect;
 
+/**
+ * One row per run of a scheduled job, quiet or not, so "did the cron fire?"
+ * is answered here rather than from Vercel's day of logs (12 Oct 2026). The
+ * daily COGS check writes no snapshot when nothing moved; this row is its
+ * only trace on those days. A failed run is recorded with `ok` false.
+ */
+export const cronRuns = pgTable(
+  "cron_runs",
+  {
+    id: serial("id").primaryKey(),
+    /** Which job: "cogs-snapshot". */
+    job: text("job").notNull(),
+    ranAt: timestamp("ran_at", { withTimezone: true }).notNull().defaultNow(),
+    ok: boolean("ok").notNull(),
+    /** For the COGS check: SKUs costed, and how many had moved (snapshots written). */
+    checked: integer("checked"),
+    written: integer("written"),
+    error: text("error"),
+  },
+  (t) => [index("cron_runs_job_ran_at_idx").on(t.job, t.ranAt)],
+);
+
+export type CronRun = typeof cronRuns.$inferSelect;
+
 // ─── Setting keys ───────────────────────────────────────────────────────────
 
 export const SETTING_KEYS = {
