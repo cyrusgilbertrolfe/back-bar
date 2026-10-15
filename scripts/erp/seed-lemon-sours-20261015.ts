@@ -20,6 +20,14 @@
  * control that was deliberately built. It happens only on Cyrus's say-so, and
  * the gate's verdict is printed either way so it is never stepped around
  * quietly.
+ *
+ * RUN WITH --write --recipe ON 15 OCTOBER 2026, on Cyrus's ruling: the 15.0%
+ * is a legacy spreadsheet-era figure, the standing decision is that the
+ * computed ABV is the real strength and it is what the website carries, and a
+ * figure like that is not a reason to hold a recipe correction up. Recipe 32
+ * (v2) became 44 (v3). The declared 15.0% was left exactly as it was — the
+ * gate still fails, which is the label's problem to answer, and no number was
+ * edited to match another.
  */
 
 import { and, eq } from "drizzle-orm";
