@@ -2,6 +2,7 @@ import Link from "next/link";
 import Nav from "@/components/Nav";
 import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
 import { cogsMovementSince, type LineMovement, type SkuMovement } from "@/lib/erp/cogs-movement";
+import { COGS_CHECK_JOB, lastCronRuns } from "@/lib/erp/cron-runs";
 import { fmtCostDate } from "@/lib/erp/provenance";
 import { gbp, unitPrice } from "@/lib/erp/rollup";
 
@@ -29,6 +30,47 @@ function signed(x: number): string {
   return `${x > 0 ? "+" : x < 0 ? "−" : ""}${body}`;
 }
 
+/** A date and London time, e.g. "13 Oct 2026, 06:00". */
+function fmtRunTime(d: Date): string {
+  return d.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/London",
+  });
+}
+
+/** The daily check runs at 05:00 UTC; past this without a good run, it is overdue. */
+const CHECK_OVERDUE_MS = 26 * 60 * 60 * 1000;
+
+function overdue(ranAt: Date): boolean {
+  return Date.now() - ranAt.getTime() > CHECK_OVERDUE_MS;
+}
+
+/**
+ * The last daily COGS check, from cron_runs, so a quiet day still shows the
+ * check ran. Red when the last run failed or no good run in over a day.
+ */
+function LastCheck({ last, lastOk }: Awaited<ReturnType<typeof lastCronRuns>>) {
+  let text: string;
+  let bad = false;
+  if (!last) {
+    text = "Daily check: no run recorded yet.";
+  } else if (!last.ok) {
+    bad = true;
+    text = `Daily check failed ${fmtRunTime(last.ranAt)}${last.error ? `: ${last.error}` : ""}.`;
+    if (lastOk) text += ` Last good run ${fmtRunTime(lastOk.ranAt)}.`;
+  } else {
+    bad = overdue(last.ranAt);
+    text = `Last checked: ${fmtRunTime(last.ranAt)}, ${last.checked ?? "?"} SKUs, ${last.written ?? "?"} moved${bad ? " (overdue)" : ""}.`;
+  }
+  return (
+    <p style={{ fontSize: 12, color: bad ? COLOR.flag : COLOR.muted, marginBottom: 24, ...tabularNums }}>{text}</p>
+  );
+}
+
 function deltaColor(x: number): string {
   return x > 0 ? COLOR.flag : x < 0 ? COLOR.positive : COLOR.muted;
 }
@@ -44,7 +86,7 @@ export default async function CogsMovementPage({
 }) {
   const { period = "30d" } = await searchParams;
   const since = sinceFor(period);
-  const report = await cogsMovementSince(since);
+  const [report, runs] = await Promise.all([cogsMovementSince(since), lastCronRuns(COGS_CHECK_JOB)]);
   const up = report.moved.filter((m) => m.delta > 0).length;
   const down = report.moved.length - up;
   const anyReconstructed = report.moved.some((m) => m.from.reconstructed || m.to.reconstructed);
@@ -111,6 +153,8 @@ export default async function CogsMovementPage({
             );
           })}
         </nav>
+
+        <LastCheck {...runs} />
 
         {report.empty ? (
           <p style={{ fontFamily: FONT.serif, fontStyle: "italic", fontSize: 16, color: COLOR.muted }}>
