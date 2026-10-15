@@ -54,6 +54,7 @@ const lineQuery = () =>
       lineDescription: wholesaleOrderLines.customerDescription,
       lineUnitsPerCase: wholesaleOrderLines.unitsPerCase,
       orderNumber: wholesaleOrders.orderNumber,
+      orderNumberIsOurs: wholesaleOrders.orderNumberIsOurs,
       raisedOn: wholesaleOrders.raisedOn,
       status: wholesaleOrders.status,
       customerName: customers.name,
@@ -78,7 +79,9 @@ function resolve(r: Row): CaseLabelLine {
   if (!Number.isInteger(cases)) problems.push(`The order line is for ${r.qty} cases, which is not a whole number.`);
 
   if (!r.shortCode) problems.push("The SKU has no short code (supplier SKU).");
-  // A customer who issues no PO has no product reference for us either.
+  // Cripps give us no product code at all, PO or no PO, so one is not
+  // demanded of them. This is the customer's paperwork, not this shipment's
+  // numbering: see customers.issuesPurchaseOrders.
   if (!r.skuItemCode && r.issuesPurchaseOrders) problems.push("The SKU has no customer product reference.");
   if (!r.skuDescription) problems.push("The SKU has no customer product description.");
   if (!r.skuUnitsPerCase) problems.push("The SKU has no case quantity.");
@@ -94,7 +97,7 @@ function resolve(r: Row): CaseLabelLine {
     r.shortCode && (r.skuItemCode || !r.issuesPurchaseOrders) && r.skuDescription && r.skuUnitsPerCase
       ? {
           orderNumber: r.orderNumber,
-          orderNumberIsOurs: !r.issuesPurchaseOrders,
+          orderNumberIsOurs: r.orderNumberIsOurs,
           customerItemCode: r.skuItemCode,
           customerDescription: r.skuDescription,
           supplierSku: r.shortCode,
