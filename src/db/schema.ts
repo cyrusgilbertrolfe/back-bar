@@ -817,10 +817,13 @@ export const customers = pgTable("customers", {
   /** Their code for us, e.g. MY010 at Fortnum's. */
   accountCode: text("account_code"),
   /**
-   * False for a customer who orders without a purchase order, e.g. Cripps
-   * (7 Oct 2026). Their shipments are then numbered by us, a dispatch number
-   * (CRPS-DN00001) held in wholesale_orders.order_number, and the case label
-   * captions it "Dispatch number" rather than "Purchase order".
+   * False for a customer whose paperwork gives us no references, e.g. Cripps
+   * (7 Oct 2026): no purchase order as a rule, and no product code for us to
+   * print, so the case label generator does not demand one.
+   *
+   * Whether a given shipment's number is theirs or ours is NOT this flag —
+   * Cripps sent PO 097648 on 15 Oct 2026 while remaining a no-reference
+   * customer. That is wholesale_orders.order_number_is_ours, per shipment.
    */
   issuesPurchaseOrders: boolean("issues_purchase_orders").notNull().default(true),
   isActive: boolean("is_active").notNull().default(true),
@@ -835,8 +838,19 @@ export const wholesaleOrders = pgTable(
     customerId: integer("customer_id")
       .notNull()
       .references(() => customers.id, { onDelete: "restrict" }),
-    /** Their order number, e.g. PU215780, PO113429. */
+    /** Their order number, e.g. PU215780, PO113429; or ours, see below. */
     orderNumber: text("order_number").notNull(),
+    /**
+     * True when order_number is a dispatch number we issued (CRPS-DN00001)
+     * because the shipment arrived with no purchase order. The case label
+     * captions the number off this: "Dispatch number" when ours, "Purchase
+     * order" when theirs.
+     *
+     * Per shipment, not per customer (Cyrus, 15 Oct 2026). Cripps ordered on
+     * demand with no PO in October and then sent one, PO 097648, for the next
+     * shipment; the same customer does both.
+     */
+    orderNumberIsOurs: boolean("order_number_is_ours").notNull().default(false),
     /** The date on their document. */
     raisedOn: date("raised_on"),
     /** When it hit the mailbox. */
