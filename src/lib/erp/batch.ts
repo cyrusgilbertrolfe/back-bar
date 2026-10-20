@@ -101,6 +101,7 @@ async function loadRecipe(clientSlug: string, drinkSlug: string) {
       recipeId: recipes.id,
       drinkId: drinks.id,
       drinkName: drinks.name,
+      clientId: recipes.clientId,
       clientName: clients.name,
       method: recipes.method,
     })
@@ -240,7 +241,9 @@ export async function planBatchFromAnchor(
   const skuRows = await db
     .select({ sizeMl: skus.sizeMl, code: skus.code })
     .from(skus)
-    .where(and(eq(skus.drinkId, r.drinkId), eq(skus.active, true)))
+    // This client's bottles only: Fortnum's buy the Vesper at 350ml alone, and
+    // our own-brand sizes are not theirs to yield.
+    .where(and(eq(skus.drinkId, r.drinkId), eq(skus.clientId, r.clientId), eq(skus.active, true)))
     .orderBy(asc(skus.sizeMl));
 
   const totalCost = round(lines.reduce((s, l) => s + l.cost, 0));

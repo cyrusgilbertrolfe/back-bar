@@ -312,7 +312,13 @@ export type CalcRecipe = {
  * drink's SKU sizes — everything the calculator needs to price a batch. */
 export async function getCalcRecipe(clientSlug: string, drinkSlug: string): Promise<CalcRecipe | null> {
   const [row] = await db
-    .select({ recipeId: recipes.id, drinkId: drinks.id, drinkName: drinks.name, method: recipes.method })
+    .select({
+      recipeId: recipes.id,
+      drinkId: drinks.id,
+      clientId: recipes.clientId,
+      drinkName: drinks.name,
+      method: recipes.method,
+    })
     .from(recipes)
     .innerJoin(drinks, eq(drinks.id, recipes.drinkId))
     .innerJoin(clients, eq(clients.id, recipes.clientId))
@@ -338,7 +344,9 @@ export async function getCalcRecipe(clientSlug: string, drinkSlug: string): Prom
   const skuRows = await db
     .select({ sizeMl: skus.sizeMl, code: skus.code })
     .from(skus)
-    .where(and(eq(skus.drinkId, row.drinkId), eq(skus.active, true)))
+    // The sizes this client buys, not every size the drink comes in: the
+    // Fortnum's Vesper is 350ml only, while our own brand sells five sizes.
+    .where(and(eq(skus.drinkId, row.drinkId), eq(skus.clientId, row.clientId), eq(skus.active, true)))
     .orderBy(asc(skus.sizeMl));
 
   return {
