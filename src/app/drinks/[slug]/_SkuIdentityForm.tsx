@@ -22,7 +22,7 @@ export default function SkuIdentityForm({ drinkSlug, sku }: { drinkSlug: string;
           name="shortCode"
           defaultValue={sku.shortCode ?? ""}
           readOnly={sku.shortCode !== null}
-          placeholder="FM-XXXX"
+          placeholder="MYFL-XXXX-0000"
           style={{ ...inputStyle, color: sku.shortCode ? COLOR.muted : COLOR.ink }}
         />
       </label>
