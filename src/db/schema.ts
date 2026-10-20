@@ -652,12 +652,15 @@ export const skus = pgTable(
      * are compared, never merged: a disagreement is how a wrong case size or
      * a wrong bottle gets caught.
      *
-     * short_code is ours, the "Your item number" on their PO. Standard agreed
-     * by Cyrus 19 Sep 2026: client prefix, hyphen, four-letter mnemonic of the
-     * drink in capitals (FM-EDAQ, FM-APPR). Cripps took CRPS-EM on Cyrus's
-     * ruling of 7 Oct 2026, so the mnemonic may be two to four letters.
-     * Assigned once, never changed or reused. No size in the code unless one drink ships to the same client
-     * in two sizes, then a suffix (-35, -50).
+     * short_code is ours, the "Your item number" on their PO and the SKU in
+     * QuickBooks. Standard (Cyrus, 20 Oct 2026, replacing that of 19 Sep):
+     * OWNER-DRINK-SIZE, four letters, four letters, four digits of ml as sold.
+     * MYFL for our own brand, CRPS for Cripps, FTNM for Fortnum's. The drink's
+     * four letters belong to the drink and are the same under every owner:
+     * MYFL-NEGR-0500, CRPS-NEGR-3000, FTNM-APPR-0500. Assigned once, never
+     * changed or reused. The six codes issued before the standard were
+     * reissued once, by scripts/erp/reissue-short-codes-20261020.ts, which
+     * lists what each was formerly.
      */
     shortCode: text("short_code").unique(),
     /** Their code for this product, e.g. 5248400 at Fortnum's. */

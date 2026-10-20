@@ -65,6 +65,12 @@ export type CaseLabelOptions = {
   count: number;
   /** First label position on the first sheet, 1–4, so a part-used sheet is not wasted. */
   startAt?: number;
+  /**
+   * Bottles in each case, for a shipment packed in mixed cases: the Cripps
+   * Jeroboam Negroni went as 12, 12 and 6 (20 Oct 2026). One label per entry,
+   * overriding count and the SKU's case quantity.
+   */
+  mixedCases?: number[];
 };
 
 type Fonts = Record<keyof BrandFontBytes, PDFFont>;
@@ -275,11 +281,13 @@ function drawLabel(pen: LabelPen, f: Fonts, facts: CaseLabelFacts, caseNo: numbe
   pen.rule(left, right, 98, 0.3);
 
   // ── Supplier SKU and case quantity, side by side ────────────────────────
-  const col2 = left + width / 2 + 2;
+  // The quantity sits flush right, over CASE n OF N (Cyrus, 20 Oct 2026).
   caption("Supplier SKU", left, 105);
   pen.text(facts.supplierSku, left, 115, f.leicht, fitSize(facts.supplierSku, f.leicht, 20, width / 2 - 4), 0.02);
-  caption("Case quantity", col2, 105);
-  pen.text(String(facts.unitsPerCase), col2, 115, f.leicht, 20);
+  const qtyCaption = "CASE QUANTITY";
+  caption(qtyCaption, right - trackedWidth(qtyCaption, f.kraftig, CAPTION_SIZE, CAPTION_TRACKING), 105);
+  const qty = String(facts.unitsPerCase);
+  pen.text(qty, right - trackedWidth(qty, f.leicht, 20, 0), 115, f.leicht, 20);
 
   // ── Who it is from, and which case of the shipment ─────────────────────
   // All in capitals to match the captions (Cyrus, 7 Oct 2026). The case
@@ -302,7 +310,7 @@ export async function buildCaseLabelsPdf(
   opts: CaseLabelOptions,
   fontBytes: BrandFontBytes,
 ): Promise<Uint8Array> {
-  const count = Math.floor(opts.count);
+  const count = opts.mixedCases ? opts.mixedCases.length : Math.floor(opts.count);
   if (!(count > 0)) throw new Error("Nothing to print: the label count must be at least 1.");
   const startAt = Math.min(Math.max(Math.floor(opts.startAt ?? 1), 1), SHEET.perSheet);
 
@@ -316,8 +324,91 @@ export async function buildCaseLabelsPdf(
       if (n > 0) position = 1;
     }
     const o = labelOrigin(position);
-    drawLabel(new LabelPen(page, o.x, o.y), fonts, facts, n + 1, count);
+    const caseFacts = opts.mixedCases ? { ...facts, unitsPerCase: opts.mixedCases[n] } : facts;
+    drawLabel(new LabelPen(page, o.x, o.y), fonts, caseFacts, n + 1, count);
     position++;
+  }
+  return doc.save();
+}
+
+export type UpLabelFacts = {
+  /** Their PO number, or our dispatch number, as on the delivery note. */
+  orderNumber: string;
+  orderNumberIsOurs: boolean;
+  /** What is in the case, short, e.g. "Negroni 3L". */
+  product: string;
+  /** Bottles in each case of the shipment, in packing order, e.g. [12, 12, 6]. */
+  cases: number[];
+};
+
+/**
+ * Handling labels for a shipment that must travel upright: a large arrow,
+ * UP, and FRAGILE GLASS, nothing else (Cyrus, 20 Oct 2026). Several per
+ * case, one per side, alongside the case label, not instead of it; first
+ * printed for the Cripps Jeroboam Negroni, 3L bottles that must never be
+ * laid on their side. Same stock as the case labels.
+ */
+function drawUpLabel(page: PDFPage, origin: { x: number; y: number }, f: Fonts) {
+  const pen = new LabelPen(page, origin.x, origin.y);
+  const left = PAD_X;
+  const right = SHEET.labelW - PAD_X;
+  const width = right - left;
+  const cx = SHEET.labelW / 2;
+  const centred = (s: string, y: number, font: PDFFont, size: number, tracking = 0) =>
+    pen.text(s, cx - trackedWidth(s, font, size, tracking) / 2, y, font, size, tracking);
+
+  // ── The arrow: solid, so it reads from across a warehouse ───────────────
+  const top = 16;
+  const headW = 56;
+  const headH = 28;
+  const shaftW = 20;
+  const shaftEnd = top + 53;
+  const pts: [number, number][] = [
+    [cx, top],
+    [cx + headW / 2, top + headH],
+    [cx + shaftW / 2, top + headH],
+    [cx + shaftW / 2, shaftEnd],
+    [cx - shaftW / 2, shaftEnd],
+    [cx - shaftW / 2, top + headH],
+    [cx - headW / 2, top + headH],
+  ];
+  const path = pts.map(([x, y], i) => `${i ? "L" : "M"} ${x * MM} ${y * MM}`).join(" ") + " Z";
+  page.drawSvgPath(path, { x: origin.x * MM, y: (SHEET.pageH - origin.y) * MM, color: INK });
+
+  // ── UP, as large as the width allows ────────────────────────────────────
+  const upSize = fitSize("UP", f.kraftig, 110, width - 20, 0.04);
+  centred("UP", 102, f.kraftig, upSize, 0.04);
+
+  pen.rule(left, right, 108, 0.75);
+  const fragile = "FRAGILE · GLASS";
+  centred(fragile, 118.5, f.kraftig, fitSize(fragile, f.kraftig, 26, width, 0.06), 0.06);
+  const upright = "KEEP UPRIGHT · NEVER LAY ON ITS SIDE";
+  centred(upright, 125, f.kraftig, fitSize(upright, f.kraftig, 11, width, 0.04), 0.04);
+}
+
+export async function buildUpLabelsPdf(
+  facts: UpLabelFacts,
+  opts: { perCase: number; startAt?: number },
+  fontBytes: BrandFontBytes,
+): Promise<Uint8Array> {
+  const perCase = Math.floor(opts.perCase);
+  if (!(perCase > 0) || facts.cases.length === 0) throw new Error("Nothing to print.");
+  const startAt = Math.min(Math.max(Math.floor(opts.startAt ?? 1), 1), SHEET.perSheet);
+
+  const { doc, fonts } = await newDoc(fontBytes, `UP labels ${facts.orderNumber}`);
+  let page: PDFPage | null = null;
+  let position = startAt;
+  let n = 0;
+  for (let caseNo = 1; caseNo <= facts.cases.length; caseNo++) {
+    for (let k = 0; k < perCase; k++, n++) {
+      if (!page || position > SHEET.perSheet) {
+        page = doc.addPage([SHEET.pageW * MM, SHEET.pageH * MM]);
+        if (n > 0) position = 1;
+      }
+      const o = labelOrigin(position);
+      drawUpLabel(page, o, fonts);
+      position++;
+    }
   }
   return doc.save();
 }
