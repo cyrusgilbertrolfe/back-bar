@@ -4,7 +4,8 @@
  * QuickBooks connector can only create products, not edit them.
  *
  *   npx tsx --env-file=.env.local --env-file=.env.production.local scripts/erp/push-qb-item-skus.ts          # dry run
- *   npx tsx --env-file=.env.local --env-file=.env.production.local scripts/erp/push-qb-item-skus.ts --write  # apply
+ *   npx tsx --env-file=.env.local --env-file=.env.production.local scripts/erp/push-qb-item-skus.ts --write  # ONE item, read back
+ *   npx tsx --env-file=.env.local --env-file=.env.production.local scripts/erp/push-qb-item-skus.ts --write --all  # the batch
  *
  * Both env files: DATABASE_URL is in .env.local, the Intuit client ID and
  * secret only in .env.production.local. The refresh token comes from the
@@ -19,8 +20,15 @@
  * yes. Where the guess is wrong, pin it in OVERRIDES (by QuickBooks item Id)
  * and run the dry run again.
  *
- * The write is a sparse update of Item.Sku alone; name, price, accounts and
- * stock are left as they are.
+ * The write is a sparse update of Item.Sku alone (sparse=true, Id,
+ * SyncToken, Sku). It has to prove that, because on 24 Aug 2026 the claude.ai
+ * connector's writes to this UK file came out wrong: Service instead of
+ * Stock, no VAT code, income account defaulted to Amazon Refunds. So --write
+ * on its own updates ONE item, reads it back, and fails unless every field
+ * other than Sku, SyncToken and MetaData (Type, IncomeAccountRef,
+ * SalesTaxCodeRef, prices, stock and the rest) is exactly as before. Only once
+ * that has passed does --write --all run the batch, and it reads back and
+ * checks every item the same way, stopping at the first difference.
  */
 
 import { eq } from "drizzle-orm";
@@ -30,6 +38,14 @@ import { clients, drinks, skus } from "../../src/db/schema";
 import { getAccessToken, qbRequest } from "../../src/lib/quickbooks";
 
 const WRITE = process.argv.includes("--write");
+const ALL = process.argv.includes("--all");
+
+/**
+ * Never touched by this script. 364 (Cripps Negroni 3000ml, Sku already
+ * CRPS-NEGR-3000), 365 (Pallet shipping) and 366 (Print origination) were
+ * made by the connector on 20 Oct 2026 and are being repaired by hand.
+ */
+const EXCLUDE = new Set(["364", "365", "366"]);
 
 /**
  * QuickBooks item Id → Back Bar short code, or null for "takes no SKU".
@@ -104,6 +120,32 @@ function candidates(item: QBItem, all: BBSku[]): BBSku[] {
   return hits.filter((s) => norm(s.drink ?? "").length === best || norm(s.drink ?? "") === "");
 }
 
+type ItemJson = Record<string, unknown> & { SyncToken: string; Sku?: string; Type?: string };
+
+async function readItem(token: string, id: string): Promise<ItemJson> {
+  const res = await qbRequest<{ Item: ItemJson }>(token, `item/${id}`);
+  return res.Item;
+}
+
+const refName = (r: unknown) => {
+  const ref = r as { name?: string; value?: string } | undefined;
+  return ref ? `${ref.name ?? ""} (${ref.value ?? ""})` : "none";
+};
+
+/** Every field that differs between two reads of an item, ignoring the ones a Sku update should change. */
+function diffItem(before: ItemJson, after: ItemJson): string[] {
+  const ignore = new Set(["Sku", "SyncToken", "MetaData"]);
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  const out: string[] = [];
+  for (const k of keys) {
+    if (ignore.has(k)) continue;
+    const a = JSON.stringify(before[k]);
+    const b = JSON.stringify(after[k]);
+    if (a !== b) out.push(`${k}: ${a} → ${b}`);
+  }
+  return out;
+}
+
 async function main() {
   console.log(WRITE ? "APPLYING" : "DRY RUN");
 
@@ -136,7 +178,7 @@ async function main() {
     items.push(...page);
     if (page.length < 1000) break;
   }
-  const sellable = items.filter((i) => i.Active && i.Type !== "Category").sort((a, b) => a.Name.localeCompare(b.Name));
+  const sellable = items.filter((i) => i.Active && i.Type !== "Category" && !EXCLUDE.has(i.Id)).sort((a, b) => a.Name.localeCompare(b.Name));
 
   type Plan = { item: QBItem; code: string | null; why: string };
   const plan: Plan[] = [];
@@ -161,7 +203,8 @@ async function main() {
 
   const pad = (s: string, n: number) => (s.length >= n ? s : s + " ".repeat(n - s.length));
 
-  console.log(`\nQuickBooks: ${items.length} items, ${sellable.length} active and sellable. Back Bar: ${bb.length} coded SKUs.\n`);
+  console.log(`\nQuickBooks: ${items.length} items, ${sellable.length} active and sellable. Back Bar: ${bb.length} coded SKUs.`);
+  console.log(`Excluded, being repaired by hand: ${[...EXCLUDE].join(", ")}\n`);
   console.log("PROPOSED MAPPING");
   console.log(`  ${pad("QB Id", 6)} ${pad("QuickBooks item", 48)} ${pad("Sku now", 16)} → ${pad("Sku after", 16)} why`);
   for (const p of plan) {
@@ -194,12 +237,22 @@ async function main() {
     return;
   }
 
-  for (const p of todo) {
+  const batch = ALL ? todo : todo.slice(0, 1);
+  if (!ALL) console.log("Writing ONE item and reading it back. Re-run with --write --all for the rest once it passes.");
+  for (const p of batch) {
+    const before = await readItem(token, p.item.Id);
+    if (before.SyncToken !== p.item.SyncToken) throw new Error(`${p.item.Id} changed since it was read; re-run the dry run`);
     await qbRequest(token, "item", {
       method: "POST",
-      body: { Id: p.item.Id, SyncToken: p.item.SyncToken, sparse: true, Sku: p.code },
+      body: { Id: p.item.Id, SyncToken: before.SyncToken, sparse: true, Sku: p.code },
     });
-    console.log(`  ${p.item.Id} ${p.item.Name}: ${p.item.Sku ?? "-"} → ${p.code}`);
+    const after = await readItem(token, p.item.Id);
+    const changed = diffItem(before, after);
+    if (after.Sku !== p.code) changed.unshift(`Sku is ${String(after.Sku)}, expected ${p.code}`);
+    if (changed.length) {
+      throw new Error(`STOP. ${p.item.Id} ${p.item.Name} changed beyond Sku:\n  ${changed.join("\n  ")}`);
+    }
+    console.log(`  ${p.item.Id} ${p.item.Name}: ${p.item.Sku ?? "-"} → ${p.code}  read back: only Sku changed (Type ${after.Type}, income ${refName(after.IncomeAccountRef)}, VAT ${refName(after.SalesTaxCodeRef)})`);
   }
   console.log("Done.");
 }
