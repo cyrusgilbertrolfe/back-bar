@@ -4,26 +4,52 @@
  * Required environment variables:
  *   QB_CLIENT_ID       — From Intuit Developer Portal
  *   QB_CLIENT_SECRET   — From Intuit Developer Portal
- *   QB_REFRESH_TOKEN   — Long-lived refresh token (see setup guide)
- *   QB_REALM_ID        — Your QuickBooks Company ID
+ *   QB_REFRESH_TOKEN   — Seed only, see below
+ *   QB_REALM_ID        — Your QuickBooks Company ID (seed only, as below)
  *
- * Setup steps:
- *   1. Go to https://developer.intuit.com → Create an app
- *   2. Set OAuth 2.0 redirect URI to https://admin.myattsfields.com/api/qb-callback
- *   3. Note your Client ID and Client Secret
- *   4. Run the OAuth flow once (see api/qb-auth/route.ts) to get refresh token
- *   5. Add all four values to Vercel environment variables
+ * Setup: sign in to Back Bar and visit /api/qb-auth. Intuit's consent screen
+ * sends you back to /api/qb-callback, which stores the refresh token and realm
+ * in system_settings. Nothing needs copying into Vercel.
  *
- * Token refresh: QuickBooks access tokens expire after 1 hour.
- * Refresh tokens expire after 100 days of inactivity.
- * This client auto-refreshes on each call.
+ * Token refresh: access tokens last an hour. Intuit rotates the refresh token
+ * when it hands out a new one, and the old one dies. So the live refresh
+ * token lives in system_settings and is rewritten on every refresh; the env
+ * var only seeds that row the first time. (Until 20 Oct 2026 the env var was
+ * the only copy, never updated, which is why the link kept dying.)
  */
+
+import { eq } from 'drizzle-orm'
+
+import { db } from '@/db'
+import { SETTING_KEYS, systemSettings } from '@/db/schema'
 
 const QB_CLIENT_ID = process.env.QB_CLIENT_ID!
 const QB_CLIENT_SECRET = process.env.QB_CLIENT_SECRET!
-const QB_REFRESH_TOKEN = process.env.QB_REFRESH_TOKEN!
-const QB_REALM_ID = process.env.QB_REALM_ID!
 const QB_BASE_URL = 'https://quickbooks.api.intuit.com'
+const QB_TOKEN_URL = 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer'
+const QB_MINOR_VERSION = 75
+
+async function readSetting(key: string): Promise<string | null> {
+  const [row] = await db.select().from(systemSettings).where(eq(systemSettings.key, key))
+  return row?.value ?? null
+}
+
+async function writeSetting(key: string, value: string): Promise<void> {
+  await db
+    .insert(systemSettings)
+    .values({ key, value })
+    .onConflictDoUpdate({ target: systemSettings.key, set: { value, updatedAt: new Date() } })
+}
+
+/** Store the tokens from Intuit's consent screen. Called by /api/qb-callback. */
+export async function saveQBConnection(refreshToken: string, realmId: string): Promise<void> {
+  await writeSetting(SETTING_KEYS.QB_REFRESH_TOKEN, refreshToken)
+  await writeSetting(SETTING_KEYS.QB_REALM_ID, realmId)
+}
+
+export async function getQBRealmId(): Promise<string | null> {
+  return (await readSetting(SETTING_KEYS.QB_REALM_ID)) ?? process.env.QB_REALM_ID ?? null
+}
 
 export interface QBInvoice {
   Id: string
@@ -60,9 +86,15 @@ export interface QBRevenueData {
   revenueByMonth: Record<string, number>
 }
 
-/** Get a fresh access token using the stored refresh token */
-async function getAccessToken(): Promise<string | null> {
-  if (!QB_CLIENT_ID || !QB_CLIENT_SECRET || !QB_REFRESH_TOKEN) {
+/**
+ * Get a fresh access token, and keep whichever refresh token Intuit hands
+ * back. The database copy wins; the env var is used only while the row is
+ * empty, and is never fallen back to once a stored token has failed.
+ */
+export async function getAccessToken(): Promise<string | null> {
+  const refreshToken =
+    (await readSetting(SETTING_KEYS.QB_REFRESH_TOKEN)) ?? process.env.QB_REFRESH_TOKEN ?? null
+  if (!QB_CLIENT_ID || !QB_CLIENT_SECRET || !refreshToken) {
     console.warn('[QuickBooks] Missing credentials — skipping QB data')
     return null
   }
@@ -70,24 +102,29 @@ async function getAccessToken(): Promise<string | null> {
   const credentials = Buffer.from(`${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`).toString('base64')
 
   try {
-    const res = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+    const res = await fetch(QB_TOKEN_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${credentials}`,
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
       },
       body: new URLSearchParams({
         grant_type: 'refresh_token',
-        refresh_token: QB_REFRESH_TOKEN,
+        refresh_token: refreshToken,
       }),
+      cache: 'no-store',
     })
 
     if (!res.ok) {
-      console.error('[QuickBooks] Token refresh failed:', await res.text())
+      console.error('[QuickBooks] Token refresh failed — re-auth at /api/qb-auth:', await res.text())
       return null
     }
 
     const data = await res.json()
+    if (data.refresh_token) {
+      await writeSetting(SETTING_KEYS.QB_REFRESH_TOKEN, data.refresh_token)
+    }
     return data.access_token
   } catch (err) {
     console.error('[QuickBooks] Token error:', err)
@@ -97,7 +134,8 @@ async function getAccessToken(): Promise<string | null> {
 
 /** Run a QuickBooks query */
 async function qbQuery<T>(accessToken: string, query: string): Promise<T | null> {
-  const url = `${QB_BASE_URL}/v3/company/${QB_REALM_ID}/query?query=${encodeURIComponent(query)}&minorversion=65`
+  const realmId = await getQBRealmId()
+  const url = `${QB_BASE_URL}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}&minorversion=${QB_MINOR_VERSION}`
 
   try {
     const res = await fetch(url, {
@@ -121,10 +159,37 @@ async function qbQuery<T>(accessToken: string, query: string): Promise<T | null>
   }
 }
 
+/**
+ * Call the QuickBooks Accounting API directly, uncached, and throw on any
+ * error. For scripts and writes, where a silent null would hide a failure.
+ * `path` is relative to /v3/company/{realm}/, e.g. "item" or "query?query=…".
+ */
+export async function qbRequest<T>(
+  accessToken: string,
+  path: string,
+  init: { method?: 'GET' | 'POST'; body?: unknown } = {},
+): Promise<T> {
+  const realmId = await getQBRealmId()
+  if (!realmId) throw new Error('[QuickBooks] No realm ID — re-auth at /api/qb-auth')
+  const sep = path.includes('?') ? '&' : '?'
+  const res = await fetch(`${QB_BASE_URL}/v3/company/${realmId}/${path}${sep}minorversion=${QB_MINOR_VERSION}`, {
+    method: init.method ?? 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Accept': 'application/json',
+      ...(init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+    cache: 'no-store',
+  })
+  if (!res.ok) throw new Error(`[QuickBooks] ${init.method ?? 'GET'} ${path} → ${res.status}: ${await res.text()}`)
+  return (await res.json()) as T
+}
+
 /** Main function: fetch QB revenue data for the current year */
 export async function getQBRevenueData(): Promise<QBRevenueData | null> {
   const accessToken = await getAccessToken()
-  if (!accessToken || !QB_REALM_ID) return null
+  if (!accessToken || !(await getQBRealmId())) return null
 
   const currentYear = new Date().getFullYear()
   const since = `${currentYear}-01-01`

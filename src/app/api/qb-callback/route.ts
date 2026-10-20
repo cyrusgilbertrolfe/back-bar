@@ -1,10 +1,13 @@
 /**
- * QuickBooks OAuth callback — exchanges code for refresh token
- * Add REDIRECT_URI = https://admin.myattsfields.com/api/qb-callback
- * to your Intuit app settings
+ * QuickBooks OAuth callback — exchanges the code for a refresh token and
+ * stores it, with the realm, in system_settings (see lib/quickbooks.ts).
+ * REDIRECT_URI = https://admin.myattsfields.com/api/qb-callback must be
+ * listed in the Intuit app's settings.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+
+import { saveQBConnection } from '@/lib/quickbooks'
 
 const CLIENT_ID = process.env.QB_CLIENT_ID!
 const CLIENT_SECRET = process.env.QB_CLIENT_SECRET!
@@ -17,6 +20,11 @@ export async function GET(request: NextRequest) {
 
   if (!code || !realmId) {
     return new NextResponse('Missing code or realmId', { status: 400 })
+  }
+
+  const state = searchParams.get('state')
+  if (!state || state !== request.cookies.get('qb-oauth-state')?.value) {
+    return new NextResponse('State mismatch — start again at /api/qb-auth', { status: 400 })
   }
 
   const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64')
@@ -40,24 +48,18 @@ export async function GET(request: NextRequest) {
     return new NextResponse(`Token exchange failed: ${JSON.stringify(tokenData)}`, { status: 500 })
   }
 
-  const { refresh_token } = tokenData
+  await saveQBConnection(tokenData.refresh_token, realmId)
 
-  // Display the tokens — copy these to Vercel env vars
-  return new NextResponse(
+  const response = new NextResponse(
     `<html><body style="background:#0a0a0a;color:#fff;font-family:monospace;padding:40px">
       <h2 style="color:#C9A84C">✓ QuickBooks Connected</h2>
-      <p>Add these to your Vercel environment variables:</p>
-      <br/>
-      <div style="background:#111;border:1px solid #333;padding:20px;border-radius:8px">
-        <p><strong style="color:#888">QB_REALM_ID</strong><br/><span style="color:#4caf50">${realmId}</span></p>
-        <p><strong style="color:#888">QB_REFRESH_TOKEN</strong><br/><span style="color:#4caf50;word-break:break-all">${refresh_token}</span></p>
-      </div>
-      <br/>
-      <p style="color:#888;font-size:12px">⚠️ Remove or protect /api/qb-auth and /api/qb-callback once setup is complete.</p>
+      <p>Refresh token and realm ${realmId} saved to Back Bar. Nothing to copy.</p>
       <a href="/dashboard" style="display:inline-block;background:#C9A84C;color:#000;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:16px">
         Go to Dashboard →
       </a>
     </body></html>`,
     { headers: { 'Content-Type': 'text/html' } }
   )
+  response.cookies.delete({ name: 'qb-oauth-state', path: '/api/qb-callback' })
+  return response
 }
