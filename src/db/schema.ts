@@ -1124,6 +1124,14 @@ export const SETTING_KEYS = {
   PRICING_VAT: "pricing_vat",
   /** Date the current wholesale price list took effect. Reissued annually after the duty rise. */
   PRICING_LIST_EFFECTIVE_FROM: "pricing_list_effective_from",
+  /**
+   * The live QuickBooks Online refresh token. Intuit rotates it on refresh, so
+   * the copy in Vercel's QB_REFRESH_TOKEN goes stale; this row is the one that
+   * counts. Written by /api/qb-callback and by every refresh in lib/quickbooks.
+   */
+  QB_REFRESH_TOKEN: "qb_refresh_token",
+  /** The QuickBooks company (realm) the refresh token belongs to. */
+  QB_REALM_ID: "qb_realm_id",
 } as const;
 
 export type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS];
