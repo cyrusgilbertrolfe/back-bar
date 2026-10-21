@@ -189,6 +189,12 @@ async function sourcesFor(
  */
 export interface CostOptions {
   asOf?: string;
+  /**
+   * Under `asOf`, cost a SKU whose recipe was not yet recorded by then from
+   * its current recipe rather than as liquid-free. The stock count sets it
+   * (21 Oct 2026); the movement report does not, so its history is unchanged.
+   */
+  currentRecipeBeforeRecords?: boolean;
 }
 
 /** The newest price-history row per component dated on or before `asOf`, and the newest of all. */
@@ -256,17 +262,30 @@ export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Pro
   let liquidTotal = 0;
 
   if (sku.drinkId && sku.clientId) {
+    const versions = asOf
+      ? await db
+          .select()
+          .from(recipes)
+          .where(and(eq(recipes.drinkId, sku.drinkId), eq(recipes.clientId, sku.clientId)))
+      : [];
+    // The latest version that existed by the end of `asOf`.
+    let atDate = versions
+      .filter((r) => r.createdAt.toISOString().slice(0, 10) <= asOf!)
+      .sort((a, b) => b.version - a.version)
+      .slice(0, 1);
+    if (asOf && atDate.length === 0 && opts.currentRecipeBeforeRecords) {
+      // Recipes were first entered in June 2026, so a date before that finds
+      // none. The drink was still made to a recipe, and recipes are set by
+      // flavour and not changed (Cyrus, 19 Sep 2026): the later versions
+      // corrected how a recipe was entered, so the current one is the best
+      // evidence of what was made, better than the first one typed in.
+      atDate = versions.filter((r) => r.isCurrent).slice(0, 1);
+      if (atDate[0]) {
+        problems.push(`No recipe recorded by ${asOf}, so the current one (v${atDate[0].version}) is used`);
+      }
+    }
     const recipeRows = asOf
-      ? // The latest version that existed by the end of `asOf`.
-        (
-          await db
-            .select()
-            .from(recipes)
-            .where(and(eq(recipes.drinkId, sku.drinkId), eq(recipes.clientId, sku.clientId)))
-        )
-          .filter((r) => r.createdAt.toISOString().slice(0, 10) <= asOf)
-          .sort((a, b) => b.version - a.version)
-          .slice(0, 1)
+      ? atDate
       : await db
           .select()
           .from(recipes)

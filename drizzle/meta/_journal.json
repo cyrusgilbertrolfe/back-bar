@@ -176,6 +176,13 @@
       "when": 1792602386307,
       "tag": "0024_invoice_line_duty",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792603005551,
+      "tag": "0025_stock_counts",
+      "breakpoints": true
     }
   ]
 }

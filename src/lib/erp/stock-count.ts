@@ -120,6 +120,19 @@ function skuName(sku: typeof skus.$inferSelect, drinkName: string | undefined, c
   return `${drinkName ?? sku.code} ${sku.sizeMl >= 1000 ? `${sku.sizeMl / 1000}L` : `${sku.sizeMl}ml`}${clientName ? ` (${clientName})` : ""}`;
 }
 
+/**
+ * A rollup's problems, with the run of "No price recorded for X by date"
+ * folded into one line: for a date before price tracking began nearly every
+ * line borrows today's price, and naming each one buries everything else.
+ */
+function condense(problems: string[], asOf: string): string[] {
+  const borrowed = problems.filter((p) => p.startsWith("No price recorded for "));
+  const rest = problems.filter((p) => !p.startsWith("No price recorded for "));
+  if (borrowed.length === 0) return rest;
+  const names = borrowed.map((p) => p.replace(/^No price recorded for /, "").replace(/ by \d{4}-\d{2}-\d{2}, so today's is used$/, ""));
+  return [...rest, `Today's price used for ${borrowed.length} line${borrowed.length === 1 ? "" : "s"} with none recorded by ${asOf}: ${names.join(", ")}`];
+}
+
 /** Runs `fn` over `items` eight at a time, as computeAllSkuCosts does, keeping order. */
 async function bounded<T, R>(items: T[], fn: (t: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
@@ -213,7 +226,7 @@ export async function valueCount(countId: number): Promise<ValuedCount | null> {
         ...bulkSku.values(),
       ]),
     ];
-    const costs = await bounded(toCost, (id) => computeSkuCost(id, { asOf }));
+    const costs = await bounded(toCost, (id) => computeSkuCost(id, { asOf, currentRecipeBeforeRecords: true }));
     for (const c of costs) skuCost.set(c.skuId, c);
 
     compProblems = [];
@@ -247,12 +260,16 @@ export async function valueCount(countId: number): Promise<ValuedCount | null> {
       }
       units = ["bottle"];
       const c = skuCost.get(l.skuId);
-      if (c) {
+      if (c && c.liquid.length === 0) {
+        // A bottle with no recipe is not worth its packaging alone; leave it
+        // unvalued so it is seen and fixed rather than quietly undercounted.
+        costNote = c.problems.join(". ") || "No recipe to cost the liquid from";
+      } else if (c) {
         unitCost = c.total;
         source = c.costSource;
         costNote = [
           `COGS as at ${asOf}: liquid £${c.liquidTotal.toFixed(2)} + packaging £${c.packagingTotal.toFixed(2)} + wastage £${c.wastage.toFixed(2)}`,
-          ...c.problems,
+          ...condense(c.problems, asOf),
         ].join(". ");
       }
     } else if (l.kind === "bulk") {
@@ -267,7 +284,7 @@ export async function valueCount(countId: number): Promise<ValuedCount | null> {
         source = c.liquid.length ? c.costSource : null;
         costNote = [
           `Recipe liquid as at ${asOf}, from ${c.skuCode}: £${((c.liquidTotal / c.sizeMl) * 1000).toFixed(2)}/L + ${(c.wastagePct * 100).toFixed(0)}% wastage`,
-          ...c.problems,
+          ...condense(c.problems, asOf),
         ].join(". ");
       } else if (!closed) {
         costNote = "No SKU of this drink and client to cost the recipe from";
