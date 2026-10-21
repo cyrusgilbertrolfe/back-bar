@@ -23,6 +23,14 @@ const MODULES: HubModule[] = [
     status: "live",
   },
   {
+    href: "/finances/invoice-check",
+    label: "Invoice check",
+    sublabel: "Prices from supplier invoices",
+    description:
+      "Every price a supplier invoice in cocktails@ implies, landed and referenced, waiting for approval. Worked in the Cocktails Weekly; anything moved 10% or more is flagged to query before paying. Nothing is written until approved.",
+    status: "live",
+  },
+  {
     href: "/erp/settings",
     label: "Costing settings",
     sublabel: "Wastage & labour",

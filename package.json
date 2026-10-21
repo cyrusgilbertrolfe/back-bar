@@ -13,7 +13,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx --env-file=.env.local scripts/erp/seed.ts"
+    "db:seed": "tsx --env-file=.env.local scripts/erp/seed.ts",
+    "invoice-check": "tsx --env-file=.env.local scripts/erp/invoice-check.ts",
+    "check:invoice-rules": "tsx scripts/erp/check-invoice-rules.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

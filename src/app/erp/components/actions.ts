@@ -13,7 +13,7 @@ import {
   type NewComponentAbvHistoryRow,
   type NewComponentPriceHistoryRow,
 } from "@/db/schema";
-import { scheduleCogsSnapshot } from "@/lib/erp/cogs-movement";
+import { writeComponentPrice } from "@/lib/erp/price-writer";
 
 const COMPONENT_TYPES = ["ingredient", "sub_recipe", "dry_good", "packaging"] as const;
 const UOMS = ["ml", "g", "each", "m"] as const;
@@ -348,23 +348,22 @@ export async function updateComponent(id: number, form: FormData) {
   if (packCostChanged || packSizeChanged || invoice || splitChanged) {
     const before = `${existing.packSize ?? "?"}${existing.uom} @ £${existing.packCost ?? "?"}`;
     const after = `${payload.packSize}${payload.uom} @ £${payload.packCost}`;
-    const historyRow: NewComponentPriceHistoryRow = {
+    await writeComponentPrice({
       componentId: id,
+      componentName: payload.name,
       supplierId: payload.defaultSupplierId ?? null,
-      unitCost: payload.unitCost!,
-      currency: "GBP",
       uom: payload.uom,
-      effectiveDate: new Date().toISOString().slice(0, 10),
-      source: "manual",
-      ...invoice,
+      packSize: payload.packSize!,
       ...landed,
+      invoice,
+      effectiveDate: new Date().toISOString().slice(0, 10),
       notes:
         packCostChanged || packSizeChanged
           ? `Manual edit: ${before} → ${after}`
           : `Price confirmed by invoice: ${after}`,
-    };
-    await db.insert(componentPriceHistory).values(historyRow);
-    scheduleCogsSnapshot(`price: ${payload.name}`);
+      // Written above with the rest of the form.
+      updateComponent: false,
+    });
   }
 
   // The ABV counterpart of the block above: a changed ABV or product is an

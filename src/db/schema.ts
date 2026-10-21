@@ -1134,6 +1134,225 @@ export const cronRuns = pgTable(
 
 export type CronRun = typeof cronRuns.$inferSelect;
 
+// ─── The invoice price check — roadmap week 6, added 21 Oct 2026 ────────────
+//
+// Claude reads supplier mail from cocktails@ once a day and prepares each price
+// an invoice implies; Cyrus approves them in the Cocktails Weekly. Nothing here
+// writes a price: a proposal becomes a component_price_history row only when
+// approved, through the same writer as the component form. Design:
+// Lifemaxxing, Domains/Cocktails/Back Bar, "2026-10-21 Invoice price check
+// slice 1 [Design]".
+
+export const inboundMessageKindEnum = pgEnum("inbound_message_kind", [
+  "invoice",
+  "credit_note",
+  "quote",
+  "order_confirmation",
+  "delivery_note",
+  "statement",
+  "other",
+]);
+
+/**
+ * The one mailbox capture: every supplier message read from cocktails@, once.
+ * Shared by the invoice price check and purchase tracking, which reads the
+ * quotes, confirmations and delivery notes, so the mailbox is read once for
+ * both. The mail itself stays in the mailbox; this keeps enough to find it
+ * again and to read it without the connector.
+ */
+export const inboundMessages = pgTable(
+  "inbound_messages",
+  {
+    id: serial("id").primaryKey(),
+    /** The mailbox's own message id; capturing a message twice is a no-op. */
+    messageId: text("message_id").notNull().unique(),
+    threadId: text("thread_id"),
+    mailbox: text("mailbox").notNull(),
+    fromAddress: text("from_address").notNull(),
+    subject: text("subject"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull(),
+    kind: inboundMessageKindEnum("kind").notNull(),
+    supplierName: text("supplier_name"),
+    bodyText: text("body_text"),
+    attachmentNames: jsonb("attachment_names").$type<string[]>(),
+    capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("inbound_messages_received_idx").on(t.receivedAt)],
+);
+
+export const supplierInvoiceStatusEnum = pgEnum("supplier_invoice_status", [
+  /** Proposals written and waiting, or some still undecided. */
+  "open",
+  /** Every proposal decided. */
+  "closed",
+  /** Its lines did not add up to its printed net, so nothing was proposed. */
+  "unreadable",
+]);
+
+/** One supplier invoice as printed, at most once per supplier and number. */
+export const supplierInvoices = pgTable(
+  "supplier_invoices",
+  {
+    id: serial("id").primaryKey(),
+    inboundMessageId: integer("inbound_message_id").references(() => inboundMessages.id, {
+      onDelete: "set null",
+    }),
+    supplierName: text("supplier_name").notNull(),
+    invoiceRef: text("invoice_ref").notNull(),
+    invoiceDate: date("invoice_date").notNull(),
+    orderRef: text("order_ref"),
+    attachmentName: text("attachment_name"),
+    /** The printed net before VAT, which every line must add up to. */
+    netTotal: numeric("net_total", { precision: 12, scale: 2 }).notNull(),
+    vat: numeric("vat", { precision: 12, scale: 2 }),
+    total: numeric("total", { precision: 12, scale: 2 }),
+    reconciles: boolean("reconciles").notNull(),
+    status: supplierInvoiceStatusEnum("status").notNull().default("open"),
+    /**
+     * Why this invoice should be seen before Thursday's Weekly: it does not
+     * reconcile, or it belongs to a thread already in dispute. Null if not.
+     */
+    urgentReason: text("urgent_reason"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("supplier_invoices_supplier_ref_uq").on(t.supplierName, t.invoiceRef)],
+);
+
+export const invoiceLineKindEnum = pgEnum("invoice_line_kind", [
+  "goods",
+  /** Delivery, carriage, freight, surcharges: landed cost (Cyrus, 2 Oct 2026). */
+  "fee",
+  /** Pallet charges are landed cost too (Cyrus, 9 Oct 2026). */
+  "pallet",
+  /** Duty printed apart: part of the goods cost, not a fee (Cyrus, 21 Oct 2026). */
+  "duty",
+  /** Never a fee: EPR is its own bill-of-materials line. */
+  "epr",
+  /** £0 lines, FOC and promo freebies: never a price. */
+  "zero",
+  /** Discounts, credits, deposits, anything the rules do not cover. */
+  "other",
+]);
+
+/** Every printed line of an invoice, in order. */
+export const supplierInvoiceLines = pgTable(
+  "supplier_invoice_lines",
+  {
+    id: serial("id").primaryKey(),
+    invoiceId: integer("invoice_id")
+      .notNull()
+      .references(() => supplierInvoices.id, { onDelete: "cascade" }),
+    lineNo: integer("line_no").notNull(),
+    supplierCode: text("supplier_code"),
+    description: text("description").notNull(),
+    qty: numeric("qty", { precision: 12, scale: 3 }),
+    packUnit: text("pack_unit"),
+    lineTotal: numeric("line_total", { precision: 12, scale: 2 }).notNull(),
+    kind: invoiceLineKindEnum("kind").notNull(),
+    /**
+     * For a fee, pallet or duty: the line numbers it is printed against, or null when
+     * it is printed against nothing in particular and is split by goods value.
+     */
+    feeAppliesTo: jsonb("fee_applies_to").$type<number[]>(),
+    /** For goods: the component it is, once matched. */
+    componentId: integer("component_id").references(() => components.id, { onDelete: "set null" }),
+    /** Component packs in one invoice unit: 6 for a case of six bottles. */
+    packsPerUnit: numeric("packs_per_unit", { precision: 12, scale: 3 }),
+    /** The component pack as bought, in its UOM: 700 for a 70cl bottle. */
+    packSize: numeric("pack_size", { precision: 12, scale: 3 }),
+    /** How the match was made: a known supplier code, or Claude's reading, unconfirmed. */
+    matchNote: text("match_note"),
+    /** Set when the line goes to Cyrus to rule instead of being guessed. */
+    issue: text("issue"),
+  },
+  (t) => [uniqueIndex("supplier_invoice_lines_invoice_line_uq").on(t.invoiceId, t.lineNo)],
+);
+
+/**
+ * What a supplier's code is in Back Bar. Written when Cyrus approves a price
+ * read from that code, so a match is confirmed once and is a lookup thereafter.
+ */
+export const supplierItemMap = pgTable(
+  "supplier_item_map",
+  {
+    id: serial("id").primaryKey(),
+    supplierName: text("supplier_name").notNull(),
+    supplierCode: text("supplier_code").notNull(),
+    description: text("description"),
+    componentId: integer("component_id")
+      .notNull()
+      .references(() => components.id, { onDelete: "cascade" }),
+    packsPerUnit: numeric("packs_per_unit", { precision: 12, scale: 3 }).notNull(),
+    packSize: numeric("pack_size", { precision: 12, scale: 3 }).notNull(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("supplier_item_map_supplier_code_uq").on(t.supplierName, t.supplierCode)],
+);
+
+export const priceProposalFlagEnum = pgEnum("price_proposal_flag", [
+  /** No invoice-backed price yet. */
+  "new",
+  /** Same goods price, landed within 1%: confirmed by invoice. */
+  "confirmed",
+  /** Landed moved less than 10%. */
+  "changed",
+  /** Landed moved 10% or more, either way (Cyrus, 21 Oct 2026); urgent only if it rose. */
+  "moved",
+  "pack_size_changed",
+  /** A newer price is already in use; cannot be approved over it. */
+  "older_than_current",
+]);
+
+export const priceProposalStatusEnum = pgEnum("price_proposal_status", [
+  "pending",
+  "approved",
+  "rejected",
+  /** Taken up with the supplier before paying; still undecided. */
+  "queried",
+]);
+
+/** A price an invoice implies, waiting for Cyrus. Per component pack, ex VAT, landed. */
+export const priceProposals = pgTable(
+  "price_proposals",
+  {
+    id: serial("id").primaryKey(),
+    invoiceLineId: integer("invoice_line_id")
+      .notNull()
+      .unique()
+      .references(() => supplierInvoiceLines.id, { onDelete: "cascade" }),
+    componentId: integer("component_id")
+      .notNull()
+      .references(() => components.id, { onDelete: "cascade" }),
+    /** The invoice date (Cyrus, 21 Oct 2026), not the day of approval. */
+    effectiveDate: date("effective_date").notNull(),
+    packSize: numeric("pack_size", { precision: 12, scale: 3 }).notNull(),
+    goodsCost: numeric("goods_cost", { precision: 12, scale: 4 }).notNull(),
+    feesCost: numeric("fees_cost", { precision: 12, scale: 4 }).notNull(),
+    feesNote: text("fees_note"),
+    /** £ per UOM in use when proposed, and as proposed. */
+    currentUnitCost: numeric("current_unit_cost", { precision: 12, scale: 4 }),
+    proposedUnitCost: numeric("proposed_unit_cost", { precision: 12, scale: 4 }).notNull(),
+    changePct: numeric("change_pct", { precision: 8, scale: 2 }),
+    flag: priceProposalFlagEnum("flag").notNull(),
+    /** Should be seen before Thursday: risen 10% or more, or the pack size changed. */
+    urgent: boolean("urgent").notNull().default(false),
+    status: priceProposalStatusEnum("status").notNull().default("pending"),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decisionNote: text("decision_note"),
+    priceHistoryId: integer("price_history_id").references(() => componentPriceHistory.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("price_proposals_status_idx").on(t.status)],
+);
+
+export type InboundMessage = typeof inboundMessages.$inferSelect;
+export type SupplierInvoice = typeof supplierInvoices.$inferSelect;
+export type SupplierInvoiceLine = typeof supplierInvoiceLines.$inferSelect;
+export type PriceProposal = typeof priceProposals.$inferSelect;
+
 // ─── Setting keys ───────────────────────────────────────────────────────────
 
 export const SETTING_KEYS = {

@@ -26,7 +26,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: "Buy",
     href: "/buy",
-    match: ["/buy", "/erp", "/finances/ingredients"],
+    match: ["/buy", "/erp", "/finances/ingredients", "/finances/invoice-check"],
   },
   {
     label: "Make",
