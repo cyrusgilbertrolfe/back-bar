@@ -27,11 +27,11 @@ const MODULES: HubModule[] = [
   },
   {
     href: "/production/audit",
-    label: "Stock Audit",
-    sublabel: "Physical stocktake",
+    label: "Stock Count",
+    sublabel: "Year-end stock figure",
     description:
-      "Run a guided quarterly stocktake, reconcile physical count against the system, and produce a valuation ready for year-end.",
-    status: "soon",
+      "Count every SKU, component and bulk batch against Back Bar's own list, valued at its cost as at the year end, then close it and send the figure to the accountant.",
+    status: "live",
   },
   {
     href: "/production/schedule",
