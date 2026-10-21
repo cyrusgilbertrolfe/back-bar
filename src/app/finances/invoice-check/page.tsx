@@ -58,8 +58,8 @@ export default async function InvoiceCheckPage({
       <Nav />
       <main className="ic-main" style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 40px 96px" }}>
         <p style={{ fontSize: 10, color: COLOR.muted, marginBottom: 20, ...smallCaps }}>
-          <Link href="/finances/ingredients" style={{ color: COLOR.muted }}>
-            Buy · Ingredients
+          <Link href="/buy" style={{ color: COLOR.muted }}>
+            Buy
           </Link>{" "}
           · Invoice check
         </p>
