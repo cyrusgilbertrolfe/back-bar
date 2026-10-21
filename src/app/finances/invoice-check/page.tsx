@@ -58,8 +58,8 @@ export default async function InvoiceCheckPage({
       <Nav />
       <main className="ic-main" style={{ maxWidth: 1180, margin: "0 auto", padding: "48px 40px 96px" }}>
         <p style={{ fontSize: 10, color: COLOR.muted, marginBottom: 20, ...smallCaps }}>
-          <Link href="/finances/ingredients" style={{ color: COLOR.muted }}>
-            Buy · Ingredients
+          <Link href="/buy" style={{ color: COLOR.muted }}>
+            Buy
           </Link>{" "}
           · Invoice check
         </p>
@@ -99,7 +99,14 @@ export default async function InvoiceCheckPage({
           {runs.last && (
             <>
               {" "}
-              Last capture {runs.last.ranAt.toISOString().slice(0, 16).replace("T", " ")}
+              Last capture{" "}
+              {runs.last.ranAt.toLocaleString("en-GB", {
+                timeZone: "Europe/London",
+                day: "numeric",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
               {runs.last.ok ? "" : ", which failed"}.
             </>
           )}
@@ -218,7 +225,7 @@ function InvoiceCard({ inv }: { inv: ListedInvoice }) {
         <div style={{ marginBottom: 14 }}>
           <div className="ic-row ic-head" style={{ padding: "8px 4px", borderBottom: `1px solid ${COLOR.ruleBold}` }}>
             <span>Component · invoice line</span>
-            <span className="ic-hide" style={{ textAlign: "right" }}>Now / unit</span>
+            <span className="ic-hide" style={{ textAlign: "right" }}>Now / pack</span>
             <span style={{ textAlign: "right" }}>Proposed / pack</span>
             <span className="ic-hide" style={{ textAlign: "right" }}>Move</span>
             <span className="ic-hide">Decision</span>
@@ -277,7 +284,10 @@ function ProposalRow({ l }: { l: ListedLine }) {
         {p.feesNote && <p style={{ fontSize: 11, color: COLOR.mutedLight, lineHeight: 1.45 }}>Fees: {p.feesNote}</p>}
       </div>
       <span className="ic-hide" style={{ textAlign: "right", fontFamily: FONT.mono, fontSize: 13, ...tabularNums }}>
-        {money(p.currentUnitCost)}
+        {/* The price in use, on the same pack as the proposal, so the two read side by side. */}
+        {p.currentUnitCost === null ? "—" : money(Number(p.currentUnitCost) * Number(p.packSize))}
+        <br />
+        <span style={{ fontSize: 11, color: COLOR.muted }}>{money(p.currentUnitCost)}/unit</span>
       </span>
       <span style={{ textAlign: "right", fontFamily: FONT.mono, fontSize: 13, ...tabularNums }}>
         {money(Number(p.goodsCost) + Number(p.feesCost))}
