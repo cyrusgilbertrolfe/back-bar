@@ -197,12 +197,25 @@ async function pricesAt(asOf: string) {
   return { at: newestByComponent(rows.filter((r) => r.effectiveDate <= asOf)), newest: newestByComponent(rows) };
 }
 
-export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Promise<SkuCost> {
-  const problems: string[] = [];
-  const asOf = opts.asOf;
-  const historic = asOf ? await pricesAt(asOf) : null;
-  /** £ per UOM: the price in use, or under `asOf` the price recorded by then. */
-  const unitCostOf = (c: typeof components.$inferSelect): number => {
+/**
+ * £ per UOM for a component: the price in use, or under `asOf` the price
+ * recorded by then. Shared with the stock count, so a count valued as at a
+ * date reads the same prices as COGS reconstructed to that date. Each price
+ * borrowed from today is named in `problems`.
+ */
+export async function unitCostResolver(
+  asOf: string | undefined,
+  problems: string[],
+): Promise<(c: typeof components.$inferSelect) => number> {
+  return resolverFrom(asOf ? await pricesAt(asOf) : null, asOf, problems);
+}
+
+function resolverFrom(
+  historic: Awaited<ReturnType<typeof pricesAt>> | null,
+  asOf: string | undefined,
+  problems: string[],
+): (c: typeof components.$inferSelect) => number {
+  return (c) => {
     if (!historic) return perUomCost(c);
     const newest = historic.newest.get(c.id);
     // A price in use with no record behind it cannot be dated, so it stands
@@ -217,6 +230,13 @@ export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Pro
     // the one still in use, take the exact figure the live COGS uses.
     return h.id === newest?.id ? perUomCost(c) : n(h.unitCost);
   };
+}
+
+export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Promise<SkuCost> {
+  const problems: string[] = [];
+  const asOf = opts.asOf;
+  const historic = asOf ? await pricesAt(asOf) : null;
+  const unitCostOf = resolverFrom(historic, asOf, problems);
 
   const [sku] = await db.select().from(skus).where(eq(skus.id, skuId));
   if (!sku) throw new Error(`No SKU with id ${skuId}`);

@@ -1353,6 +1353,96 @@ export type SupplierInvoice = typeof supplierInvoices.$inferSelect;
 export type SupplierInvoiceLine = typeof supplierInvoiceLines.$inferSelect;
 export type PriceProposal = typeof priceProposals.$inferSelect;
 
+// ─── Stock counts ───────────────────────────────────────────────────────────
+
+/**
+ * A stock count and its valuation, for the year-end figure in the accounts
+ * (unparked by Cyrus, 21 Oct 2026; plan in Lifemaxxing, Domains/Cocktails/
+ * Back Bar). It replaces the AUDIT tabs in the buying spreadsheet.
+ *
+ * `asAt` is the date the figure describes (the year end); `countedOn` is when
+ * the count was taken. They differ when a count is wound back to a date that
+ * has passed, as the 31 Mar 2026 count is: that figure is an estimate, and
+ * `basis` says how it was made.
+ *
+ * A draft is valued live from Back Bar's costs as at `asAt`. Closing copies
+ * each line's unit cost and source onto the line, so the figure the accountant
+ * has cannot move when a price is corrected later.
+ */
+export const stockCountStatusEnum = pgEnum("stock_count_status", ["draft", "closed"]);
+
+/**
+ * What a line counts. "finished" is a SKU in bottles; "bulk" is made liquid
+ * not yet bottled, in litres, valued from its recipe; "component" is anything
+ * in the register; "other" is something the register does not carry, valued
+ * at a unit cost typed onto the line.
+ */
+export const stockLineKindEnum = pgEnum("stock_line_kind", ["finished", "bulk", "component", "other"]);
+
+export const stockCounts = pgTable("stock_counts", {
+  id: serial("id").primaryKey(),
+  asAt: date("as_at").notNull(),
+  countedOn: date("counted_on"),
+  countedBy: text("counted_by"),
+  status: stockCountStatusEnum("status").notNull().default("draft"),
+  /** How the figure was made, e.g. "Counted 22 Oct 2026 and wound back to 31 Mar 2026". */
+  basis: text("basis"),
+  notes: text("notes"),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+  /** Frozen on close: the total the accountant was given. */
+  closedTotal: numeric("closed_total", { precision: 12, scale: 2 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const stockCountLines = pgTable(
+  "stock_count_lines",
+  {
+    id: serial("id").primaryKey(),
+    countId: integer("count_id")
+      .notNull()
+      .references(() => stockCounts.id, { onDelete: "cascade" }),
+    kind: stockLineKindEnum("kind").notNull(),
+    skuId: integer("sku_id").references(() => skus.id, { onDelete: "restrict" }),
+    componentId: integer("component_id").references(() => components.id, { onDelete: "restrict" }),
+    /** Bulk lines: the recipe the liquid was made to. */
+    drinkId: integer("drink_id").references(() => drinks.id, { onDelete: "restrict" }),
+    clientId: integer("client_id").references(() => clients.id, { onDelete: "restrict" }),
+    /** "other" lines, and any line that needs naming beyond its item. */
+    description: text("description"),
+    location: text("location").notNull().default("Unit"),
+    /** Null means not counted. Never read as zero. */
+    quantity: numeric("quantity", { precision: 12, scale: 3 }),
+    /**
+     * What `quantity` is in: "bottle" (finished), "litre" (bulk), "pack" or the
+     * component's own uom (component), or free text on an "other" line.
+     */
+    unit: text("unit").notNull(),
+    /** Written down to nil (Cyrus, 21 Oct 2026: obsolete stock goes to nil). Still counted. */
+    obsolete: boolean("obsolete").notNull().default(false),
+    /**
+     * £ per `unit`. Typed for an "other" line; for the rest, written on close
+     * from Back Bar's cost as at the count's date, and null while a draft.
+     */
+    unitCost: numeric("unit_cost", { precision: 12, scale: 4 }),
+    /** Frozen on close: quantity × unit cost, or 0 when obsolete. */
+    value: numeric("value", { precision: 12, scale: 2 }),
+    /** Frozen on close: inbound, manual, placeholder or unsourced. */
+    costSource: text("cost_source"),
+    /** Frozen on close: the working, and any caveat such as a price borrowed from today. */
+    costNote: text("cost_note"),
+    /** How this quantity was arrived at, when it is not a straight count. */
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("stock_count_lines_count_idx").on(t.countId)],
+);
+
+export type StockCount = typeof stockCounts.$inferSelect;
+export type StockCountLine = typeof stockCountLines.$inferSelect;
+export type NewStockCountLine = typeof stockCountLines.$inferInsert;
+
 // ─── Setting keys ───────────────────────────────────────────────────────────
 
 export const SETTING_KEYS = {
