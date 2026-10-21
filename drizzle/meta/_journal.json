@@ -162,6 +162,20 @@
       "when": 1791828544109,
       "tag": "0022_cron_runs",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792601316077,
+      "tag": "0023_invoice_price_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792602386307,
+      "tag": "0024_invoice_line_duty",
+      "breakpoints": true
     }
   ]
 }

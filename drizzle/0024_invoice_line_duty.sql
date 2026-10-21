@@ -1,0 +1,1 @@
+ALTER TYPE "public"."invoice_line_kind" ADD VALUE 'duty' BEFORE 'epr';

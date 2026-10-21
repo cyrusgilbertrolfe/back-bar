@@ -1,4 +1,7 @@
 import HubPage, { HubModule } from "@/components/HubPage";
+import { listInvoices } from "@/lib/erp/invoice-check/list";
+
+export const dynamic = "force-dynamic";
 
 /**
  * BUY — one of the four surfaces (make, buy, sell, analyse). See
@@ -6,6 +9,14 @@ import HubPage, { HubModule } from "@/components/HubPage";
  * the description says plainly that nothing has ever been entered into it.
  */
 const MODULES: HubModule[] = [
+  {
+    href: "/finances/invoice-check",
+    label: "Invoice check",
+    sublabel: "Prices from supplier invoices",
+    description:
+      "Every price a supplier invoice in cocktails@ implies, landed and referenced, waiting for approval. Worked in the Cocktails Weekly; a rise of 10% or more is flagged to query before paying. Nothing is written until approved.",
+    status: "live",
+  },
   {
     href: "/finances/ingredients",
     label: "Ingredient master",
@@ -56,13 +67,31 @@ const MODULES: HubModule[] = [
   },
 ];
 
-export default function BuyPage() {
+/** What the invoice check is waiting on, for its entry here. Never fails the page. */
+async function waitingLine(): Promise<string | null> {
+  try {
+    const invoices = await listInvoices({ includeClosed: false });
+    const waiting = invoices.reduce((n, i) => n + i.pending, 0);
+    const urgent = invoices.filter((i) => i.urgent && (i.pending > 0 || i.status === "unreadable")).length;
+    if (waiting === 0 && urgent === 0) return "Nothing waiting.";
+    return `${waiting} price${waiting === 1 ? "" : "s"} waiting${urgent ? `, ${urgent} urgent invoice${urgent === 1 ? "" : "s"}` : ""}.`;
+  } catch (err) {
+    console.error("[buy] could not count the invoice check", err);
+    return null;
+  }
+}
+
+export default async function BuyPage() {
+  const line = await waitingLine();
+  const modules = line
+    ? MODULES.map((m) => (m.href === "/finances/invoice-check" ? { ...m, sublabel: line } : m))
+    : MODULES;
   return (
     <HubPage
       eyebrow="Buy"
       title="What we buy, and what it costs"
       intro="The component master and the costs underneath every price in the business. The cost layer is real and populated; receiving and stock are parked."
-      modules={MODULES}
+      modules={modules}
     />
   );
 }
