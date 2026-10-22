@@ -13,6 +13,7 @@ import { db } from "@/db";
 import { cronRuns, type CronRun } from "@/db/schema";
 
 export const COGS_CHECK_JOB = "cogs-snapshot";
+export const INVOICE_CHECK_JOB = "invoice-check";
 
 /**
  * Record one run. Never throws: a failure to write the record is logged and
