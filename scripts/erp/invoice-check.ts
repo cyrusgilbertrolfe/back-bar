@@ -3,7 +3,9 @@
  *
  * The daily capture on the Mini reads cocktails@ through the Superhuman
  * connector and writes one JSON capture per supplier message (the shape in
- * src/lib/erp/invoice-check/extraction.ts). This reads them, records each
+ * src/lib/erp/invoice-check/extraction.ts). Its instructions live in
+ * Lifemaxxing, not here: Domains/Cocktails/Back Bar, "Invoice check capture -
+ * the standing instruction [Living reference]". This reads the captures, records each
  * message once, and for an invoice writes its lines and a price proposal per
  * matched goods line to the approval list at /finances/invoice-check.
  *
