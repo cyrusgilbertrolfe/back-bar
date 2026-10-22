@@ -2,7 +2,7 @@ import Link from "next/link";
 import Nav from "@/components/Nav";
 import { COLOR, FONT, smallCaps, tabularNums } from "@/lib/design";
 import { fmtCostDate } from "@/lib/erp/provenance";
-import { lastCronRuns } from "@/lib/erp/cron-runs";
+import { INVOICE_CHECK_JOB, lastCronRuns } from "@/lib/erp/cron-runs";
 import { listInvoices, type ListedInvoice, type ListedLine } from "@/lib/erp/invoice-check/list";
 import { CONFIRMED_WITHIN, MOVED_AT } from "@/lib/erp/invoice-check/rules";
 import { approveConfirmed, approveProposal, queryProposal, rejectProposal } from "./actions";
@@ -47,7 +47,7 @@ export default async function InvoiceCheckPage({
 }) {
   const { show } = await searchParams;
   const includeClosed = show === "all";
-  const [invoices, runs] = await Promise.all([listInvoices({ includeClosed }), lastCronRuns("invoice-check")]);
+  const [invoices, runs] = await Promise.all([listInvoices({ includeClosed }), lastCronRuns(INVOICE_CHECK_JOB)]);
 
   const waiting = invoices.reduce((n, i) => n + i.pending, 0);
   const urgent = invoices.filter((i) => i.urgent && (i.pending > 0 || i.status === "unreadable")).length;

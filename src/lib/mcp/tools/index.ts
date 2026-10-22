@@ -14,6 +14,7 @@ import { revenueTools } from "./revenue";
 import { writeTools } from "./writes";
 import { salesTools } from "./sales";
 import { recipeTools } from "./recipes";
+import { invoiceCheckTools } from "./invoice-check";
 
 export const TOOL_MODULES: ToolModule[] = [
   { domain: "pricing", tools: pricingTools },
@@ -22,4 +23,5 @@ export const TOOL_MODULES: ToolModule[] = [
   { domain: "writes", tools: writeTools },
   { domain: "sales", tools: salesTools },
   { domain: "recipes", tools: recipeTools },
+  { domain: "invoice-check", tools: invoiceCheckTools },
 ];

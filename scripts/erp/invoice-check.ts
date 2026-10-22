@@ -1,11 +1,10 @@
 /**
  * The invoice price check's propose step (roadmap week 6, 21 Oct 2026).
  *
- * The daily capture on the Mini reads cocktails@ through the Superhuman
- * connector and writes one JSON capture per supplier message (the shape in
- * src/lib/erp/invoice-check/extraction.ts). Its instructions live in
- * Lifemaxxing, not here: Domains/Cocktails/Back Bar, "Invoice check capture -
- * the standing instruction [Living reference]". This reads the captures, records each
+ * The daily capture submits through the Back Bar connector instead
+ * (src/lib/mcp/tools/invoice-check.ts), using the same planCapture and
+ * recordCapture. This command is for backfill and testing: it reads JSON
+ * captures (the shape in src/lib/erp/invoice-check/extraction.ts) from disk, records each
  * message once, and for an invoice writes its lines and a price proposal per
  * matched goods line to the approval list at /finances/invoice-check.
  *
@@ -18,11 +17,9 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { recordCronRun } from "@/lib/erp/cron-runs";
+import { INVOICE_CHECK_JOB, recordCronRun } from "@/lib/erp/cron-runs";
 import { parseCapture } from "@/lib/erp/invoice-check/extraction";
 import { planCapture, recordCapture, type Plan } from "@/lib/erp/invoice-check/propose";
-
-export const INVOICE_CHECK_JOB = "invoice-check";
 
 function files(args: string[]): string[] {
   return args.flatMap((a) =>
