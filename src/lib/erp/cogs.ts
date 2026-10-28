@@ -29,6 +29,7 @@ import {
   recipeLines,
   skus,
   skuComponents,
+  skuSetLines,
   systemSettings,
   SETTING_KEYS,
 } from "@/db/schema";
@@ -78,6 +79,24 @@ export interface CostLine {
   suppliedByCustomer?: boolean;
 }
 
+/**
+ * One SKU inside a set, e.g. the Vesper 50ml in the Martini Flight, at its own
+ * full COGS: liquid, packaging and wastage, exactly as if it were sold alone.
+ */
+export interface SetItemCost {
+  skuId: number;
+  code: string;
+  name: string;
+  /** How many go in one set. */
+  quantity: number;
+  /** The child's own COGS per unit. */
+  unitTotal: number;
+  /** quantity x unitTotal. */
+  cost: number;
+  source: CostSource | null;
+  setAt: string | null;
+}
+
 export interface SkuCost {
   skuId: number;
   skuCode: string;
@@ -94,6 +113,17 @@ export interface SkuCost {
   /** Bill-of-materials rows deliberately excluded from COGS, e.g. carriage. */
   excluded: CostLine[];
 
+  /**
+   * A set's contents (sku_set_lines), each at its own COGS. Empty for
+   * anything that is not a set. Added 28 Oct 2026.
+   */
+  items: SetItemCost[];
+  itemsTotal: number;
+
+  /**
+   * Liquid + packaging + items. Wastage is applied to liquid and packaging
+   * only: an item's total already carries its own wastage.
+   */
   subtotal: number;
   wastagePct: number;
   wastage: number;
@@ -128,6 +158,11 @@ export interface SkuCost {
   unsourcedLines: number;
   /** Structural problems, e.g. no current recipe for this client. */
   problems: string[];
+}
+
+/** Internal: the sets being costed above this one, to refuse a set inside itself. */
+interface CostContext {
+  path: number[];
 }
 
 function n(v: string | number | null | undefined): number {
@@ -238,7 +273,11 @@ function resolverFrom(
   };
 }
 
-export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Promise<SkuCost> {
+export async function computeSkuCost(
+  skuId: number,
+  opts: CostOptions = {},
+  ctx: CostContext = { path: [] },
+): Promise<SkuCost> {
   const problems: string[] = [];
   const asOf = opts.asOf;
   const historic = asOf ? await pricesAt(asOf) : null;
@@ -253,6 +292,8 @@ export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Pro
   const [client] = sku.clientId
     ? await db.select().from(clients).where(eq(clients.id, sku.clientId))
     : [undefined];
+
+  const setLines = await db.select().from(skuSetLines).where(eq(skuSetLines.setSkuId, skuId));
 
   const allComponents = await db.select().from(components);
   const compById = new Map(allComponents.map((c) => [c.id, c]));
@@ -338,7 +379,8 @@ export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Pro
         });
       }
     }
-  } else {
+  } else if (setLines.length === 0) {
+    // A set has no recipe of its own: its liquid is in its items.
     problems.push("SKU has no drink or no client, so no recipe can be resolved");
   }
 
@@ -382,6 +424,34 @@ export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Pro
     }
   }
 
+  // ── Set contents ─────────────────────────────────────────────────────────
+  const items: SetItemCost[] = [];
+  const itemCosts: SkuCost[] = [];
+  let itemsTotal = 0;
+
+  for (const sl of setLines) {
+    if (ctx.path.includes(sl.childSkuId)) {
+      problems.push(`Set contains SKU ${sl.childSkuId}, which contains this set, so it is left out`);
+      continue;
+    }
+    const child = await computeSkuCost(sl.childSkuId, opts, { path: [...ctx.path, skuId] });
+    const qty = n(sl.quantity);
+    const cost = child.total * qty;
+    itemsTotal += cost;
+    itemCosts.push(child);
+    items.push({
+      skuId: child.skuId,
+      code: child.skuCode,
+      name: child.drinkName ? `${child.drinkName} ${child.sizeMl}ml` : child.skuCode,
+      quantity: qty,
+      unitTotal: child.total,
+      cost,
+      source: child.costSource,
+      setAt: child.costAsOf,
+    });
+    for (const p of child.problems) problems.push(`${child.skuCode}: ${p}`);
+  }
+
   // ── Provenance ───────────────────────────────────────────────────────────
   const all = [...liquid, ...packaging, ...excluded];
   const srcMap = historic
@@ -403,21 +473,33 @@ export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Pro
   }
 
   const inCogs = [...liquid, ...packaging];
-  const subtotal = liquidTotal + packagingTotal;
-  const invoiceBacked = inCogs
-    .filter((l) => l.source === "inbound")
-    .reduce((s, l) => s + l.cost, 0);
-  const unsourced = inCogs
-    .filter((l) => l.source === "unsourced")
-    .map((l) => `${l.name} (£${round(l.cost, 2).toFixed(2)})`);
-  const placeholders = inCogs
-    .filter((l) => l.source === "placeholder")
-    .map((l) => `${l.name} (£${round(l.cost, 2).toFixed(2)})`);
+  const own = liquidTotal + packagingTotal;
+  const subtotal = own + itemsTotal;
+  // An item's invoice-backed share is taken of its whole cost, wastage included.
+  const invoiceBacked =
+    inCogs.filter((l) => l.source === "inbound").reduce((s, l) => s + l.cost, 0) +
+    items.reduce((s, it, i) => s + (itemCosts[i].invoiceBackedPct / 100) * it.cost, 0);
+  // An item's gaps are named under its code, so a set never hides one.
+  const unsourced = [
+    ...inCogs
+      .filter((l) => l.source === "unsourced")
+      .map((l) => `${l.name} (£${round(l.cost, 2).toFixed(2)})`),
+    ...itemCosts.flatMap((c) => c.unsourced.map((u) => `${c.skuCode}: ${u}`)),
+  ];
+  const placeholders = [
+    ...inCogs
+      .filter((l) => l.source === "placeholder")
+      .map((l) => `${l.name} (£${round(l.cost, 2).toFixed(2)})`),
+    ...itemCosts.flatMap((c) => c.placeholders.map((u) => `${c.skuCode}: ${u}`)),
+  ];
 
-  const { costSource, costAsOf } = summariseProvenance(inCogs);
+  const { costSource, costAsOf } = summariseProvenance([
+    ...inCogs,
+    ...items.map((it) => ({ source: it.source ?? ("unsourced" as const), setAt: it.setAt })),
+  ]);
 
   const pct = await wastagePct();
-  const wastage = subtotal * pct;
+  const wastage = own * pct;
 
   return {
     skuId: sku.id,
@@ -430,6 +512,8 @@ export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Pro
     packaging,
     packagingTotal: round(packagingTotal),
     excluded,
+    items,
+    itemsTotal: round(itemsTotal),
     subtotal: round(subtotal),
     wastagePct: pct,
     wastage: round(wastage),
@@ -439,7 +523,9 @@ export async function computeSkuCost(skuId: number, opts: CostOptions = {}): Pro
     costAsOf,
     unsourced,
     placeholders,
-    unsourcedLines: inCogs.filter((l) => l.source === "unsourced").length,
+    unsourcedLines:
+      inCogs.filter((l) => l.source === "unsourced").length +
+      itemCosts.reduce((s, c) => s + c.unsourcedLines, 0),
     problems,
   };
 }

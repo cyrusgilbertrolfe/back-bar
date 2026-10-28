@@ -154,7 +154,7 @@ URL: myattsfields.london/products/manhattan-taster
 Three bold sour cocktails in one curated box. Six 50ml bottles.
 URL: myattsfields.london/products/sours-taster
 
-**Martini Flight** | £20 (six 50ml) / £92 (six 250ml)
+**Martini Flight** | £35 (six 50ml) / £92 (six 250ml)
 The Martini range in one set. For the Martini obsessive.
 URL: myattsfields.london/products/martini-flight
 

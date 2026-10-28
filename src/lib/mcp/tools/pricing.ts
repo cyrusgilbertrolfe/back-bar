@@ -23,7 +23,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 /** One line of a COGS build, as exposed by get_drink. */
 interface CostLineView {
   name: string;
-  /** 'liquid' for recipe ingredients, otherwise the bill-of-materials role. */
+  /** 'liquid' for recipe ingredients, 'set_item' for a SKU inside a set, otherwise the bill-of-materials role. */
   kind: string;
   cost: number;
   source: CostSource;
@@ -88,14 +88,16 @@ function withoutLines(record: DrinkRecord): DrinkView {
 async function buildDrinks(): Promise<DrinkRecord[]> {
   const [profitability, skuRows] = await Promise.all([
     computeAllProfitability(),
-    db.select({ id: skus.id, gtin: skus.gtin }).from(skus),
+    db.select({ id: skus.id, gtin: skus.gtin, description: skus.customerDescription }).from(skus),
   ]);
   const gtinById = new Map(skuRows.map((s) => [s.id, s.gtin]));
+  // A set has no drink, so it is named by its description: "The Martini Flight".
+  const descriptionById = new Map(skuRows.map((s) => [s.id, s.description]));
 
   return profitability.map((p) => ({
     skuId: p.skuId,
     code: p.code,
-    name: p.drinkName ?? p.code,
+    name: p.drinkName ?? descriptionById.get(p.skuId) ?? p.code,
     clientName: p.clientName,
     size: `${p.sizeMl}ml`,
     ean: gtinById.get(p.skuId) ?? null,
@@ -120,14 +122,24 @@ async function buildDrinks(): Promise<DrinkRecord[]> {
     placeholders: p.cost.placeholders,
     problems: p.cost.problems,
     unsourcedLines: p.cost.unsourcedLines,
-    costLines: [...p.cost.liquid, ...p.cost.packaging].map((l) => ({
-      name: l.name,
-      kind: l.kind,
-      cost: round2(l.cost),
-      source: l.source,
-      setAt: l.setAt,
-      invoice: l.invoice,
-    })),
+    costLines: [
+      ...p.cost.items.map((it) => ({
+        name: `${it.quantity} × ${it.name}`,
+        kind: "set_item",
+        cost: round2(it.cost),
+        source: it.source ?? ("unsourced" as const),
+        setAt: it.setAt,
+        invoice: null,
+      })),
+      ...[...p.cost.liquid, ...p.cost.packaging].map((l) => ({
+        name: l.name,
+        kind: l.kind,
+        cost: round2(l.cost),
+        source: l.source,
+        setAt: l.setAt,
+        invoice: l.invoice,
+      })),
+    ],
   }));
 }
 

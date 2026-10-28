@@ -100,6 +100,11 @@ export const skuComponentRoleEnum = pgEnum("sku_component_role", [
   "epr",
   "outer_carton",
   "shipping",
+  /**
+   * Printed matter that goes in a set's box: a brochure, a card. Added 28 Oct
+   * 2026 for the Martini Flight. In COGS, like the box it sits in.
+   */
+  "insert",
 ]);
 
 // ─── Suppliers — spec §5.1 ──────────────────────────────────────────────────
@@ -769,6 +774,45 @@ export const skuComponents = pgTable(
     index("sku_components_component_idx").on(t.componentId),
     uniqueIndex("sku_components_sku_component_uq").on(t.skuId, t.componentId),
     check("sku_components_qty_positive", sql`${t.quantity} > 0`),
+  ],
+);
+
+/**
+ * What a set contains: other SKUs, and how many of each. Added 28 Oct 2026 for
+ * the Martini Flight, six 50ml bottles in a gift box.
+ *
+ * A set's COGS is built, never typed: each child is costed by the same engine
+ * as if it were sold alone, and its total is added. The box, brochure and the
+ * rest go on the set's own bill of materials in `sku_components` as usual.
+ * Wastage is applied to a child once, inside its own total, and to the set's
+ * own dry goods once; it is never applied to a child a second time.
+ *
+ * A table of its own rather than a nullable column on `sku_components`, so a
+ * bill-of-materials row always names a component and nothing that reads one
+ * has to learn that it might not.
+ */
+export const skuSetLines = pgTable(
+  "sku_set_lines",
+  {
+    id: serial("id").primaryKey(),
+    setSkuId: integer("set_sku_id")
+      .notNull()
+      .references(() => skus.id, { onDelete: "cascade" }),
+    childSkuId: integer("child_sku_id")
+      .notNull()
+      .references(() => skus.id, { onDelete: "restrict" }),
+    /** How many of the child go in one set. Usually 1. */
+    quantity: numeric("quantity", { precision: 12, scale: 4 }).notNull().default("1"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("sku_set_lines_set_idx").on(t.setSkuId),
+    index("sku_set_lines_child_idx").on(t.childSkuId),
+    uniqueIndex("sku_set_lines_set_child_uq").on(t.setSkuId, t.childSkuId),
+    check("sku_set_lines_qty_positive", sql`${t.quantity} > 0`),
+    check("sku_set_lines_not_self", sql`${t.setSkuId} <> ${t.childSkuId}`),
   ],
 );
 

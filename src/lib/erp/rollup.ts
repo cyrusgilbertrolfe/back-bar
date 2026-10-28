@@ -276,18 +276,40 @@ export async function buildCostRollup(skuId: number): Promise<CostRollup> {
     working: b.packaging.length > 0 ? `${b.packaging.length} bill of materials ${b.packaging.length === 1 ? "line" : "lines"}, summed` : null,
     children: b.packaging.map((l) => lineNode(l, b, ctx, "packaging", false)),
   };
+  const isSet = b.items.length > 0;
+  // A set's items are costed in full, wastage included, by their own rollups.
+  const items: RollupNode = {
+    key: "items",
+    label: "Set contents, each at its own COGS",
+    amount: b.itemsTotal,
+    working: `${b.items.length} ${b.items.length === 1 ? "SKU" : "SKUs"}, summed`,
+    children: b.items.map((it) => ({
+      key: `item-${it.skuId}`,
+      label: it.name,
+      amount: it.cost,
+      working: `${it.quantity} × ${gbp(it.unitTotal)}, the ${it.code} COGS with its own wastage`,
+      source: it.source ?? undefined,
+      setAt: it.setAt,
+      children: [],
+    })),
+  };
+  const own = b.liquidTotal + b.packagingTotal;
   const subtotal: RollupNode = {
     key: "subtotal",
     label: "Subtotal",
     amount: b.subtotal,
-    working: `${gbp(b.liquidTotal)} liquid + ${gbp(b.packagingTotal)} packaging`,
-    children: [liquid, packaging],
+    working: isSet
+      ? `${gbp(b.itemsTotal)} set contents + ${gbp(b.packagingTotal)} packaging`
+      : `${gbp(b.liquidTotal)} liquid + ${gbp(b.packagingTotal)} packaging`,
+    children: isSet ? [items, packaging] : [liquid, packaging],
   };
   const wastage: RollupNode = {
     key: "wastage",
     label: "Wastage",
     amount: b.wastage,
-    working: `${(b.wastagePct * 100).toFixed(1)}% of the ${gbp(b.subtotal)} subtotal (Settings)`,
+    working: isSet
+      ? `${(b.wastagePct * 100).toFixed(1)}% of the set's own ${gbp(own)} packaging (Settings); the contents carry their own`
+      : `${(b.wastagePct * 100).toFixed(1)}% of the ${gbp(b.subtotal)} subtotal (Settings)`,
     children: [],
   };
 
