@@ -442,7 +442,11 @@ function SkuDetail({ breakdown: b }: { breakdown: SkuCost }) {
           padding: "16px 0",
         }}
       >
-        <SummaryStat label="Liquid" value={fmt(b.liquidTotal)} />
+        {b.items.length > 0 ? (
+          <SummaryStat label="Set contents" value={fmt(b.itemsTotal)} />
+        ) : (
+          <SummaryStat label="Liquid" value={fmt(b.liquidTotal)} />
+        )}
         <SummaryStat label="Packaging" value={fmt(b.packagingTotal)} />
         <SummaryStat
           label={`Wastage (${(b.wastagePct * 100).toFixed(1)}%)`}
@@ -475,6 +479,22 @@ function SkuDetail({ breakdown: b }: { breakdown: SkuCost }) {
         </div>
       )}
 
+      {b.items.length > 0 && (
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+          <tbody>
+            {b.items.map((it) => (
+              <tr key={it.skuId}>
+                <td style={{ padding: "8px 12px", fontFamily: FONT.serif }}>
+                  {it.quantity} × {it.name}{" "}
+                  <span style={{ color: COLOR.muted, fontSize: 12 }}>at its own COGS, {fmt(it.unitTotal)}</span>
+                </td>
+                <td style={numCellStyle(COLOR.inkSoft)}>{fmt(it.cost)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
       {b.liquid.length > 0 && (
         <LineTable title={`Liquid, ${b.sizeMl} ml bottle`} lines={b.liquid} total={b.liquidTotal} totalLabel="Liquid subtotal" />
       )}
@@ -498,7 +518,7 @@ function SkuDetail({ breakdown: b }: { breakdown: SkuCost }) {
         <tbody>
           <tr>
             <td style={{ padding: "8px 12px", fontSize: 12, color: COLOR.muted, fontFamily: FONT.serif, fontStyle: "italic" }}>
-              Subtotal (liquid + packaging)
+              Subtotal ({b.items.length > 0 ? "set contents" : "liquid"} + packaging)
             </td>
             <td style={numCellStyle(COLOR.inkSoft)}>{fmt(b.subtotal)}</td>
           </tr>
