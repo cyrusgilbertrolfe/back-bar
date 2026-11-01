@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
@@ -37,6 +38,27 @@ function groupBy(lines: ValuedLine[]): [string, ValuedLine[]][] {
     .map(([g, ls]) => [g, ls.sort((a, b) => a.name.localeCompare(b.name) || a.line.location.localeCompare(b.line.location))]);
 }
 
+/** "50ml" → 50, "3L" → 3000, for ordering sizes under a drink. */
+function sizeMl(label: string | null): number {
+  if (!label) return 0;
+  const x = parseFloat(label);
+  return label.endsWith("L") && !label.endsWith("ml") ? x * 1000 : x;
+}
+
+/** A client's finished goods by drink, each drink's sizes smallest first. */
+function byDrink(lines: ValuedLine[]): [string, ValuedLine[]][] {
+  const m = new Map<string, ValuedLine[]>();
+  for (const l of lines) m.set(l.drink ?? l.name, [...(m.get(l.drink ?? l.name) ?? []), l]);
+  return [...m.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([d, ls]) => [d, ls.sort((a, b) => sizeMl(a.size) - sizeMl(b.size) || a.line.location.localeCompare(b.line.location))]);
+}
+
+/** Lines whose cost leans on today's prices or recipe because none was recorded by the count's date. */
+function borrowsToday(l: ValuedLine): boolean {
+  return l.caveats.some((c) => /today's|current one/.test(c));
+}
+
 /**
  * One stock count: walk the list, type what is there, and the value builds up
  * as you go. Closing freezes it for the accountant.
@@ -64,7 +86,32 @@ export default async function StockCountPage({
     show === "counted" ? l.line.quantity != null : show === "uncounted" ? l.line.quantity == null : true,
   );
   const counted = v.lines.filter((l) => l.line.quantity != null).length;
+  const borrowed = v.lines.filter((l) => l.line.quantity != null && borrowsToday(l)).length;
   const estimate = count.countedOn != null && count.countedOn !== count.asAt;
+
+  const row = (l: ValuedLine, name: string, nested: boolean) => (
+    <LineRow
+      key={l.line.id}
+      countId={count.id}
+      lineId={l.line.id}
+      name={name}
+      nested={nested}
+      units={l.units}
+      quantity={l.line.quantity}
+      unit={l.line.unit}
+      obsolete={l.line.obsolete}
+      note={l.line.note}
+      location={l.line.location}
+      unitCost={l.unitCost}
+      value={l.value}
+      source={l.source}
+      placeholderFlag={l.line.kind === "component"}
+      working={l.working}
+      caveats={l.caveats}
+      closed={closed}
+      removable={l.line.kind === "bulk" || l.line.kind === "other" || l.line.location !== "Unit"}
+    />
+  );
 
   return (
     <div style={{ background: COLOR.paper, color: COLOR.ink, minHeight: "100vh" }}>
@@ -112,6 +159,12 @@ export default async function StockCountPage({
           ) : null}
           <a href={`/production/audit/${count.id}/export`} style={{ color: COLOR.accent }}>Download CSV</a>
         </p>
+        {borrowed > 0 && (
+          <p style={{ fontSize: 12, color: COLOR.inkSoft, margin: "-20px 0 32px", maxWidth: 720 }}>
+            {borrowed} of the counted lines are costed at today&apos;s prices or recipe, because Back Bar holds no record of
+            them from before {count.asAt}. Each line&apos;s &ldquo;More&rdquo; says which.
+          </p>
+        )}
 
         {/* Count details */}
         <details style={{ marginBottom: 32 }}>
@@ -162,26 +215,20 @@ export default async function StockCountPage({
                           <td colSpan={5} style={{ padding: "16px 8px 4px", fontSize: 11, color: COLOR.accent, ...smallCaps }}>{group}</td>
                         </tr>
                       )}
-                      {ls.map((l) => (
-                        <LineRow
-                          key={l.line.id}
-                          countId={count.id}
-                          lineId={l.line.id}
-                          name={l.name}
-                          units={l.units}
-                          quantity={l.line.quantity}
-                          unit={l.line.unit}
-                          obsolete={l.line.obsolete}
-                          note={l.line.note}
-                          location={l.line.location}
-                          unitCost={l.unitCost}
-                          value={l.value}
-                          source={l.source}
-                          costNote={l.costNote}
-                          closed={closed}
-                          removable={l.line.kind === "bulk" || l.line.kind === "other" || l.line.location !== "Unit"}
-                        />
-                      ))}
+                      {k === "finished"
+                        ? byDrink(ls).map(([drink, sizes]) => (
+                            <Fragment key={drink}>
+                              <tr>
+                                <td colSpan={3} style={{ padding: "12px 8px 2px", fontSize: 14, color: COLOR.ink }}>{drink}</td>
+                                <td style={{ padding: "12px 8px 2px", textAlign: "right", fontSize: 12, color: COLOR.muted, ...tabularNums }}>
+                                  {sizes.some((l) => (l.value ?? 0) > 0) ? gbp(sizes.reduce((t, l) => t + (l.value ?? 0), 0)) : ""}
+                                </td>
+                                <td />
+                              </tr>
+                              {sizes.map((l) => row(l, l.size ?? l.name, true))}
+                            </Fragment>
+                          ))
+                        : ls.map((l) => row(l, l.name, false))}
                     </tbody>
                   ))}
                 </table>
