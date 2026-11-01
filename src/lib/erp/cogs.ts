@@ -230,6 +230,14 @@ export interface CostOptions {
    * (21 Oct 2026); the movement report does not, so its history is unchanged.
    */
   currentRecipeBeforeRecords?: boolean;
+  /**
+   * Under `asOf`, a line whose price is borrowed from today takes today's
+   * source too. Without it the line reads unsourced, which for a count dated
+   * before price tracking began marks nearly everything unsourced, invoiced
+   * or not (Cyrus, 1 Nov 2026). The stock count sets it; the movement report
+   * does not, so its history is unchanged.
+   */
+  borrowedTakeTodaysSource?: boolean;
 }
 
 /** The newest price-history row per component dated on or before `asOf`, and the newest of all. */
@@ -462,6 +470,10 @@ export async function computeSkuCost(
         ]),
       )
     : await sourcesFor(compById, all.map((l) => l.componentId));
+  if (historic && opts.borrowedTakeTodaysSource) {
+    const borrowed = all.map((l) => l.componentId).filter((id) => !srcMap.has(id));
+    for (const [id, s] of await sourcesFor(compById, borrowed)) srcMap.set(id, s);
+  }
   for (const l of all) {
     const s = srcMap.get(l.componentId);
     if (s) {

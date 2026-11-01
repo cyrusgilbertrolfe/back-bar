@@ -53,6 +53,16 @@ export interface ValuedLine {
   name: string;
   /** Grouping within its kind: the client for a SKU, the type and store for a component. */
   group: string;
+  /** Finished goods only: the drink, under which its sizes are listed. */
+  drink: string | null;
+  /** Finished goods only: the size, "500ml" or "3L". */
+  size: string | null;
+  /** The cost in one short line: "liquid £15.21 + packaging £1.90 + wastage £0.43". */
+  working: string | null;
+  /** What the cost stands on that a reader should know, e.g. a price borrowed from today. */
+  caveats: string[];
+  /** Share of the value that traces to a supplier invoice, 0 to 1. */
+  invoicedShare: number;
   /** Units the quantity may be entered in, the first being the default. */
   units: string[];
   /** £ per `line.unit`, or null when it cannot be valued. */
@@ -116,8 +126,32 @@ const TYPE_LABEL: Record<string, string> = {
   packaging: "Packaging",
 };
 
+function sizeLabel(ml: number): string {
+  return ml >= 1000 ? `${ml / 1000}L` : `${ml}ml`;
+}
+
 function skuName(sku: typeof skus.$inferSelect, drinkName: string | undefined, clientName: string | undefined) {
-  return `${drinkName ?? sku.code} ${sku.sizeMl >= 1000 ? `${sku.sizeMl / 1000}L` : `${sku.sizeMl}ml`}${clientName ? ` (${clientName})` : ""}`;
+  return `${drinkName ?? sku.code} ${sizeLabel(sku.sizeMl)}${clientName ? ` (${clientName})` : ""}`;
+}
+
+/** Own-brand formats we never make (Cyrus, 1 Nov 2026), by SKU code. */
+const NEVER_MADE = new Set(["tuxedo-500"]);
+
+/**
+ * Whether a SKU is ever held as finished bottles, and so belongs on a count.
+ * The 5L formats are filled to order from bulk, and so is the own-brand 700ml
+ * (Cyrus, 1 Nov 2026): being on the price list does not put a bottle on the
+ * shelf. Their liquid is counted as bulk.
+ */
+export function heldAsBottles(sku: typeof skus.$inferSelect, ownBrandClientId: number | null): boolean {
+  if (sku.sizeMl >= 5000) return false;
+  if (sku.sizeMl === 700 && sku.clientId === ownBrandClientId) return false;
+  return !NEVER_MADE.has(sku.code);
+}
+
+async function ownBrandId(): Promise<number | null> {
+  const [c] = await db.select().from(clients).where(eq(clients.name, "Myatt's Fields"));
+  return c?.id ?? null;
 }
 
 /**
@@ -131,6 +165,12 @@ function condense(problems: string[], asOf: string): string[] {
   if (borrowed.length === 0) return rest;
   const names = borrowed.map((p) => p.replace(/^No price recorded for /, "").replace(/ by \d{4}-\d{2}-\d{2}, so today's is used$/, ""));
   return [...rest, `Today's price used for ${borrowed.length} line${borrowed.length === 1 ? "" : "s"} with none recorded by ${asOf}: ${names.join(", ")}`];
+}
+
+/** Share of these cost lines' value that traces to a supplier invoice, 0 to 1. */
+function invoicedShareOf(lines: { cost: number; source: CostSource }[]): number {
+  const total = lines.reduce((t, l) => t + l.cost, 0);
+  return total > 0 ? lines.filter((l) => l.source === "inbound").reduce((t, l) => t + l.cost, 0) / total : 0;
 }
 
 /** Runs `fn` over `items` eight at a time, as computeAllSkuCosts does, keeping order. */
@@ -157,12 +197,15 @@ export async function createCount(input: {
   basis: string | null;
 }): Promise<number> {
   const [count] = await db.insert(stockCounts).values(input).returning({ id: stockCounts.id });
-  const [skuRows, compRows] = await Promise.all([
+  const [skuRows, compRows, ownBrand] = await Promise.all([
     db.select().from(skus).where(eq(skus.active, true)),
     db.select().from(components).where(eq(components.active, true)),
+    ownBrandId(),
   ]);
   const lines = [
-    ...skuRows.map((s) => ({ countId: count.id, kind: "finished" as const, skuId: s.id, unit: "bottle" })),
+    ...skuRows
+      .filter((s) => heldAsBottles(s, ownBrand))
+      .map((s) => ({ countId: count.id, kind: "finished" as const, skuId: s.id, unit: "bottle" })),
     ...compRows.map((c) => ({
       countId: count.id,
       kind: "component" as const,
@@ -226,7 +269,8 @@ export async function valueCount(countId: number): Promise<ValuedCount | null> {
         ...bulkSku.values(),
       ]),
     ];
-    const costs = await bounded(toCost, (id) => computeSkuCost(id, { asOf, currentRecipeBeforeRecords: true }));
+    const costs = await bounded(toCost, (id) => computeSkuCost(id, { asOf, currentRecipeBeforeRecords: true, borrowedTakeTodaysSource: true }),
+    );
     for (const c of costs) skuCost.set(c.skuId, c);
 
     compProblems = [];
@@ -247,30 +291,38 @@ export async function valueCount(countId: number): Promise<ValuedCount | null> {
     const qty = qtyOf(l);
     let name = l.description ?? "Unnamed line";
     let group = "";
+    let drink: string | null = null;
+    let size: string | null = null;
     let units = [l.unit];
     let unitCost: number | null = null;
     let source: CostSource | null = null;
-    let costNote: string | null = null;
+    let working: string | null = null;
+    let caveats: string[] = [];
+    let invoicedShare = 0;
 
     if (l.kind === "finished" && l.skuId) {
       const s = skuById.get(l.skuId);
       if (s) {
         name = skuName(s, drinkName.get(s.drinkId ?? -1), clientName.get(s.clientId ?? -1));
         group = clientName.get(s.clientId ?? -1) ?? "No client";
+        drink = drinkName.get(s.drinkId ?? -1) ?? s.code;
+        size = sizeLabel(s.sizeMl);
       }
       units = ["bottle"];
       const c = skuCost.get(l.skuId);
       if (c && c.liquid.length === 0) {
         // A bottle with no recipe is not worth its packaging alone; leave it
         // unvalued so it is seen and fixed rather than quietly undercounted.
-        costNote = c.problems.join(". ") || "No recipe to cost the liquid from";
+        caveats = c.problems.length ? c.problems : ["No recipe to cost the liquid from"];
       } else if (c) {
         unitCost = c.total;
         source = c.costSource;
-        costNote = [
-          `COGS as at ${asOf}: liquid £${c.liquidTotal.toFixed(2)} + packaging £${c.packagingTotal.toFixed(2)} + wastage £${c.wastage.toFixed(2)}`,
+        invoicedShare = c.invoiceBackedPct / 100;
+        working = `liquid £${c.liquidTotal.toFixed(2)} + packaging £${c.packagingTotal.toFixed(2)} + wastage £${c.wastage.toFixed(2)}`;
+        caveats = [
           ...condense(c.problems, asOf),
-        ].join(". ");
+          ...(c.placeholders.length ? [`Placeholder price for ${c.placeholders.join(", ")}`] : []),
+        ];
       }
     } else if (l.kind === "bulk") {
       name = `${drinkName.get(l.drinkId ?? -1) ?? "Unknown drink"} (${clientName.get(l.clientId ?? -1) ?? "no client"})`;
@@ -282,12 +334,11 @@ export async function valueCount(countId: number): Promise<ValuedCount | null> {
         const perLitre = (c.liquidTotal / c.sizeMl) * 1000 * (1 + c.wastagePct);
         unitCost = perLitre;
         source = c.liquid.length ? c.costSource : null;
-        costNote = [
-          `Recipe liquid as at ${asOf}, from ${c.skuCode}: £${((c.liquidTotal / c.sizeMl) * 1000).toFixed(2)}/L + ${(c.wastagePct * 100).toFixed(0)}% wastage`,
-          ...condense(c.problems, asOf),
-        ].join(". ");
+        invoicedShare = invoicedShareOf(c.liquid);
+        working = `recipe liquid £${((c.liquidTotal / c.sizeMl) * 1000).toFixed(2)}/L + ${(c.wastagePct * 100).toFixed(0)}% wastage`;
+        caveats = condense(c.problems, asOf);
       } else if (!closed) {
-        costNote = "No SKU of this drink and client to cost the recipe from";
+        caveats = ["No SKU of this drink and client to cost the recipe from"];
       }
     } else if (l.kind === "component" && l.componentId) {
       const c = compById.get(l.componentId);
@@ -301,16 +352,15 @@ export async function valueCount(countId: number): Promise<ValuedCount | null> {
           const base = unitCostOf(c);
           const s = compSource.get(c.id);
           source = s?.source ?? null;
+          invoicedShare = source === "inbound" ? 1 : 0;
           if (per != null) {
             unitCost = base * per;
-            costNote = [
-              `£${base.toFixed(base < 0.1 ? 4 : 2)} per ${c.uom}${l.unit === "pack" ? `, ${packWords(c)}` : ""}`,
-              s?.borrowed ? `No price recorded by ${asOf}, so today's is used` : null,
-            ]
-              .filter(Boolean)
-              .join(". ");
+            // The unit cost column already says what one counted unit costs;
+            // the working only adds what a pack holds.
+            working = l.unit === "pack" ? packWords(c) : null;
+            if (s?.borrowed) caveats = [`No price recorded by ${asOf}, so today's is used`];
           } else {
-            costNote = `Cannot convert ${l.unit} to ${c.uom}`;
+            caveats = [`Cannot convert ${l.unit} to ${c.uom}`];
           }
         }
       }
@@ -318,19 +368,24 @@ export async function valueCount(countId: number): Promise<ValuedCount | null> {
       group = "Not in the register";
       unitCost = l.unitCost == null ? null : n(l.unitCost);
       source = unitCost == null ? null : "manual";
-      costNote = unitCost == null ? "No unit cost entered" : "Unit cost typed on the line";
+      if (unitCost == null) caveats = ["No unit cost entered"];
     }
+
+    let costNote = [working, ...caveats].filter(Boolean).join(". ") || null;
 
     // A closed count reads what was frozen, never today's figures.
     if (closed) {
       unitCost = l.unitCost == null ? null : n(l.unitCost);
       source = (l.costSource as CostSource | null) ?? null;
       costNote = l.costNote;
+      working = l.costNote;
+      caveats = [];
+      invoicedShare = source === "inbound" ? 1 : 0;
     }
 
     const value =
       qty == null ? null : l.obsolete ? 0 : closed ? (l.value == null ? null : n(l.value)) : unitCost == null ? null : qty * unitCost;
-    return { line: l, name, group, units, unitCost, value, source, costNote };
+    return { line: l, name, group, drink, size, units, unitCost, value, source, costNote, working, caveats, invoicedShare };
   });
 
   const byKind = Object.fromEntries(
@@ -352,7 +407,7 @@ export async function valueCount(countId: number): Promise<ValuedCount | null> {
     }
     k.value += v.value;
     total += v.value;
-    if (v.source === "inbound") invoiced += v.value;
+    invoiced += v.value * v.invoicedShare;
   }
 
   return {
