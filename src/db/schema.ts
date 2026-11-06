@@ -989,13 +989,19 @@ export const wholesaleOrders = pgTable(
     }),
     /** Ex VAT, as shown to the buyer at submission. Null on mailbox orders. */
     deliveryCharge: numeric("delivery_charge", { precision: 12, scale: 2 }),
+    /**
+     * What this order is held up by, in words, when that is not simply its next
+     * stage: "the Fortnum's order finishing". An order can honestly have no PO
+     * and no date yet, and this says why (Cyrus, 6 Nov 2026).
+     */
+    waitingOn: text("waiting_on"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("wholesale_orders_status_idx").on(t.status),
     index("wholesale_orders_trade_buyer_idx").on(t.tradeBuyerId),
-    check("wholesale_orders_source_known", sql`${t.source} in ('mailbox', 'portal')`),
+    check("wholesale_orders_source_known", sql`${t.source} in ('mailbox', 'portal', 'phone', 'in_person')`),
     uniqueIndex("wholesale_orders_customer_order_uq").on(t.customerId, t.orderNumber),
   ],
 );
