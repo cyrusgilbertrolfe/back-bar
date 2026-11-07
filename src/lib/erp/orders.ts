@@ -112,9 +112,11 @@ export type OrderRow = WholesaleOrder & {
 
 /** One line, as a person would say it: "2 × Case 12 Negroni 3L". */
 export function lineText(l: OrderLineRow): string {
-  const qty = Number(l.qty);
+  // Said in bottles, the way most orders arrive; the cases follow when known.
   const what = l.customerDescription ?? l.skuDescription ?? l.skuCode ?? "Unnamed item";
-  return `${qty} × ${l.unitDescription ? `${l.unitDescription} ` : ""}${what}`;
+  const cases = Number(l.qty);
+  const packing = l.unitsPerCase ? ` (${cases} ${cases === 1 ? "case" : "cases"} of ${l.unitsPerCase})` : "";
+  return `${lineBottles(l)} × ${what}${packing}`;
 }
 
 /** Lines still on the order: one at zero moved elsewhere and stays only as history. */

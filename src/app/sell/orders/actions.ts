@@ -72,15 +72,29 @@ async function readLine(form: FormData): Promise<
   const qty = Number(qtyRaw);
   if (!qtyRaw || !Number.isFinite(qty) || qty <= 0) return { error: "A line needs a quantity above zero." };
 
-  // "30 x Jeroboam": the cases are whatever the bottles arrive in (Cyrus, 7 Nov 2026).
-  const packingUnknown = form.get("packingUnknown") === "on";
-  const typedPerCase = packingUnknown ? null : text(form, "unitsPerCase");
-  let unitsPerCase: number | null = typedPerCase ? Number(typedPerCase) : null;
-  if (unitsPerCase !== null && (!Number.isInteger(unitsPerCase) || unitsPerCase < 1))
-    return { error: "Bottles a case must be a whole number." };
-  if (unitsPerCase === null && skuId && !packingUnknown) {
+  // Most orders come in bottles (Cyrus, 7 Nov 2026). A count of bottles that
+  // fills whole cases is kept as cases, so case labels can still be printed;
+  // otherwise the packing is not known yet, as with "30 x Jeroboam".
+  const inCases = form.get("countedIn") === "cases";
+  const typedPerCase = text(form, "unitsPerCase");
+  const typed = typedPerCase ? Number(typedPerCase) : null;
+  if (typed !== null && (!Number.isInteger(typed) || typed < 1)) return { error: "Bottles a case must be a whole number." };
+  if (!Number.isInteger(qty)) return { error: "The quantity must be a whole number." };
+  let perCase = typed;
+  if (perCase === null && skuId) {
     const [sku] = await db.select({ n: skus.unitsPerCase }).from(skus).where(eq(skus.id, skuId));
-    unitsPerCase = sku?.n ?? null;
+    perCase = sku?.n ?? null;
+  }
+  let cases = qty;
+  let unitsPerCase: number | null = perCase;
+  if (inCases) {
+    if (perCase === null) return { error: "Say how many bottles a case, or count it in bottles." };
+  } else if (perCase !== null && qty % perCase === 0) {
+    cases = qty / perCase;
+  } else if (typed !== null) {
+    return { error: `${qty} bottles do not fill cases of ${typed} evenly.` };
+  } else {
+    unitsPerCase = null;
   }
   const typedPrice = moneyOf(form, "unitPrice", "The price a bottle");
   if ("error" in typedPrice) return { error: typedPrice.error };
@@ -92,7 +106,7 @@ async function readLine(form: FormData): Promise<
     quotedOn: price === null ? null : londonToday(),
     customerDescription: description,
     customerItemCode: itemCode,
-    qty: String(qty),
+    qty: String(cases),
     unitsPerCase,
     unitDescription: unitsPerCase ? `Case ${unitsPerCase}` : null,
   };
@@ -106,8 +120,8 @@ function moneyOf(form: FormData, key: string, what: string): { value: string | n
   return Number.isFinite(n) && n >= 0 ? { value: raw } : { error: `${what} must be a price, like 111.50.` };
 }
 
-function backTo(path: string, error: string): never {
-  redirect(`${path}?error=${encodeURIComponent(error)}`);
+function backTo(path: string, error: string, at?: "line"): never {
+  redirect(`${path}?error=${encodeURIComponent(error)}${at ? `&at=${at}#add-line` : ""}`);
 }
 
 function refresh(orderId?: number) {
@@ -233,8 +247,8 @@ export async function updateOrder(orderId: number, form: FormData) {
 export async function addLine(orderId: number, form: FormData) {
   const path = `/sell/orders/${orderId}`;
   const line = await readLine(form);
-  if (!line) backTo(path, "Fill in the line first.");
-  if ("error" in line!) backTo(path, line.error);
+  if (!line) backTo(path, "Fill in the line first: what it is, and how many.", "line");
+  if ("error" in line!) backTo(path, line.error, "line");
   const existing = await db
     .select({ lineNo: wholesaleOrderLines.lineNo })
     .from(wholesaleOrderLines)
