@@ -21,11 +21,12 @@
  * and run the dry run again.
  *
  * The write is a sparse update of Item.Sku alone (sparse=true, Id,
- * SyncToken, Sku). It has to prove that, because on 24 Aug 2026 the claude.ai
+ * SyncToken, Sku), plus Name and Description only on the items in OVERRIDES
+ * that Cyrus asked to rename. It has to prove that, because on 24 Aug 2026 the claude.ai
  * connector's writes to this UK file came out wrong: Service instead of
  * Stock, no VAT code, income account defaulted to Amazon Refunds. So --write
  * on its own updates ONE item, reads it back, and fails unless every field
- * other than Sku, SyncToken and MetaData (Type, IncomeAccountRef,
+ * other than Sku, SyncToken and MetaData (and the agreed Name/Description) (Type, IncomeAccountRef,
  * SalesTaxCodeRef, prices, stock and the rest) is exactly as before. Only once
  * that has passed does --write --all run the batch, and it reads back and
  * checks every item the same way, stopping at the first difference.
@@ -47,11 +48,34 @@ const ALL = process.argv.includes("--all");
  */
 const EXCLUDE = new Set(["364", "365", "366"]);
 
+type Override = { code: string | null; name?: string; description?: string };
+
 /**
- * QuickBooks item Id → Back Bar short code, or null for "takes no SKU".
- * These win over the name match. Fill in from the dry run.
+ * QuickBooks item Id → Back Bar short code (null for "takes no SKU"), with a
+ * new item name or description where Cyrus asked for one. These win over the
+ * name match. Agreed with Cyrus, 20 Oct 2026.
  */
-const OVERRIDES: Record<string, string | null> = {};
+const OVERRIDES: Record<string, Override> = {
+  // Size written without "ml".
+  "236": { code: "MYFL-GIBS-0250" },
+  "342": { code: "MYFL-GIBS-0050" },
+  "287": { code: "MYFL-TUXD-0250" },
+  "350": { code: "MYFL-TUXD-0050" },
+  // "for Caterers" is the 5L format, sold to anyone (a hotel in Scotland
+  // buys it), so it is named for the format.
+  "292": { code: "MYFL-EMAR-5000", name: "Espresso Martini 5L" },
+  "1010000001": { code: "MYFL-LYCH-5000", name: "Lychee Martini 5L" },
+  "219": { code: "MYFL-MANH-5000", name: "Manhattan 5L" },
+  "300": { code: "MYFL-NEGR-5000", name: "Negroni 5L" },
+  "316": { code: "MYFL-HOOK-5000", name: "Red Hook 5L" },
+  "327": { code: "MYFL-RMOF-5000", name: "Rum Old Fashioned 5L" },
+  "328": { code: "MYFL-TRID-5000", name: "Trident 5L" },
+  // Margarita is our recipe with Myatt's Lime Sours; "Invisible" is retired.
+  "354": { code: "MYFL-MARG-5000", name: "Margarita 5L", description: "Myatt's Fields Margarita 5L" },
+  "355": { code: "MYFL-MARG-0700", name: "Margarita 700ml", description: "Myatt's Fields Margarita 700ml" },
+  // Fresh Margarita is the version caterers buy for events, a separate drink.
+  "216": { code: "MYFL-FMRG-5000", name: "Fresh Margarita 5L", description: "Myatt's Fields Fresh Margarita 5L" },
+};
 
 /** Items that take no SKU whatever their name: gift cards. */
 const NO_SKU = [/cocktail card/i, /gift ?card/i, /gift ?voucher/i];
@@ -67,6 +91,8 @@ type QBItem = {
   Name: string;
   FullyQualifiedName?: string;
   Sku?: string;
+  Description?: string;
+  SalesTaxCodeRef?: { value: string; name?: string };
   SyncToken: string;
   Type: string;
   Active: boolean;
@@ -133,8 +159,8 @@ const refName = (r: unknown) => {
 };
 
 /** Every field that differs between two reads of an item, ignoring the ones a Sku update should change. */
-function diffItem(before: ItemJson, after: ItemJson): string[] {
-  const ignore = new Set(["Sku", "SyncToken", "MetaData"]);
+function diffItem(before: ItemJson, after: ItemJson, allowed: string[] = []): string[] {
+  const ignore = new Set(["Sku", "SyncToken", "MetaData", ...allowed]);
   const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
   const out: string[] = [];
   for (const k of keys) {
@@ -180,15 +206,18 @@ async function main() {
   }
   const sellable = items.filter((i) => i.Active && i.Type !== "Category" && !EXCLUDE.has(i.Id)).sort((a, b) => a.Name.localeCompare(b.Name));
 
-  type Plan = { item: QBItem; code: string | null; why: string };
+  type Plan = { item: QBItem; code: string | null; why: string; name?: string; description?: string };
   const plan: Plan[] = [];
   const unmatched: { item: QBItem; why: string }[] = [];
 
   for (const item of sellable) {
     if (item.Id in OVERRIDES) {
-      const code = OVERRIDES[item.Id];
-      if (code && !byCode.has(code)) throw new Error(`Override for item ${item.Id} names ${code}, which is not a Back Bar short code`);
-      plan.push({ item, code, why: "override" });
+      const o = OVERRIDES[item.Id];
+      if (o.code && !byCode.has(o.code)) {
+        unmatched.push({ item, why: `waiting: ${o.code} is not in Back Bar yet` });
+        continue;
+      }
+      plan.push({ item, ...o, why: "agreed" });
       continue;
     }
     if (NO_SKU.some((re) => re.test(item.Name))) {
@@ -210,8 +239,11 @@ async function main() {
   for (const p of plan) {
     const now = p.item.Sku ?? "";
     const after = p.code ?? "(none)";
-    const flag = p.code === null ? "" : now === p.code ? "  unchanged" : now ? "  REPLACES existing Sku" : "";
+    const flag = p.code === null ? "" : now === p.code ? "  unchanged" : now ? "  replaces old Sku" : "";
     console.log(`  ${pad(p.item.Id, 6)} ${pad(p.item.Name, 48)} ${pad(now || "-", 16)} → ${pad(after, 16)} ${p.why}${flag}`);
+    if (p.name && p.name !== p.item.Name) console.log(`         renamed → ${p.name}`);
+    if (p.description && p.description !== p.item.Description)
+      console.log(`         description "${p.item.Description ?? ""}" → "${p.description}"`);
   }
 
   console.log("\nQUICKBOOKS ITEMS LEFT UNMATCHED (no Sku will be set)");
@@ -230,7 +262,18 @@ async function main() {
     for (const c of shared) console.log(`  ${c}: ${plan.filter((p) => p.code === c).map((p) => `${p.item.Id} ${p.item.Name}`).join("; ")}`);
   }
 
-  const todo = plan.filter((p) => p.code !== null && p.item.Sku !== p.code);
+  console.log("\nACTIVE ITEMS WITH NO VAT CODE (SalesTaxCodeRef), for Cyrus to set by hand");
+  const noVat = items.filter((i) => i.Active && i.Type !== "Category" && !i.SalesTaxCodeRef);
+  if (!noVat.length) console.log("  none");
+  for (const i of noVat.sort((a, b) => a.Name.localeCompare(b.Name))) console.log(`  ${pad(i.Id, 6)} ${pad(i.Name, 48)} ${i.Type}`);
+
+  const todo = plan.filter(
+    (p) =>
+      p.code !== null &&
+      (p.item.Sku !== p.code ||
+        (p.name !== undefined && p.name !== p.item.Name) ||
+        (p.description !== undefined && p.description !== p.item.Description)),
+  );
   console.log(`\n${todo.length} item(s) to update.`);
   if (!WRITE) {
     console.log("Dry run only. Nothing written to QuickBooks. Re-run with --write once the mapping is approved.");
@@ -244,15 +287,27 @@ async function main() {
     if (before.SyncToken !== p.item.SyncToken) throw new Error(`${p.item.Id} changed since it was read; re-run the dry run`);
     await qbRequest(token, "item", {
       method: "POST",
-      body: { Id: p.item.Id, SyncToken: before.SyncToken, sparse: true, Sku: p.code },
+      body: {
+        Id: p.item.Id,
+        SyncToken: before.SyncToken,
+        sparse: true,
+        Sku: p.code,
+        ...(p.name ? { Name: p.name } : {}),
+        ...(p.description ? { Description: p.description } : {}),
+      },
     });
     const after = await readItem(token, p.item.Id);
-    const changed = diffItem(before, after);
+    const allowed = [
+      ...(p.name ? ["Name", "FullyQualifiedName"] : []),
+      ...(p.description ? ["Description"] : []),
+    ];
+    const changed = diffItem(before, after, allowed);
+    if (p.name && after.Name !== p.name) changed.unshift(`Name is ${String(after.Name)}, expected ${p.name}`);
     if (after.Sku !== p.code) changed.unshift(`Sku is ${String(after.Sku)}, expected ${p.code}`);
     if (changed.length) {
       throw new Error(`STOP. ${p.item.Id} ${p.item.Name} changed beyond Sku:\n  ${changed.join("\n  ")}`);
     }
-    console.log(`  ${p.item.Id} ${p.item.Name}: ${p.item.Sku ?? "-"} → ${p.code}  read back: only Sku changed (Type ${after.Type}, income ${refName(after.IncomeAccountRef)}, VAT ${refName(after.SalesTaxCodeRef)})`);
+    console.log(`  ${p.item.Id} ${p.item.Name}: ${p.item.Sku ?? "-"} → ${p.code}  read back: nothing else changed (Type ${after.Type}, income ${refName(after.IncomeAccountRef)}, VAT ${refName(after.SalesTaxCodeRef)})`);
   }
   console.log("Done.");
 }
