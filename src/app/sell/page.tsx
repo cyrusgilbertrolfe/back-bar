@@ -7,6 +7,14 @@ import HubPage, { HubModule } from "@/components/HubPage";
  */
 const MODULES: HubModule[] = [
   {
+    href: "/sell/orders",
+    label: "Wholesale orders",
+    sublabel: "Who ordered what",
+    description:
+      "Every open order, from a PO, a phone call or the trade portal: what stage it is at and what it is waiting on. Enter an order with or without a PO or a date, and print its case labels.",
+    status: "live",
+  },
+  {
     href: "/finances/pricing",
     label: "Wholesale pricing",
     sublabel: "What stockists pay",
@@ -38,14 +46,6 @@ const MODULES: HubModule[] = [
       "Parked, with a decision behind it: outbound is tracked in a spreadsheet for now. Building a CRM here would cost the bedrock months, and a spreadsheet genuinely does this job at our size.",
     status: "parked",
   },
-  {
-    href: "/sell/orders",
-    label: "Wholesale orders",
-    sublabel: "Who ordered what",
-    description:
-      "Order capture, terms and history per partner. The tables exist and hold nothing; parked until the bedrock is done and we know what shape orders should take.",
-    status: "parked",
-  },
 ];
 
 export default function SellPage() {
@@ -53,7 +53,7 @@ export default function SellPage() {
     <HubPage
       eyebrow="Sell"
       title="What we sell, to whom, at what price"
-      intro="Pricing is the live half of this surface and the half that matters most: every price derived from a real cost. Customers and orders are parked, and a spreadsheet carries outreach meanwhile."
+      intro="Orders and pricing are the live half of this surface: what has been ordered, and every price derived from a real cost. The CRM is parked, and a spreadsheet carries outreach meanwhile."
       modules={MODULES}
     />
   );

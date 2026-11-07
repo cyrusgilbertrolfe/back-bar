@@ -874,9 +874,63 @@ export const customers = pgTable("customers", {
    */
   issuesPurchaseOrders: boolean("issues_purchase_orders").notNull().default(true),
   isActive: boolean("is_active").notNull().default(true),
+  /**
+   * Our four-letter code for them, e.g. CRPS. Prefixes the dispatch number we
+   * issue when a shipment has no PO of theirs: CRPS-DN00001. The serial is
+   * shared across every customer; only the prefix is theirs.
+   */
+  shortCode: text("short_code").unique(),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ─── Trade portal ───────────────────────────────────────────────────────────
+// The trade portal (website2027, unparked 28 Oct 2026) is a front end on these
+// tables, not a second register. A buyer registers, we approve them and link
+// them to a customer, and their submitted order lands in wholesale_orders at
+// `received`. A buyer is a person; a customer is the business we invoice.
+// Several buyers can order for one customer.
+
+export const tradeBuyerStatusEnum = pgEnum("trade_buyer_status", [
+  "pending",
+  "approved",
+  "declined",
+]);
+
+export const tradeBuyers = pgTable("trade_buyers", {
+  id: serial("id").primaryKey(),
+  /** Stored lower case; the sign-in identity. */
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  /** As they typed it at registration. The customer row is what we invoice. */
+  businessName: text("business_name").notNull(),
+  businessType: text("business_type"),
+  phone: text("phone"),
+  deliveryAddress: text("delivery_address"),
+  /** Null until approved. Set at approval, to a new or an existing customer. */
+  customerId: integer("customer_id").references(() => customers.id, { onDelete: "set null" }),
+  status: tradeBuyerStatusEnum("status").notNull().default("pending"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  lastSignInAt: timestamp("last_sign_in_at", { withTimezone: true }),
+});
+
+/** One-time sign-in links. Only the hash is stored; the token is in the email. */
+export const tradeLoginTokens = pgTable(
+  "trade_login_tokens",
+  {
+    id: serial("id").primaryKey(),
+    buyerId: integer("buyer_id")
+      .notNull()
+      .references(() => tradeBuyers.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("trade_login_tokens_buyer_idx").on(t.buyerId)],
+);
 
 export const wholesaleOrders = pgTable(
   "wholesale_orders",
@@ -924,11 +978,30 @@ export const wholesaleOrders = pgTable(
      * only correct input to pricing an own-label edition.
      */
     customerRrp: numeric("customer_rrp", { precision: 12, scale: 2 }),
+    /**
+     * Where the order came from: `mailbox`, keyed by a person from their
+     * document, or `portal`, submitted by a buyer on the trade portal.
+     */
+    source: text("source").notNull().default("mailbox"),
+    /** The buyer who submitted it, for a portal order. */
+    tradeBuyerId: integer("trade_buyer_id").references(() => tradeBuyers.id, {
+      onDelete: "set null",
+    }),
+    /** Ex VAT, as shown to the buyer at submission. Null on mailbox orders. */
+    deliveryCharge: numeric("delivery_charge", { precision: 12, scale: 2 }),
+    /**
+     * What this order is held up by, in words, when that is not simply its next
+     * stage: "the Fortnum's order finishing". An order can honestly have no PO
+     * and no date yet, and this says why (Cyrus, 6 Nov 2026).
+     */
+    waitingOn: text("waiting_on"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("wholesale_orders_status_idx").on(t.status),
+    index("wholesale_orders_trade_buyer_idx").on(t.tradeBuyerId),
+    check("wholesale_orders_source_known", sql`${t.source} in ('mailbox', 'portal', 'phone', 'in_person')`),
     uniqueIndex("wholesale_orders_customer_order_uq").on(t.customerId, t.orderNumber),
   ],
 );
