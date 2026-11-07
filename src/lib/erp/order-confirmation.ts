@@ -42,7 +42,7 @@ export function confirmationSubject(order: Pick<OrderRow, "orderNumber">): strin
 export function confirmationMessage(order: Pick<OrderRow, "orderNumber">): string {
   return `Hello,
 
-Thank you for your order ${order.orderNumber}. Our confirmation is attached, with the prices and provisional dates. We will confirm the dates as soon as they are firm.
+Thank you for your order ${order.orderNumber}. Our confirmation is attached, with the prices and provisional delivery date. We will confirm the date as soon as possible.
 
 If anything looks wrong, just reply to this email.
 
