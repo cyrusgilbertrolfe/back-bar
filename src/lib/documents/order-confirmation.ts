@@ -137,7 +137,7 @@ export async function buildOrderConfirmationPdf(facts: ConfirmationFacts, bytes:
   newPage();
   write("Order confirmation", left, 24, regular, GREEN);
   y -= 19;
-  write("Prices and dates are provisional until we confirm them to you.", left, 10.5, regular, SOFT);
+  write("Dates are provisional until we confirm them to you.", left, 10.5, regular, SOFT);
   y -= 32;
 
   const pairs: [string, string][] = [
