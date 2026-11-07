@@ -36,10 +36,11 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; at?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, at } = await searchParams;
+  const lineError = at === "line" ? error : undefined;
   const order = await getOrder(Number(id));
   if (!order) notFound();
 
@@ -75,7 +76,7 @@ export default async function OrderPage({
           {order.orderNumberIsOurs ? "Our dispatch number" : "Their PO"} · came by {source.toLowerCase()}
           {value !== null && ` · ${money(value)} ex VAT`}
         </p>
-        {error && <p role="alert" style={{ color: COLOR.flag, marginBottom: 16 }}>{error}</p>}
+        {error && !lineError && <p role="alert" style={{ color: COLOR.flag, marginBottom: 16 }}>{error}</p>}
 
         <section style={{ marginBottom: 36 }}>
           <h2 style={heading}>Steps</h2>
@@ -140,10 +141,11 @@ export default async function OrderPage({
               </div>
             );
           })}
-          <details style={{ borderTop: `1px solid ${COLOR.rule}`, paddingTop: 12 }}>
+          <details id="add-line" open={Boolean(lineError)} style={{ borderTop: `1px solid ${COLOR.rule}`, paddingTop: 12 }}>
             <summary style={{ ...labelStyle, cursor: "pointer", marginBottom: 12 }}>Add a line</summary>
+            {lineError && <p role="alert" style={{ color: COLOR.flag, margin: "0 0 12px" }}>The line was not added. {lineError}</p>}
             <form action={add} style={{ display: "grid", gap: 16 }}>
-              <LineFields options={options} />
+              <LineFields options={options} required />
               <div><button type="submit" style={buttonGhost}>Add line</button></div>
             </form>
           </details>
@@ -151,7 +153,11 @@ export default async function OrderPage({
 
         <section style={{ marginBottom: 36 }}>
           <h2 style={heading}>Confirmation</h2>
-          {!confirmable && <p style={{ color: COLOR.muted, margin: 0 }}>Every line needs a price before it can be confirmed.</p>}
+          {!confirmable && (
+            <p style={{ color: COLOR.muted, margin: 0 }}>
+              {liveLines(order).length === 0 ? "Add a line first: there is nothing to confirm yet." : "Every line needs a price before it can be confirmed."}
+            </p>
+          )}
           {confirmable && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
               <Link href={`/sell/orders/${order.id}/confirmation`} style={{ ...buttonPrimary, textDecoration: "none" }}>
