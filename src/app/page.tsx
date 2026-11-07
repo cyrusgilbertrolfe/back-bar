@@ -4,7 +4,7 @@ import Nav from "@/components/Nav";
 import { COLOR, FONT, tabularNums } from "@/lib/design";
 import { COGS_CHECK_JOB, lastCronRuns } from "@/lib/erp/cron-runs";
 import { listInvoices } from "@/lib/erp/invoice-check/list";
-import { listOpenOrders, londonToday, orderPrompts, type OrderPrompt, type OrderRow } from "@/lib/erp/orders";
+import { listOpenOrders, londonToday, orderPrompts, type OpenOrders, type OrderPrompt } from "@/lib/erp/orders";
 import { OrdersTable } from "@/app/sell/orders/_OrdersTable";
 
 export const dynamic = "force-dynamic";
@@ -61,12 +61,13 @@ const unavailable = { color: COLOR.flag, margin: 0 };
 
 export default async function Home() {
   const today = londonToday();
-  const [orders, invoices, checks] = await Promise.all([
-    read<OrderRow[]>("open orders", () => listOpenOrders(today)),
+  const [open, invoices, checks] = await Promise.all([
+    read<OpenOrders>("open orders", () => listOpenOrders(today)),
     read("the invoice check", () => listInvoices({ includeClosed: false })),
     Promise.all(CHECKS.map(async (c) => ({ ...c, runs: await lastCronRuns(c.job) }))),
   ]);
 
+  const orders = open?.orders ?? null;
   const prompts = [...(orders ? orderPrompts(orders, today) : []), ...(invoices ? invoicePrompts(invoices) : [])].sort(
     (a, b) => Number(b.urgent) - Number(a.urgent),
   );
@@ -119,6 +120,9 @@ export default async function Home() {
                 </li>
               );
             })}
+            {open && !open.quickBooksRead && (
+              <li style={{ color: COLOR.flag }}>QuickBooks could not be read, so what has gone may be out of date</li>
+            )}
           </ul>
         </section>
       </main>

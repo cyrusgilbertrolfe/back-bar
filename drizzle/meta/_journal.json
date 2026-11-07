@@ -204,6 +204,20 @@
       "when": 1793981376311,
       "tag": "0028_order_waiting_on",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794040332281,
+      "tag": "0029_order_steps",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794041131585,
+      "tag": "0030_customer_terms",
+      "breakpoints": true
     }
   ]
 }

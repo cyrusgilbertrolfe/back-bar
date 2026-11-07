@@ -60,6 +60,9 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
               <input name="waitingOn" placeholder="The Fortnum's order finishing" style={inputStyle} />
             </label>
           </div>
+          <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
+            <input type="checkbox" name="planned" /> Planned: we expect it, but it is not firm yet
+          </label>
           <Textarea label="Deliver to" name="deliveryAddress" rows={2} />
           <Textarea label="Notes" name="notes" rows={3} />
 

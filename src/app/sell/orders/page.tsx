@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function OrdersPage() {
   const today = londonToday();
-  const orders = await listOpenOrders(today);
+  const { orders, quickBooksRead } = await listOpenOrders(today);
   return (
     <div style={{ background: COLOR.paper, color: COLOR.ink, minHeight: "100vh" }}>
       <Nav />
@@ -21,6 +21,9 @@ export default async function OrdersPage() {
             New order
           </Link>
         </div>
+        {!quickBooksRead && (
+          <p style={{ color: COLOR.flag, marginBottom: 16 }}>QuickBooks could not be read, so what has gone may be out of date.</p>
+        )}
         {orders.length === 0 ? (
           <p style={{ color: COLOR.muted }}>Nothing open. Enter the next order when it comes in.</p>
         ) : (

@@ -84,6 +84,7 @@ function resolve(r: Row): CaseLabelLine {
   // numbering: see customers.issuesPurchaseOrders.
   if (!r.skuItemCode && r.issuesPurchaseOrders) problems.push("The SKU has no customer product reference.");
   if (!r.skuDescription) problems.push("The SKU has no customer product description.");
+  if (!r.lineUnitsPerCase) problems.push("The packing is not known yet: enter the line again with its case size to print case labels.");
   if (!r.skuUnitsPerCase) problems.push("The SKU has no case quantity.");
 
   if (r.skuItemCode && r.lineItemCode && r.skuItemCode !== r.lineItemCode)
