@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { customers, skus, wholesaleOrderLines, wholesaleOrders, type NewWholesaleOrder } from "@/db/schema";
+import { customers, purchaseCommitments, skus, wholesaleOrderLines, wholesaleOrders, type NewWholesaleOrder } from "@/db/schema";
+import { MATERIAL_STATUSES, type MaterialStatus } from "@/lib/erp/order-materials";
 import { dueDate, londonToday, nextDispatchNumber, STAGES, SOURCES, type Stage } from "@/lib/erp/orders";
 import { getCurrentPrice } from "@/lib/erp/pricing";
 import { confirmationPdf, confirmationSubject } from "@/lib/erp/order-confirmation";
@@ -120,8 +121,10 @@ function moneyOf(form: FormData, key: string, what: string): { value: string | n
   return Number.isFinite(n) && n >= 0 ? { value: raw } : { error: `${what} must be a price, like 111.50.` };
 }
 
-function backTo(path: string, error: string, at?: "line"): never {
-  redirect(`${path}?error=${encodeURIComponent(error)}${at ? `&at=${at}#add-line` : ""}`);
+const ANCHOR = { line: "add-line", materials: "materials" } as const;
+
+function backTo(path: string, error: string, at?: keyof typeof ANCHOR): never {
+  redirect(`${path}?error=${encodeURIComponent(error)}${at ? `&at=${at}#${ANCHOR[at]}` : ""}`);
 }
 
 function refresh(orderId?: number) {
@@ -312,4 +315,76 @@ export async function markConfirmationSent(orderId: number) {
   await db.update(wholesaleOrders).set({ confirmationSentOn: londonToday() }).where(eq(wholesaleOrders.id, orderId));
   refresh(orderId);
   redirect(`/sell/orders/${orderId}`);
+}
+
+// ─── Materials: what an order needs bought ──────────────────────────────────
+
+function materialStatusOf(form: FormData): MaterialStatus {
+  const v = text(form, "status");
+  return MATERIAL_STATUSES.find((s) => s.value === v)?.value ?? "needed";
+}
+
+/** The day it was ordered: today, the first time it moves past quoted. */
+function orderedOnFor(status: MaterialStatus, before: string | null): string | null {
+  if (before) return before;
+  return status === "needed" || status === "quoted" || status === "cancelled" ? null : londonToday();
+}
+
+export async function addMaterial(orderId: number, form: FormData) {
+  const path = `/sell/orders/${orderId}`;
+  const description = text(form, "description");
+  if (!description) backTo(path, "Say what needs buying.", "materials");
+  const qtyRaw = text(form, "qty");
+  const qty = qtyRaw === null ? 0 : Number(qtyRaw);
+  if (!Number.isFinite(qty) || qty < 0) backTo(path, "The quantity must be a number.", "materials");
+  const status = materialStatusOf(form);
+  await db.insert(purchaseCommitments).values({
+    wholesaleOrderId: orderId,
+    description: description!,
+    qty: String(qty),
+    uom: text(form, "uom"),
+    supplierName: text(form, "supplierName"),
+    status,
+    orderedOn: orderedOnFor(status, null),
+    expectedOn: dateOf(form, "expectedOn"),
+  });
+  refresh(orderId);
+  redirect(`${path}#materials`);
+}
+
+export async function updateMaterial(orderId: number, materialId: number, form: FormData) {
+  const where = and(eq(purchaseCommitments.id, materialId), eq(purchaseCommitments.wholesaleOrderId, orderId));
+  const [before] = await db.select().from(purchaseCommitments).where(where);
+  if (!before) throw new Error("No such material");
+  const status = materialStatusOf(form);
+  await db
+    .update(purchaseCommitments)
+    .set({
+      status,
+      supplierName: text(form, "supplierName"),
+      reference: text(form, "reference"),
+      orderedOn: orderedOnFor(status, before.orderedOn),
+      expectedOn: dateOf(form, "expectedOn"),
+    })
+    .where(where);
+  refresh(orderId);
+  redirect(`/sell/orders/${orderId}#materials`);
+}
+
+export async function removeMaterial(orderId: number, materialId: number) {
+  await db
+    .delete(purchaseCommitments)
+    .where(and(eq(purchaseCommitments.id, materialId), eq(purchaseCommitments.wholesaleOrderId, orderId)));
+  refresh(orderId);
+  redirect(`/sell/orders/${orderId}#materials`);
+}
+
+/** "Nothing to buy": someone looked. Undone the same way. */
+export async function setMaterialsChecked(orderId: number, checked: boolean) {
+  await db
+    .update(wholesaleOrders)
+    .set({ materialsCheckedOn: checked ? londonToday() : null })
+    .where(eq(wholesaleOrders.id, orderId));
+  refresh(orderId);
+  redirect(`/sell/orders/${orderId}#materials`);
 }
