@@ -4,14 +4,32 @@ import { notFound } from "next/navigation";
 import Nav from "@/components/Nav";
 import { Field, Select, Textarea, buttonGhost, buttonPrimary, inputStyle, labelStyle } from "@/app/erp/_components/forms";
 import { COLOR, FONT } from "@/lib/design";
-import { dueDate, getOrder, lineText, londonToday, SOURCES, STAGES, waitingOn } from "@/lib/erp/orders";
+import {
+  dispatchDate,
+  dueDate,
+  getOrder,
+  lineBottles,
+  lineText,
+  lineValue,
+  liveLines,
+  londonToday,
+  orderSteps,
+  orderValue,
+  SOURCES,
+  STAGES,
+  waitingOn,
+} from "@/lib/erp/orders";
 import { getCaseLabelLine } from "@/lib/labels/case-label-data";
-import { addLine, removeLine, updateOrder } from "../actions";
+import { addLine, markConfirmationSent, removeLine, setLinePrice, updateOrder } from "../actions";
 import { LineFields, skuOptions } from "../_LineFields";
+import { shortDate } from "../_OrdersTable";
 
 export const dynamic = "force-dynamic";
 
 const heading = { fontSize: 18, fontWeight: 500, margin: "0 0 12px" };
+const group = { fontSize: 14, fontWeight: 500, margin: "8px 0 0" };
+const threeUp = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 };
+const money = (n: number) => `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default async function OrderPage({
   params,
@@ -33,6 +51,10 @@ export default async function OrderPage({
   ]);
   const save = updateOrder.bind(null, order.id);
   const add = addLine.bind(null, order.id);
+  const steps = orderSteps(order);
+  const nextKey = steps.find((s) => !s.done)?.key;
+  const value = orderValue(order);
+  const confirmable = liveLines(order).length > 0 && liveLines(order).every((l) => l.unitPriceQuoted !== null);
   const source = SOURCES.find((s) => s.value === order.source)?.label ?? order.source;
 
   return (
@@ -44,10 +66,28 @@ export default async function OrderPage({
           {order.customerName} {order.orderNumber}
         </h1>
         <p style={{ color: waiting.overdue ? COLOR.flag : COLOR.inkSoft, margin: "0 0 4px" }}>{waiting.text}</p>
+        {order.gone?.dispatches.map((d) => (
+          <p key={d.invoiceNumber} style={{ color: COLOR.inkSoft, margin: "0 0 4px" }}>
+            Went {shortDate(d.shippedOn)}, on invoice {d.invoiceNumber} in QuickBooks
+          </p>
+        ))}
         <p style={{ fontSize: 13, color: COLOR.muted, marginBottom: 28 }}>
           {order.orderNumberIsOurs ? "Our dispatch number" : "Their PO"} · came by {source.toLowerCase()}
+          {value !== null && ` · ${money(value)} ex VAT`}
         </p>
         {error && <p role="alert" style={{ color: COLOR.flag, marginBottom: 16 }}>{error}</p>}
+
+        <section style={{ marginBottom: 36 }}>
+          <h2 style={heading}>Steps</h2>
+          <ol style={{ listStyle: "none", margin: 0, padding: 0, borderTop: `1px solid ${COLOR.rule}` }}>
+            {steps.map((s) => (
+              <li key={s.key} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: `1px solid ${COLOR.rule}`, fontSize: 14, fontWeight: s.key === nextKey ? 500 : 400, color: s.done ? COLOR.muted : COLOR.ink }}>
+                <span aria-hidden style={{ width: 14, color: COLOR.accent }}>{s.done ? "✓" : s.key === nextKey ? "→" : ""}</span>
+                <span>{s.label}{s.done ? <span className="sr-only"> (done)</span> : null}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
 
         <section style={{ marginBottom: 36 }}>
           <h2 style={heading}>Lines</h2>
@@ -65,6 +105,18 @@ export default async function OrderPage({
                     <button type="submit" style={{ ...buttonGhost, padding: "6px 10px" }}>Remove</button>
                   </form>
                 </div>
+                {Number(l.qty) > 0 && (
+                  <form action={setLinePrice.bind(null, order.id, l.id)} style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end", marginTop: 8 }}>
+                    <label style={{ fontSize: 12, color: COLOR.muted }}>
+                      £ a bottle, ex VAT
+                      <input name="unitPrice" type="number" step="0.01" min="0" defaultValue={l.unitPriceQuoted === null ? "" : Number(l.unitPriceQuoted)} style={{ ...inputStyle, width: 110, display: "block", marginTop: 4, padding: "6px 8px" }} />
+                    </label>
+                    <button type="submit" style={{ ...buttonGhost, padding: "6px 10px" }}>Set price</button>
+                    <span style={{ fontSize: 13, color: COLOR.muted }}>
+                      {lineBottles(l)} bottles{lineValue(l) !== null && `, ${money(lineValue(l)!)}`}
+                    </span>
+                  </form>
+                )}
                 {label && label.problems.length > 0 && (
                   <ul style={{ fontSize: 13, color: COLOR.flag, margin: "8px 0 0", paddingLeft: 18 }}>
                     {label.problems.map((p) => <li key={p}>{p}</li>)}
@@ -97,25 +149,80 @@ export default async function OrderPage({
           </details>
         </section>
 
+        <section style={{ marginBottom: 36 }}>
+          <h2 style={heading}>Confirmation</h2>
+          {!confirmable && <p style={{ color: COLOR.muted, margin: 0 }}>Every line needs a price before it can be confirmed.</p>}
+          {confirmable && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+              <Link href={`/sell/orders/${order.id}/confirmation`} style={{ ...buttonPrimary, textDecoration: "none" }}>
+                {order.confirmationSentOn ? "Review and send again" : "Review and send"}
+              </Link>
+              {!order.confirmationSentOn && (
+                <form action={markConfirmationSent.bind(null, order.id)}>
+                  <button type="submit" style={buttonGhost}>It went another way</button>
+                </form>
+              )}
+              {order.confirmationSentOn && <span style={{ fontSize: 14, color: COLOR.muted }}>Sent {shortDate(order.confirmationSentOn)}</span>}
+            </div>
+          )}
+        </section>
+
         <section>
           <h2 style={heading}>Where it stands</h2>
           <form action={save} style={{ display: "grid", gap: 16 }}>
-            <div className="order-fields" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
-              <Select label="Stage" name="status" required defaultValue={order.status} options={STAGES.map((s) => ({ value: s.value, label: s.label }))} />
-              <Field label="Dispatch or delivery date" name="date" type="date" defaultValue={dueDate(order)} />
+            <div className="order-fields" style={threeUp}>
+              <Field label="Date they want it" name="date" type="date" defaultValue={dueDate(order)} />
               <Field label="Order number" name="orderNumber" required defaultValue={order.orderNumber} />
+              <Field label="Delivery charge, ex VAT" name="deliveryCharge" type="number" step="0.01" min="0" defaultValue={order.deliveryCharge === null ? null : Number(order.deliveryCharge)} />
             </div>
+            <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
+              <input type="checkbox" name="planned" defaultChecked={order.planned} /> Planned: we expect it, but it is not firm yet
+            </label>
+            <Field label="Price note, printed on the confirmation" name="priceNote" defaultValue={order.priceNote} placeholder="Quotation MFQ-2026-001" />
+
+            <h3 style={group}>From the customer</h3>
+            <Field label="What we need from them" name="customerNeeds" defaultValue={order.customerNeeds} placeholder="Artwork sign-off, their labels, a delivery slot" />
+            <div className="order-fields" style={threeUp}>
+              <Field label="Due" name="customerNeedsDue" type="date" defaultValue={order.customerSuppliedComponentsDue} />
+              <Field label="Received" name="customerNeedsMetOn" type="date" defaultValue={order.customerNeedsMetOn} />
+              <Field label="Confirmation sent" name="confirmationSentOn" type="date" defaultValue={order.confirmationSentOn} />
+            </div>
+
+            <h3 style={group}>Making it</h3>
+            <div className="order-fields" style={threeUp}>
+              <Field label="Production" name="productionOn" type="date" defaultValue={order.productionOn} />
+              <Field label="Packing" name="packingOn" type="date" defaultValue={order.packingOn} />
+              <Field label="Pallet build" name="palletBuildOn" type="date" defaultValue={order.palletBuildOn} />
+            </div>
+
+            <h3 style={group}>Getting it there</h3>
+            <div className="order-fields" style={threeUp}>
+              <Field label="Carrier" name="carrier" defaultValue={order.carrier} placeholder="Pallet Track" />
+              <Field label="Carrier booked" name="carrierBookedOn" type="date" defaultValue={order.carrierBookedOn} />
+              <Field label="Collection" name="collectionOn" type="date" defaultValue={order.collectionOn} />
+              <Field label="Pallet packed" name="palletPackedOn" type="date" defaultValue={order.palletPackedOn} />
+            </div>
+            <p style={{ fontSize: 13, color: COLOR.muted, margin: 0 }}>
+              The day it actually goes comes from the shipping date on its QuickBooks invoice, with this order&apos;s number in Tracking no. or the memo.
+              {dispatchDate(order) && !order.collectionOn && " No collection booked yet, so it is held to the date they want it."}
+            </p>
+
+            <h3 style={group}>Anything else</h3>
             <label style={{ display: "block" }}>
               <span style={labelStyle}>Waiting on</span>
               <input name="waitingOn" defaultValue={order.waitingOn ?? ""} placeholder="Blank means its next stage" style={inputStyle} />
             </label>
             <Textarea label="Deliver to" name="deliveryAddress" rows={2} defaultValue={order.deliveryAddress} />
             <Textarea label="Notes" name="notes" rows={4} defaultValue={order.notes} />
+            <details>
+              <summary style={{ ...labelStyle, cursor: "pointer", marginBottom: 12 }}>Correct the stage by hand</summary>
+              <Select label="Stage" name="status" required defaultValue={order.status} options={STAGES.map((s) => ({ value: s.value, label: s.label }))} />
+            </details>
             <div><button type="submit" style={buttonPrimary}>Save</button></div>
           </form>
         </section>
       </main>
-      <style>{`@media (max-width: 720px) { .orders-main { padding: 24px 16px 64px !important; } .order-fields { grid-template-columns: 1fr !important; } }`}</style>
+      <style>{`@media (max-width: 720px) { .orders-main { padding: 24px 16px 64px !important; } .order-fields { grid-template-columns: 1fr !important; } } .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }`}</style>
     </div>
   );
 }

@@ -6,7 +6,11 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { customers, skus, wholesaleOrderLines, wholesaleOrders, type NewWholesaleOrder } from "@/db/schema";
-import { dueDate, nextDispatchNumber, STAGES, SOURCES, type Stage } from "@/lib/erp/orders";
+import { dueDate, londonToday, nextDispatchNumber, STAGES, SOURCES, type Stage } from "@/lib/erp/orders";
+import { getCurrentPrice } from "@/lib/erp/pricing";
+import { confirmationPdf, confirmationSubject } from "@/lib/erp/order-confirmation";
+import { getOrder } from "@/lib/erp/orders";
+import { sendOrderMail } from "@/lib/email/send";
 
 function text(form: FormData, key: string): string | null {
   const raw = form.get(key);
@@ -53,6 +57,8 @@ async function readLine(form: FormData): Promise<
       qty: string;
       unitsPerCase: number | null;
       unitDescription: string | null;
+      unitPriceQuoted: string | null;
+      quotedOn: string | null;
     }
   | null
 > {
@@ -66,22 +72,38 @@ async function readLine(form: FormData): Promise<
   const qty = Number(qtyRaw);
   if (!qtyRaw || !Number.isFinite(qty) || qty <= 0) return { error: "A line needs a quantity above zero." };
 
-  const typedPerCase = text(form, "unitsPerCase");
+  // "30 x Jeroboam": the cases are whatever the bottles arrive in (Cyrus, 7 Nov 2026).
+  const packingUnknown = form.get("packingUnknown") === "on";
+  const typedPerCase = packingUnknown ? null : text(form, "unitsPerCase");
   let unitsPerCase: number | null = typedPerCase ? Number(typedPerCase) : null;
   if (unitsPerCase !== null && (!Number.isInteger(unitsPerCase) || unitsPerCase < 1))
     return { error: "Bottles a case must be a whole number." };
-  if (unitsPerCase === null && skuId) {
+  if (unitsPerCase === null && skuId && !packingUnknown) {
     const [sku] = await db.select({ n: skus.unitsPerCase }).from(skus).where(eq(skus.id, skuId));
     unitsPerCase = sku?.n ?? null;
   }
+  const typedPrice = moneyOf(form, "unitPrice", "The price a bottle");
+  if ("error" in typedPrice) return { error: typedPrice.error };
+  const listed = typedPrice.value === null && skuId ? await getCurrentPrice(skuId, "wholesale") : null;
+  const price = typedPrice.value ?? listed?.amount ?? null;
   return {
     skuId,
+    unitPriceQuoted: price,
+    quotedOn: price === null ? null : londonToday(),
     customerDescription: description,
     customerItemCode: itemCode,
     qty: String(qty),
     unitsPerCase,
     unitDescription: unitsPerCase ? `Case ${unitsPerCase}` : null,
   };
+}
+
+/** A money field: null when blank, or what to complain about. */
+function moneyOf(form: FormData, key: string, what: string): { value: string | null } | { error: string } {
+  const raw = text(form, key)?.replace(/[£,]/g, "") ?? null;
+  if (raw === null) return { value: null };
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? { value: raw } : { error: `${what} must be a price, like 111.50.` };
 }
 
 function backTo(path: string, error: string): never {
@@ -140,6 +162,7 @@ export async function createOrder(form: FormData) {
     source: sourceOf(form),
     requestedDeliveryFrom: date,
     requestedDeliveryTo: date,
+    planned: form.get("planned") === "on",
     deliveryAddress: text(form, "deliveryAddress"),
     waitingOn: text(form, "waitingOn"),
     notes: text(form, "notes"),
@@ -174,6 +197,8 @@ export async function updateOrder(orderId: number, form: FormData) {
   const date = dateOf(form, "date");
   const dates =
     date === dueDate(order) ? {} : { requestedDeliveryFrom: date, requestedDeliveryTo: date };
+  const delivery = moneyOf(form, "deliveryCharge", "The delivery charge");
+  if ("error" in delivery) backTo(path, delivery.error);
   await db
     .update(wholesaleOrders)
     .set({
@@ -181,6 +206,20 @@ export async function updateOrder(orderId: number, form: FormData) {
       orderNumberIsOurs: changed ? false : order.orderNumberIsOurs,
       status: stageOf(form),
       ...dates,
+      planned: form.get("planned") === "on",
+      deliveryCharge: "value" in delivery ? delivery.value : null,
+      priceNote: text(form, "priceNote"),
+      confirmationSentOn: dateOf(form, "confirmationSentOn"),
+      customerNeeds: text(form, "customerNeeds"),
+      customerSuppliedComponentsDue: dateOf(form, "customerNeedsDue"),
+      customerNeedsMetOn: dateOf(form, "customerNeedsMetOn"),
+      productionOn: dateOf(form, "productionOn"),
+      packingOn: dateOf(form, "packingOn"),
+      palletBuildOn: dateOf(form, "palletBuildOn"),
+      carrier: text(form, "carrier"),
+      carrierBookedOn: dateOf(form, "carrierBookedOn"),
+      collectionOn: dateOf(form, "collectionOn"),
+      palletPackedOn: dateOf(form, "palletPackedOn"),
       deliveryAddress: text(form, "deliveryAddress"),
       waitingOn: text(form, "waitingOn"),
       notes: text(form, "notes"),
@@ -210,6 +249,53 @@ export async function removeLine(orderId: number, lineId: number) {
   await db
     .delete(wholesaleOrderLines)
     .where(and(eq(wholesaleOrderLines.id, lineId), eq(wholesaleOrderLines.orderId, orderId)));
+  refresh(orderId);
+  redirect(`/sell/orders/${orderId}`);
+}
+
+export async function setLinePrice(orderId: number, lineId: number, form: FormData) {
+  const path = `/sell/orders/${orderId}`;
+  const price = moneyOf(form, "unitPrice", "The price a bottle");
+  if ("error" in price) backTo(path, price.error);
+  const value = "value" in price ? price.value : null;
+  await db
+    .update(wholesaleOrderLines)
+    .set({ unitPriceQuoted: value, quotedOn: value === null ? null : londonToday() })
+    .where(and(eq(wholesaleOrderLines.id, lineId), eq(wholesaleOrderLines.orderId, orderId)));
+  refresh(orderId);
+  redirect(path);
+}
+
+/** One click after review: the PDF and the message go, then the step is done. */
+export async function sendConfirmation(orderId: number, form: FormData) {
+  const path = `/sell/orders/${orderId}/confirmation`;
+  const to = text(form, "to");
+  const message = text(form, "message");
+  if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) backTo(path, "Enter the email address it goes to.");
+  if (!message) backTo(path, "The message is empty.");
+
+  const order = await getOrder(orderId);
+  if (!order) throw new Error("No such order");
+  const pdf = await confirmationPdf(order);
+  if (!pdf) backTo(path, "Every line needs a price first.");
+
+  const failure = await sendOrderMail({
+    to: to!,
+    subject: confirmationSubject(order),
+    text: message!,
+    attachment: { filename: `Order confirmation ${order.orderNumber}.pdf`, content: pdf! },
+  });
+  if (failure) backTo(path, `Not sent: ${failure}`);
+
+  await db.update(wholesaleOrders).set({ confirmationSentOn: londonToday() }).where(eq(wholesaleOrders.id, orderId));
+  if (to !== order.customerOrderEmail) await db.update(customers).set({ orderEmail: to }).where(eq(customers.id, order.customerId));
+  refresh(orderId);
+  redirect(`/sell/orders/${orderId}`);
+}
+
+/** For a confirmation that went some other way, such as by hand from a phone. */
+export async function markConfirmationSent(orderId: number) {
+  await db.update(wholesaleOrders).set({ confirmationSentOn: londonToday() }).where(eq(wholesaleOrders.id, orderId));
   refresh(orderId);
   redirect(`/sell/orders/${orderId}`);
 }

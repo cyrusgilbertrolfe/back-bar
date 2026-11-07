@@ -880,6 +880,10 @@ export const customers = pgTable("customers", {
    * shared across every customer; only the prefix is theirs.
    */
   shortCode: text("short_code").unique(),
+  /** Where an order confirmation goes: whoever orders, not their accounts team. */
+  orderEmail: text("order_email"),
+  /** Net days from invoice: 30 for Cripps, 60 for Fortnum's (Cyrus, 7 Nov 2026). */
+  paymentTermsDays: integer("payment_terms_days"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -995,6 +999,27 @@ export const wholesaleOrders = pgTable(
      * and no date yet, and this says why (Cyrus, 6 Nov 2026).
      */
     waitingOn: text("waiting_on"),
+    /** Expected but not yet firm. Counted for planning, never asked "has it gone?". */
+    planned: boolean("planned").notNull().default(false),
+    /** Printed on the confirmation: "Quotation MFQ-2026-001", "From prepaid stock". */
+    priceNote: text("price_note"),
+    /** The day the confirmation went to the customer. */
+    confirmationSentOn: date("confirmation_sent_on"),
+    /**
+     * What we are waiting for from them, in words: artwork sign-off, their
+     * labels, a delivery slot. customer_supplied_components_due is when it is
+     * due; this is when it came.
+     */
+    customerNeeds: text("customer_needs"),
+    customerNeedsMetOn: date("customer_needs_met_on"),
+    productionOn: date("production_on"),
+    packingOn: date("packing_on"),
+    palletBuildOn: date("pallet_build_on"),
+    carrier: text("carrier"),
+    carrierBookedOn: date("carrier_booked_on"),
+    /** The planned pick-up. The day it actually went comes from the invoice. */
+    collectionOn: date("collection_on"),
+    palletPackedOn: date("pallet_packed_on"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1039,6 +1064,7 @@ export const wholesaleOrderLines = pgTable(
      * the point.
      */
     unitPriceStated: numeric("unit_price_stated", { precision: 12, scale: 4 }),
+    /** A bottle, ex VAT, whatever the line is packed in, as the trade portal records it. */
     unitPriceQuoted: numeric("unit_price_quoted", { precision: 12, scale: 4 }),
     quotedOn: date("quoted_on"),
   },

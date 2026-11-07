@@ -22,10 +22,14 @@ export function LineFields({ options }: { options: { value: string; label: strin
       <Select label="SKU, if you know it" name="skuId" options={options} />
       <Field label="Their description" name="customerDescription" placeholder="As they wrote or said it" />
       <div className="order-fields" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
-        <Field label="Cases" name="qty" type="number" step="1" min="1" />
+        <Field label="How many cases" name="qty" type="number" step="1" min="1" />
         <Field label="Bottles a case" name="unitsPerCase" type="number" step="1" min="1" placeholder="From the SKU" />
         <Field label="Their product code" name="customerItemCode" />
       </div>
+      <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
+        <input type="checkbox" name="packingUnknown" /> Packing not known yet: the number above is bottles
+      </label>
+      <Field label="£ a bottle, ex VAT" name="unitPrice" type="number" step="0.01" min="0" placeholder="Blank uses the price list" />
     </div>
   );
 }

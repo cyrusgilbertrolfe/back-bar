@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { COLOR, tabularNums } from "@/lib/design";
-import { dueDate, lineText, stageLabel, waitingOn, type OrderRow } from "@/lib/erp/orders";
+import { dispatchDate, lineText, liveLines, stageLabel, waitingOn, type OrderRow } from "@/lib/erp/orders";
 
 export function shortDate(iso: string | null): string {
   if (!iso) return "None";
@@ -37,16 +37,15 @@ export function OrdersTable({ orders, today }: { orders: OrderRow[]; today: stri
                   <div style={{ fontSize: 12, color: COLOR.muted, ...tabularNums }}>{o.orderNumber}</div>
                 </td>
                 <td style={cell}>
-                  {o.lines.length === 0 ? (
+                  {liveLines(o).length === 0 ? (
                     <span style={{ color: COLOR.muted }}>No lines yet</span>
                   ) : (
-                    // A line at zero moved to another order and stays only as history.
-                    o.lines.filter((l) => Number(l.qty) > 0).map((l) => <div key={l.id}>{lineText(l)}</div>)
+                    liveLines(o).map((l) => <div key={l.id}>{lineText(l)}</div>)
                   )}
                 </td>
-                <td style={cell}>{stageLabel(o.status)}</td>
-                <td style={{ ...cell, whiteSpace: "nowrap", color: waiting.overdue ? COLOR.flag : dueDate(o) ? COLOR.ink : COLOR.muted }}>
-                  {shortDate(dueDate(o))}
+                <td style={cell}>{o.planned ? "Planned" : stageLabel(o.status)}</td>
+                <td style={{ ...cell, whiteSpace: "nowrap", color: waiting.overdue ? COLOR.flag : dispatchDate(o) ? COLOR.ink : COLOR.muted }}>
+                  {shortDate(dispatchDate(o))}
                 </td>
                 <td style={{ ...cell, paddingRight: 0, color: waiting.overdue ? COLOR.flag : COLOR.ink }}>{waiting.text}</td>
               </tr>
