@@ -843,8 +843,16 @@ export const wholesaleOrderStatusEnum = pgEnum("wholesale_order_status", [
   "closed",
 ]);
 
+/**
+ * A purchase from first need to arrival (Cyrus, 21 Oct 2026: needed, quoted,
+ * ordered, confirmed, received). "placed" is ordered and "arrived" is
+ * received; the old names stay because renaming an enum value buys nothing.
+ */
 export const purchaseCommitmentStatusEnum = pgEnum("purchase_commitment_status", [
+  "needed",
+  "quoted",
   "placed",
+  "confirmed",
   "arrived",
   "cancelled",
 ]);
@@ -1020,6 +1028,8 @@ export const wholesaleOrders = pgTable(
     /** The planned pick-up. The day it actually went comes from the invoice. */
     collectionOn: date("collection_on"),
     palletPackedOn: date("pallet_packed_on"),
+    /** Someone looked and nothing needs buying for this order. */
+    materialsCheckedOn: date("materials_checked_on"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1122,7 +1132,8 @@ export const purchaseCommitments = pgTable(
   "purchase_commitments",
   {
     id: serial("id").primaryKey(),
-    supplierName: text("supplier_name").notNull(),
+    /** Nullable: a thing can be needed before anyone knows who will supply it. */
+    supplierName: text("supplier_name"),
     /** Nullable: you can commit to something the register does not carry yet. */
     componentId: integer("component_id").references(() => components.id, {
       onDelete: "set null",
@@ -1138,7 +1149,8 @@ export const purchaseCommitments = pgTable(
     uom: text("uom"),
     unitPrice: numeric("unit_price", { precision: 12, scale: 4 }),
     totalPrice: numeric("total_price", { precision: 12, scale: 2 }),
-    orderedOn: date("ordered_on").notNull(),
+    /** Null while it is still needed or only quoted. */
+    orderedOn: date("ordered_on"),
     expectedOn: date("expected_on"),
     /** Nullable: not every purchase serves a specific order. */
     wholesaleOrderId: integer("wholesale_order_id").references(() => wholesaleOrders.id, {
@@ -1146,6 +1158,8 @@ export const purchaseCommitments = pgTable(
     }),
     /** Their proforma or order number. */
     reference: text("reference"),
+    // The default stays "placed": a default naming a value added in the same
+    // migration fails inside its transaction. Every insert sets the status.
     status: purchaseCommitmentStatusEnum("status").notNull().default("placed"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

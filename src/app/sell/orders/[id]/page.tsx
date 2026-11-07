@@ -20,7 +20,18 @@ import {
   waitingOn,
 } from "@/lib/erp/orders";
 import { getCaseLabelLine } from "@/lib/labels/case-label-data";
-import { addLine, markConfirmationSent, removeLine, setLinePrice, updateOrder } from "../actions";
+import {
+  addLine,
+  addMaterial,
+  markConfirmationSent,
+  removeLine,
+  removeMaterial,
+  setLinePrice,
+  setMaterialsChecked,
+  updateMaterial,
+  updateOrder,
+} from "../actions";
+import { MATERIAL_STATUSES, materialStatusLabel, materialText } from "@/lib/erp/order-materials";
 import { LineFields, skuOptions } from "../_LineFields";
 import { shortDate } from "../_OrdersTable";
 
@@ -41,6 +52,7 @@ export default async function OrderPage({
   const { id } = await params;
   const { error, at } = await searchParams;
   const lineError = at === "line" ? error : undefined;
+  const materialsError = at === "materials" ? error : undefined;
   const order = await getOrder(Number(id));
   if (!order) notFound();
 
@@ -76,7 +88,7 @@ export default async function OrderPage({
           {order.orderNumberIsOurs ? "Our dispatch number" : "Their PO"} · came by {source.toLowerCase()}
           {value !== null && ` · ${money(value)} ex VAT`}
         </p>
-        {error && !lineError && <p role="alert" style={{ color: COLOR.flag, marginBottom: 16 }}>{error}</p>}
+        {error && !lineError && !materialsError && <p role="alert" style={{ color: COLOR.flag, marginBottom: 16 }}>{error}</p>}
 
         <section style={{ marginBottom: 36 }}>
           <h2 style={heading}>Steps</h2>
@@ -171,6 +183,84 @@ export default async function OrderPage({
               {order.confirmationSentOn && <span style={{ fontSize: 14, color: COLOR.muted }}>Sent {shortDate(order.confirmationSentOn)}</span>}
             </div>
           )}
+        </section>
+
+        <section id="materials" style={{ marginBottom: 36 }}>
+          <h2 style={heading}>Materials</h2>
+          <p style={{ fontSize: 13, color: COLOR.muted, margin: "0 0 12px" }}>
+            What has to be bought for this order: glass, ingredients, dry goods. Kept in Back Bar only, never on the confirmation.
+          </p>
+          {materialsError && <p role="alert" style={{ color: COLOR.flag, margin: "0 0 12px" }}>{materialsError}</p>}
+          {order.materials.length === 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", marginBottom: 12 }}>
+              {order.materialsCheckedOn ? (
+                <>
+                  <span style={{ fontSize: 14 }}>Nothing to buy, checked {shortDate(order.materialsCheckedOn)}.</span>
+                  <form action={setMaterialsChecked.bind(null, order.id, false)}>
+                    <button type="submit" style={{ ...buttonGhost, padding: "6px 10px" }}>Undo</button>
+                  </form>
+                </>
+              ) : (
+                <form action={setMaterialsChecked.bind(null, order.id, true)}>
+                  <button type="submit" style={buttonGhost}>Nothing to buy</button>
+                </form>
+              )}
+            </div>
+          )}
+          {order.materials.map((m) => (
+            <div key={m.id} style={{ borderTop: `1px solid ${COLOR.rule}`, padding: "12px 0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                <div>
+                  <div style={{ color: m.status === "cancelled" ? COLOR.muted : COLOR.ink }}>{materialText(m)}</div>
+                  <div style={{ fontSize: 12, color: COLOR.muted }}>
+                    {materialStatusLabel(m.status)}
+                    {m.orderedOn && ` ${shortDate(m.orderedOn)}`}
+                    {m.expectedOn && ` · due ${shortDate(m.expectedOn)}`}
+                  </div>
+                </div>
+                <form action={removeMaterial.bind(null, order.id, m.id)}>
+                  <button type="submit" style={{ ...buttonGhost, padding: "6px 10px" }}>Remove</button>
+                </form>
+              </div>
+              <form action={updateMaterial.bind(null, order.id, m.id)} className="order-fields" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr)) auto", gap: 12, alignItems: "end", marginTop: 8 }}>
+                <label style={{ fontSize: 12, color: COLOR.muted }}>
+                  Where it is
+                  <select name="status" defaultValue={m.status} style={{ ...inputStyle, display: "block", marginTop: 4, padding: "6px 8px" }}>
+                    {MATERIAL_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                </label>
+                <label style={{ fontSize: 12, color: COLOR.muted }}>
+                  Supplier
+                  <input name="supplierName" defaultValue={m.supplierName ?? ""} style={{ ...inputStyle, display: "block", marginTop: 4, padding: "6px 8px" }} />
+                </label>
+                <label style={{ fontSize: 12, color: COLOR.muted }}>
+                  Their reference
+                  <input name="reference" defaultValue={m.reference ?? ""} style={{ ...inputStyle, display: "block", marginTop: 4, padding: "6px 8px" }} />
+                </label>
+                <label style={{ fontSize: 12, color: COLOR.muted }}>
+                  Expected
+                  <input name="expectedOn" type="date" defaultValue={m.expectedOn ?? ""} style={{ ...inputStyle, display: "block", marginTop: 4, padding: "6px 8px" }} />
+                </label>
+                <button type="submit" style={{ ...buttonGhost, padding: "6px 10px" }}>Save</button>
+              </form>
+            </div>
+          ))}
+          <details open={Boolean(materialsError) || (order.materials.length === 0 && !order.materialsCheckedOn)} style={{ borderTop: `1px solid ${COLOR.rule}`, paddingTop: 12 }}>
+            <summary style={{ ...labelStyle, cursor: "pointer", marginBottom: 12 }}>Add something to buy</summary>
+            <form action={addMaterial.bind(null, order.id)} style={{ display: "grid", gap: 16 }}>
+              <Field label="What" name="description" required placeholder="Jeroboam bottles" />
+              <div className="order-fields" style={threeUp}>
+                <Field label="How many" name="qty" type="number" step="any" min="0" />
+                <Field label="Of what" name="uom" placeholder="bottles, kg, litres" />
+                <Field label="Supplier, if known" name="supplierName" />
+              </div>
+              <div className="order-fields" style={threeUp}>
+                <Select label="Where it is" name="status" required defaultValue="needed" options={MATERIAL_STATUSES.filter((s) => s.value !== "cancelled").map((s) => ({ value: s.value, label: s.label }))} />
+                <Field label="Expected" name="expectedOn" type="date" />
+              </div>
+              <div><button type="submit" style={buttonGhost}>Add</button></div>
+            </form>
+          </details>
         </section>
 
         <section>

@@ -15,6 +15,7 @@ import { asc, eq, inArray, like, notInArray } from "drizzle-orm";
 import { db } from "@/db";
 import { customers, skus, wholesaleOrderLines, wholesaleOrders, type WholesaleOrder } from "@/db/schema";
 import { goneFor, readInvoices, type Gone } from "@/lib/erp/order-dispatch";
+import { materialsFor, materialsState, type MaterialRow } from "@/lib/erp/order-materials";
 
 export const STAGES = [
   { value: "received", label: "Received", next: "Acknowledge it" },
@@ -80,10 +81,17 @@ export function waitingOn(o: OrderRow, today: string): WaitingOn {
   if (isOverdue(o, today)) return { text: part ? `${part}: has the rest gone?` : "Date passed: has it gone?", overdue: true };
   if (part) return { text: o.waitingOn ? `${part}. ${o.waitingOn}` : `${part}. The rest to go`, overdue: false };
   if (GONE.includes(o.status)) return { text: STAGES.find((s) => s.value === o.status)?.next ?? "", overdue: false };
-  if (o.planned) return { text: o.waitingOn ?? "Planned, not firm yet", overdue: false };
-  if (o.palletBuildOn && o.palletBuildOn < today && !o.palletPackedOn)
+  // Something to buy comes before the typed reason, and is joined to it,
+  // because a planned order can still need its glass ordered now.
+  const materials = materialsState(o.materials, o.materialsCheckedOn, today);
+  const typed = o.waitingOn ?? (o.planned ? "Planned, not firm yet" : null);
+  const and = (text: string) =>
+    typed ? `${text}${text.endsWith("?") ? "" : "."} ${typed.charAt(0).toUpperCase()}${typed.slice(1)}` : text;
+  if (materials.overdue) return { text: and(materials.text!), overdue: true };
+  if (o.palletBuildOn && o.palletBuildOn < today && !o.palletPackedOn && !o.planned)
     return { text: "Pallet build date passed: is it packed?", overdue: true };
-  if (o.waitingOn) return { text: o.waitingOn, overdue: false };
+  if (materials.text) return { text: and(materials.text), overdue: false };
+  if (typed) return { text: typed, overdue: false };
   return { text: orderSteps(o).find((s) => !s.done)?.next ?? "", overdue: false };
 }
 
@@ -107,6 +115,7 @@ export type OrderRow = WholesaleOrder & {
   customerOrderEmail: string | null;
   paymentTermsDays: number | null;
   lines: OrderLineRow[];
+  materials: MaterialRow[];
   gone: Gone | null;
 };
 
@@ -144,13 +153,17 @@ export type OrderStep = { key: string; label: string; done: boolean; next: strin
 
 /**
  * The steps of an order, in the order they happen (Cyrus, 7 Nov 2026). Stages
- * follow from these facts. Materials and the batch record join in later slices.
+ * follow from these facts. The batch record joins in a later slice.
  * Once the goods have gone everything before it counts as done, because orders
  * from before the steps existed have none of these dates.
  */
 export function orderSteps(o: OrderRow): OrderStep[] {
   const lines = liveLines(o);
   const gone = GONE.includes(o.status) || Boolean(o.gone?.complete);
+  const today = londonToday();
+  const materials = materialsState(o.materials, o.materialsCheckedOn, today);
+  // Production under way means the materials were there, for orders from before this step.
+  const started = o.productionOn !== null && o.productionOn <= today;
   const steps = [
     { key: "lines", label: "Lines entered", done: lines.length > 0, next: "Enter what they want" },
     { key: "priced", label: "Prices agreed", done: lines.length > 0 && lines.every((l) => l.unitPriceQuoted !== null), next: "Agree the prices" },
@@ -158,6 +171,12 @@ export function orderSteps(o: OrderRow): OrderStep[] {
     ...(o.customerNeeds
       ? [{ key: "customer", label: `From them: ${o.customerNeeds}`, done: Boolean(o.customerNeedsMetOn), next: `Needed from them: ${o.customerNeeds}` }]
       : []),
+    {
+      key: "materials",
+      label: o.materials.length ? "Materials in" : "Materials checked",
+      done: materials.done || (started && materials.text === null),
+      next: materials.text ?? "Check what needs buying",
+    },
     { key: "production", label: "Production date set", done: Boolean(o.productionOn), next: "Set a production date" },
     { key: "packing", label: "Packing date set", done: Boolean(o.packingOn), next: "Set a packing date" },
     { key: "pallet", label: "Pallet build date set", done: Boolean(o.palletBuildOn), next: "Set a pallet build date" },
@@ -203,11 +222,13 @@ async function linesFor(orderIds: number[]): Promise<OrderLineRow[]> {
 function assemble(
   rows: { order: WholesaleOrder; customerName: string; customerOrderEmail: string | null; paymentTermsDays: number | null }[],
   lines: OrderLineRow[],
+  materials: MaterialRow[],
 ): OrderRow[] {
   return rows.map(({ order, ...customer }) => ({
     ...order,
     ...customer,
     lines: lines.filter((l) => l.orderId === order.id),
+    materials: materials.filter((m) => m.orderId === order.id),
     gone: null,
   }));
 }
@@ -261,7 +282,9 @@ export async function listOpenOrders(today: string = londonToday()): Promise<Ope
     .from(wholesaleOrders)
     .innerJoin(customers, eq(customers.id, wholesaleOrders.customerId))
     .where(notInArray(wholesaleOrders.status, NOT_OPEN));
-  const all = assemble(rows, await linesFor(rows.map((r) => r.order.id)));
+  const ids = rows.map((r) => r.order.id);
+  const [lines, materials] = await Promise.all([linesFor(ids), materialsFor(ids)]);
+  const all = assemble(rows, lines, materials);
   const quickBooksRead = await settleOrders(all, today);
   const open = all.filter((o) => !NOT_OPEN.includes(o.status));
   return { orders: sortOpen(open, today), quickBooksRead };
@@ -279,7 +302,8 @@ export async function getOrder(id: number): Promise<OrderRow | null> {
     .innerJoin(customers, eq(customers.id, wholesaleOrders.customerId))
     .where(eq(wholesaleOrders.id, id));
   if (rows.length === 0) return null;
-  const [order] = assemble(rows, await linesFor([id]));
+  const [lines, materials] = await Promise.all([linesFor([id]), materialsFor([id])]);
+  const [order] = assemble(rows, lines, materials);
   await settleOrders([order], londonToday());
   return order;
 }
@@ -313,6 +337,7 @@ export function orderPrompts(orders: OrderRow[], today: string): OrderPrompt[] {
   );
   const unmatched = orders.filter((o) => o.lines.some((l) => l.skuId === null));
   const toInvoice = orders.filter((o) => o.status === "dispatched");
+  const toBuy = orders.filter((o) => !overdue.includes(o) && materialsState(o.materials, o.materialsCheckedOn, today).toBuy.length > 0);
 
   const prompts: OrderPrompt[] = [];
   if (overdue.length)
@@ -323,6 +348,15 @@ export function orderPrompts(orders: OrderRow[], today: string): OrderPrompt[] {
           : `${overdue.length} orders are past a date. Have they moved?`,
       href: one(overdue),
       urgent: true,
+    });
+  if (toBuy.length)
+    prompts.push({
+      text:
+        toBuy.length === 1
+          ? `${toBuy[0].customerName} ${toBuy[0].orderNumber}: ${materialsState(toBuy[0].materials, toBuy[0].materialsCheckedOn, today).text}`
+          : `${toBuy.length} orders have materials to order`,
+      href: one(toBuy),
+      urgent: false,
     });
   if (toAnswer.length)
     prompts.push({ text: `${plural(toAnswer.length, "new order", "new orders")} to confirm`, href: one(toAnswer), urgent: false });
