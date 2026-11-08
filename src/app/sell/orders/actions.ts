@@ -5,12 +5,13 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { customers, purchaseCommitments, skus, wholesaleOrderLines, wholesaleOrders, type NewWholesaleOrder } from "@/db/schema";
+import { components, customers, purchaseCommitments, skus, suppliers, wholesaleOrderLines, wholesaleOrders, type NewWholesaleOrder } from "@/db/schema";
 import { MATERIAL_STATUSES, type MaterialStatus } from "@/lib/erp/order-materials";
 import { dueDate, londonToday, nextDispatchNumber, STAGES, SOURCES, type Stage } from "@/lib/erp/orders";
 import { getCurrentPrice } from "@/lib/erp/pricing";
 import { confirmationPdf, confirmationSubject } from "@/lib/erp/order-confirmation";
 import { getOrder } from "@/lib/erp/orders";
+import { buyingQty, orderRequirements, shortName } from "@/lib/erp/order-requirements";
 import { sendOrderMail } from "@/lib/email/send";
 
 function text(form: FormData, key: string): string | null {
@@ -347,6 +348,36 @@ export async function addMaterial(orderId: number, form: FormData) {
     status,
     orderedOn: orderedOnFor(status, null),
     expectedOn: dateOf(form, "expectedOn"),
+  });
+  refresh(orderId);
+  redirect(`${path}#materials`);
+}
+
+/** A worked-out requirement goes on the list to buy, once. Its quantity is worked out here, not sent by the page. */
+export async function addRequirement(orderId: number, componentId: number) {
+  const path = `/sell/orders/${orderId}`;
+  const order = await getOrder(orderId);
+  if (!order) throw new Error("No such order");
+  if (order.materials.some((m) => m.componentId === componentId && m.status !== "cancelled")) {
+    redirect(`${path}#materials`);
+  }
+  const { items } = await orderRequirements(order);
+  const item = items.find((i) => i.componentId === componentId);
+  if (!item || item.suppliedByCustomer || item.madeHere) backTo(path, "That is not something this order needs bought.", "materials");
+  const { qty, uom } = buyingQty(item!.need, item!.uom);
+  const [supplier] = await db
+    .select({ name: suppliers.name })
+    .from(components)
+    .innerJoin(suppliers, eq(suppliers.id, components.defaultSupplierId))
+    .where(eq(components.id, componentId));
+  await db.insert(purchaseCommitments).values({
+    wholesaleOrderId: orderId,
+    componentId,
+    description: shortName(item!.name),
+    qty: String(qty),
+    uom,
+    supplierName: supplier?.name ?? null,
+    status: "needed",
   });
   refresh(orderId);
   redirect(`${path}#materials`);

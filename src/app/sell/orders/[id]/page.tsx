@@ -32,6 +32,8 @@ import {
   updateOrder,
 } from "../actions";
 import { MATERIAL_STATUSES, materialStatusLabel, materialText } from "@/lib/erp/order-materials";
+import { orderRequirements } from "@/lib/erp/order-requirements";
+import { RequirementsTable } from "./_Requirements";
 import { LineFields, skuOptions } from "../_LineFields";
 import { shortDate } from "../_OrdersTable";
 
@@ -56,6 +58,7 @@ export default async function OrderPage({
   const order = await getOrder(Number(id));
   if (!order) notFound();
 
+  const requirements = await orderRequirements(order);
   const today = londonToday();
   const waiting = waitingOn(order, today);
   const [options, labelLines] = await Promise.all([
@@ -191,6 +194,7 @@ export default async function OrderPage({
             What has to be bought for this order: glass, ingredients, dry goods. Kept in Back Bar only, never on the confirmation.
           </p>
           {materialsError && <p role="alert" style={{ color: COLOR.flag, margin: "0 0 12px" }}>{materialsError}</p>}
+          <RequirementsTable orderId={order.id} requirements={requirements} materials={order.materials} />
           {order.materials.length === 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", marginBottom: 12 }}>
               {order.materialsCheckedOn ? (

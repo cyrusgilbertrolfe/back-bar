@@ -30,6 +30,7 @@ export type MaterialStatus = (typeof MATERIAL_STATUSES)[number]["value"];
 export type MaterialRow = {
   id: number;
   orderId: number;
+  componentId: number | null;
   description: string;
   qty: string;
   uom: string | null;
@@ -110,6 +111,7 @@ export async function materialsFor(orderIds: number[]): Promise<MaterialRow[]> {
     .select({
       id: purchaseCommitments.id,
       orderId: purchaseCommitments.wholesaleOrderId,
+      componentId: purchaseCommitments.componentId,
       description: purchaseCommitments.description,
       qty: purchaseCommitments.qty,
       uom: purchaseCommitments.uom,
