@@ -11,13 +11,16 @@ function sizeText(ml: number): string {
 /** Every active SKU as a person would say it, by customer, then drink, then size. */
 export async function skuOptions() {
   const rows = await db
-    .select({ id: skus.id, drink: drinks.name, sizeMl: skus.sizeMl, client: clients.name })
+    .select({ id: skus.id, drink: drinks.name, sizeMl: skus.sizeMl, description: skus.customerDescription, code: skus.code, client: clients.name })
     .from(skus)
     .innerJoin(clients, eq(clients.id, skus.clientId))
-    .innerJoin(drinks, eq(drinks.id, skus.drinkId))
+    .leftJoin(drinks, eq(drinks.id, skus.drinkId)) // a set, like the Martini Flight, has no drink
     .where(eq(skus.active, true))
     .orderBy(asc(clients.name), asc(drinks.name), asc(skus.sizeMl));
-  return rows.map((r) => ({ value: String(r.id), label: `${r.client}: ${r.drink} ${sizeText(r.sizeMl)}` }));
+  return rows.map((r) => ({
+    value: String(r.id),
+    label: `${r.client}: ${r.drink ? `${r.drink} ${sizeText(r.sizeMl)}` : (r.description ?? r.code)}`,
+  }));
 }
 
 /** A line can be a SKU, or their words alone until someone matches it. */
