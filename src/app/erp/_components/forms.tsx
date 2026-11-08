@@ -4,7 +4,7 @@
  */
 
 import { CSSProperties } from "react";
-import { COLOR, FONT, smallCaps } from "@/lib/design";
+import { COLOR, FONT } from "@/lib/design";
 
 /**
  * Form-field labels render in real ALL CAPS (not OpenType small-caps).
@@ -44,7 +44,7 @@ export const buttonPrimary: CSSProperties = {
   fontSize: 12,
   fontFamily: FONT.sans,
   cursor: "pointer",
-  ...smallCaps,
+  ...allCaps,
 };
 
 export const buttonGhost: CSSProperties = {
@@ -55,7 +55,7 @@ export const buttonGhost: CSSProperties = {
   fontSize: 12,
   fontFamily: FONT.sans,
   cursor: "pointer",
-  ...smallCaps,
+  ...allCaps,
 };
 
 export function Field({

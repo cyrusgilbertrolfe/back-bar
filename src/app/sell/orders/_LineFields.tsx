@@ -1,18 +1,23 @@
 import { asc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { clients, skus } from "@/db/schema";
+import { clients, drinks, skus } from "@/db/schema";
 import { Field, Select } from "@/app/erp/_components/forms";
 
-/** Every active SKU, partner formats first by name, for choosing against a line. */
+function sizeText(ml: number): string {
+  return ml >= 1000 ? `${ml / 1000}L` : `${ml / 10}cl`;
+}
+
+/** Every active SKU as a person would say it, by customer, then drink, then size. */
 export async function skuOptions() {
   const rows = await db
-    .select({ id: skus.id, code: skus.code, client: clients.name })
+    .select({ id: skus.id, drink: drinks.name, sizeMl: skus.sizeMl, client: clients.name })
     .from(skus)
     .innerJoin(clients, eq(clients.id, skus.clientId))
+    .innerJoin(drinks, eq(drinks.id, skus.drinkId))
     .where(eq(skus.active, true))
-    .orderBy(asc(clients.name), asc(skus.code));
-  return rows.map((r) => ({ value: String(r.id), label: `${r.client}: ${r.code}` }));
+    .orderBy(asc(clients.name), asc(drinks.name), asc(skus.sizeMl));
+  return rows.map((r) => ({ value: String(r.id), label: `${r.client}: ${r.drink} ${sizeText(r.sizeMl)}` }));
 }
 
 /** A line can be a SKU, or their words alone until someone matches it. */

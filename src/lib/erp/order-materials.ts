@@ -11,10 +11,10 @@
  * document.
  */
 
-import { asc, inArray } from "drizzle-orm";
+import { asc, inArray, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db";
-import { purchaseCommitments } from "@/db/schema";
+import { componentPriceHistory, purchaseCommitments, suppliers } from "@/db/schema";
 
 export const MATERIAL_STATUSES = [
   { value: "needed", label: "To order" },
@@ -125,4 +125,18 @@ export async function materialsFor(orderIds: number[]): Promise<MaterialRow[]> {
     .where(inArray(purchaseCommitments.wholesaleOrderId, orderIds))
     .orderBy(asc(purchaseCommitments.id));
   return rows.map((r) => ({ ...r, orderId: r.orderId!, description: r.description ?? "Unnamed" }));
+}
+
+/**
+ * Names to offer in the supplier box: the suppliers table, and whoever we have
+ * bought from. Typing a new name still works, so the list grows as we buy.
+ */
+export async function supplierNames(): Promise<string[]> {
+  const [listed, bought, invoiced] = await Promise.all([
+    db.select({ name: suppliers.name }).from(suppliers),
+    db.select({ name: purchaseCommitments.supplierName }).from(purchaseCommitments).where(isNotNull(purchaseCommitments.supplierName)),
+    db.select({ name: componentPriceHistory.invoiceSupplier }).from(componentPriceHistory).where(isNotNull(componentPriceHistory.invoiceSupplier)),
+  ]);
+  const names = [...listed, ...bought, ...invoiced].map((r) => r.name!.trim()).filter(Boolean);
+  return [...new Set(names)].sort((a, b) => a.localeCompare(b));
 }

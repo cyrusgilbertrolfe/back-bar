@@ -39,10 +39,22 @@ export function confirmationSubject(order: Pick<OrderRow, "orderNumber">): strin
   return `Order confirmation ${order.orderNumber}, Myatt's Fields`;
 }
 
-export function confirmationMessage(order: Pick<OrderRow, "orderNumber">): string {
+/** "30 x Negroni 3L and 12 x Vesper 70cl"; past three lines the attachment has the rest. */
+function orderContents(order: Pick<OrderRow, "lines">): string {
+  const parts = liveLines(order).map(
+    (l) => `${lineBottles(l)} x ${l.customerDescription ?? l.skuDescription ?? l.skuCode ?? "item"}`,
+  );
+  if (parts.length > 3) return `${parts.slice(0, 3).join(", ")} and ${parts.length - 3} more`;
+  if (parts.length < 2) return parts.join("");
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
+export function confirmationMessage(order: Pick<OrderRow, "orderNumber" | "lines">): string {
+  const contents = orderContents(order);
+  const prices = liveLines(order).length === 1 ? "price" : "prices";
   return `Hello,
 
-Thank you for your order ${order.orderNumber}. Our confirmation is attached, with the prices and provisional delivery date. We will confirm the date as soon as possible.
+Thank you for your order ${order.orderNumber}${contents ? ` for ${contents}` : ""}. Our confirmation is attached, with the ${prices} and provisional delivery date. We will confirm the date as soon as possible.
 
 If anything looks wrong, just reply to this email.
 
