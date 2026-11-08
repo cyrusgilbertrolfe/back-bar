@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { customers } from "@/db/schema";
 import { Field, Select, Textarea, buttonGhost, buttonPrimary, labelStyle, inputStyle } from "@/app/erp/_components/forms";
 import { COLOR, FONT } from "@/lib/design";
-import { londonToday, SOURCES } from "@/lib/erp/orders";
+import { INVOICE_TIMINGS, londonToday, SOURCES } from "@/lib/erp/orders";
 import { createOrder } from "../actions";
 import { LineFields, skuOptions } from "../_LineFields";
 
@@ -46,6 +46,7 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
           <div className="order-fields" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
             <Field label="Their PO" name="orderNumber" placeholder="None: we issue a number" />
             <Select label="Came by" name="source" required defaultValue="mailbox" options={SOURCES.filter((s) => s.value !== "portal").map((s) => ({ value: s.value, label: s.label }))} />
+            <Select label="Invoice" name="invoiceTiming" required defaultValue="on_despatch" options={INVOICE_TIMINGS.map((t) => ({ value: t.value, label: t.label }))} />
             <Field label="Order date" name="raisedOn" type="date" defaultValue={londonToday()} />
           </div>
 

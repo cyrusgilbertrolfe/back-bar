@@ -14,7 +14,7 @@ import { asc, eq, inArray, like, notInArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { customers, skus, wholesaleOrderLines, wholesaleOrders, type WholesaleOrder } from "@/db/schema";
-import { goneFor, readInvoices, type Gone } from "@/lib/erp/order-dispatch";
+import { goneFor, invoiceFor, readInvoices, type Gone } from "@/lib/erp/order-dispatch";
 import { materialsFor, materialsState, type MaterialRow } from "@/lib/erp/order-materials";
 
 export const STAGES = [
@@ -35,6 +35,11 @@ export const SOURCES = [
   { value: "phone", label: "Phone" },
   { value: "in_person", label: "In person" },
   { value: "portal", label: "Trade portal" },
+] as const;
+
+export const INVOICE_TIMINGS = [
+  { value: "on_despatch", label: "On despatch" },
+  { value: "proforma", label: "Proforma, once the order is in" },
 ] as const;
 
 const STAGE_ORDER = STAGES.map((s) => s.value as string);
@@ -117,6 +122,8 @@ export type OrderRow = WholesaleOrder & {
   lines: OrderLineRow[];
   materials: MaterialRow[];
   gone: Gone | null;
+  /** The QuickBooks invoice carrying this order's number, gone or not. */
+  invoiceNumber: string | null;
 };
 
 /** One line, as a person would say it: "2 × Case 12 Negroni 3L". */
@@ -164,10 +171,19 @@ export function orderSteps(o: OrderRow): OrderStep[] {
   const materials = materialsState(o.materials, o.materialsCheckedOn, today);
   // Production under way means the materials were there, for orders from before this step.
   const started = o.productionOn !== null && o.productionOn <= today;
+  const proforma = o.invoiceTiming === "proforma";
   const steps = [
     { key: "lines", label: "Lines entered", done: lines.length > 0, next: "Enter what they want" },
     { key: "priced", label: "Prices agreed", done: lines.length > 0 && lines.every((l) => l.unitPriceQuoted !== null), next: "Agree the prices" },
     { key: "confirmed", label: "Confirmation sent", done: Boolean(o.confirmationSentOn), next: "Send the confirmation" },
+    ...(proforma
+      ? [{
+          key: "proforma",
+          label: o.invoiceNumber ? `Proforma invoice ${o.invoiceNumber}` : "Proforma invoice raised",
+          done: Boolean(o.invoiceNumber),
+          next: `Raise the proforma in QuickBooks: ${o.orderNumber} in Tracking no., no shipping date`,
+        }]
+      : []),
     ...(o.customerNeeds
       ? [{ key: "customer", label: `From them: ${o.customerNeeds}`, done: Boolean(o.customerNeedsMetOn), next: `Needed from them: ${o.customerNeeds}` }]
       : []),
@@ -185,7 +201,9 @@ export function orderSteps(o: OrderRow): OrderStep[] {
   ];
   return [
     ...steps.map((s) => ({ ...s, done: s.done || gone })),
-    { key: "gone", label: "Gone, on a QuickBooks invoice", done: gone, next: "Goes when it is invoiced in QuickBooks" },
+    proforma
+      ? { key: "gone", label: "Gone, shipping date on the proforma invoice", done: gone, next: "Add the shipping date to the proforma when it goes" }
+      : { key: "gone", label: "Gone, on a QuickBooks invoice", done: gone, next: "Goes when it is invoiced in QuickBooks" },
   ];
 }
 
@@ -230,6 +248,7 @@ function assemble(
     lines: lines.filter((l) => l.orderId === order.id),
     materials: materials.filter((m) => m.orderId === order.id),
     gone: null,
+    invoiceNumber: null,
   }));
 }
 
@@ -259,7 +278,10 @@ async function settleOrders(orders: OrderRow[], today: string): Promise<boolean>
   const invoices = await readInvoices(since.toISOString().slice(0, 10));
 
   for (const order of orders) {
-    if (invoices) order.gone = goneFor(order, invoices, today);
+    if (invoices) {
+      order.gone = goneFor(order, invoices, today);
+      order.invoiceNumber = invoiceFor(order, invoices);
+    }
     const stage: Stage = order.gone?.complete ? "invoiced" : factsStage(order, today);
     if (STAGE_ORDER.indexOf(stage) > STAGE_ORDER.indexOf(order.status)) {
       order.status = stage;
