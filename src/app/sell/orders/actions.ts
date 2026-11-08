@@ -252,7 +252,7 @@ export async function updateOrder(orderId: number, form: FormData) {
     .where(eq(wholesaleOrders.id, orderId));
 
   refresh(orderId);
-  redirect(path);
+  redirect(`${path}?saved=${Date.now()}#stands`);
 }
 
 export async function addLine(orderId: number, form: FormData) {
@@ -288,7 +288,7 @@ export async function setLinePrice(orderId: number, lineId: number, form: FormDa
     .set({ unitPriceQuoted: value, quotedOn: value === null ? null : londonToday() })
     .where(and(eq(wholesaleOrderLines.id, lineId), eq(wholesaleOrderLines.orderId, orderId)));
   refresh(orderId);
-  redirect(path);
+  redirect(`${path}?saved=${Date.now()}`);
 }
 
 /** One click after review: the PDF and the message go, then the step is done. */
@@ -394,19 +394,30 @@ export async function updateMaterial(orderId: number, materialId: number, form: 
   const where = and(eq(purchaseCommitments.id, materialId), eq(purchaseCommitments.wholesaleOrderId, orderId));
   const [before] = await db.select().from(purchaseCommitments).where(where);
   if (!before) throw new Error("No such material");
-  const status = materialStatusOf(form);
+  // ORDERED and ARRIVED save the row and move it on, so the status cannot be missed.
+  const pressed = form.get("press");
+  let status = pressed === "placed" || pressed === "arrived" ? pressed : materialStatusOf(form);
+  const typedOn = dateOf(form, "orderedOn");
+  const notYetBought = status === "needed" || status === "quoted";
+  if (typedOn && !before.orderedOn && notYetBought) status = "placed";
+  const orderedOn =
+    status === "needed" || status === "quoted"
+      ? null
+      : status === "cancelled"
+        ? before.orderedOn
+        : (typedOn ?? before.orderedOn ?? londonToday());
   await db
     .update(purchaseCommitments)
     .set({
       status,
       supplierName: text(form, "supplierName"),
       reference: text(form, "reference"),
-      orderedOn: orderedOnFor(status, before.orderedOn),
+      orderedOn,
       expectedOn: dateOf(form, "expectedOn"),
     })
     .where(where);
   refresh(orderId);
-  redirect(`/sell/orders/${orderId}#materials`);
+  redirect(`/sell/orders/${orderId}?saved=${Date.now()}#materials`);
 }
 
 export async function removeMaterial(orderId: number, materialId: number) {

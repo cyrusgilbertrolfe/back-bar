@@ -32,9 +32,10 @@ import {
   updateMaterial,
   updateOrder,
 } from "../actions";
-import { MATERIAL_STATUSES, materialStatusLabel, materialText } from "@/lib/erp/order-materials";
+import { MATERIAL_STATUSES, materialStatusLabel, materialText, supplierNames } from "@/lib/erp/order-materials";
 import { orderRequirements } from "@/lib/erp/order-requirements";
 import { RequirementsTable } from "./_Requirements";
+import { Saved } from "./_Saved";
 import { LineFields, skuOptions } from "../_LineFields";
 import { shortDate } from "../_OrdersTable";
 
@@ -50,10 +51,10 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; at?: string }>;
+  searchParams: Promise<{ error?: string; at?: string; saved?: string }>;
 }) {
   const { id } = await params;
-  const { error, at } = await searchParams;
+  const { error, at, saved } = await searchParams;
   const lineError = at === "line" ? error : undefined;
   const materialsError = at === "materials" ? error : undefined;
   const order = await getOrder(Number(id));
@@ -62,7 +63,8 @@ export default async function OrderPage({
   const requirements = await orderRequirements(order);
   const today = londonToday();
   const waiting = waitingOn(order, today);
-  const [options, labelLines] = await Promise.all([
+  const [suppliers, options, labelLines] = await Promise.all([
+    supplierNames(),
     skuOptions(),
     Promise.all(order.lines.map((l) => (l.skuId ? getCaseLabelLine(l.id) : null))),
   ]);
@@ -77,6 +79,8 @@ export default async function OrderPage({
   return (
     <div style={{ background: COLOR.paper, color: COLOR.ink, minHeight: "100vh" }}>
       <Nav />
+      {saved && <Saved key={saved} />}
+      <datalist id="supplier-names">{suppliers.map((s) => <option key={s} value={s} />)}</datalist>
       <main className="orders-main" style={{ maxWidth: 760, margin: "0 auto", padding: "40px 40px 96px" }}>
         <Link href="/sell/orders" style={{ fontSize: 13, color: COLOR.muted }}>Open orders</Link>
         <h1 style={{ fontFamily: FONT.serif, fontSize: 32, fontWeight: 500, letterSpacing: "-0.02em", margin: "8px 0 4px" }}>
@@ -227,7 +231,7 @@ export default async function OrderPage({
                   <button type="submit" style={{ ...buttonGhost, padding: "6px 10px" }}>Remove</button>
                 </form>
               </div>
-              <form action={updateMaterial.bind(null, order.id, m.id)} className="order-fields" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr)) auto", gap: 12, alignItems: "end", marginTop: 8 }}>
+              <form action={updateMaterial.bind(null, order.id, m.id)} className="order-fields" style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 12, alignItems: "end", marginTop: 8 }}>
                 <label style={{ fontSize: 12, color: COLOR.muted }}>
                   Where it is
                   <select name="status" defaultValue={m.status} style={{ ...inputStyle, display: "block", marginTop: 4, padding: "6px 8px" }}>
@@ -236,17 +240,29 @@ export default async function OrderPage({
                 </label>
                 <label style={{ fontSize: 12, color: COLOR.muted }}>
                   Supplier
-                  <input name="supplierName" defaultValue={m.supplierName ?? ""} style={{ ...inputStyle, display: "block", marginTop: 4, padding: "6px 8px" }} />
+                  <input name="supplierName" list="supplier-names" defaultValue={m.supplierName ?? ""} style={{ ...inputStyle, display: "block", marginTop: 4, padding: "6px 8px" }} />
                 </label>
                 <label style={{ fontSize: 12, color: COLOR.muted }}>
                   Their reference
                   <input name="reference" defaultValue={m.reference ?? ""} style={{ ...inputStyle, display: "block", marginTop: 4, padding: "6px 8px" }} />
                 </label>
                 <label style={{ fontSize: 12, color: COLOR.muted }}>
+                  Ordered
+                  <input name="orderedOn" type="date" defaultValue={m.orderedOn ?? ""} style={{ ...inputStyle, display: "block", marginTop: 4, padding: "6px 8px" }} />
+                </label>
+                <label style={{ fontSize: 12, color: COLOR.muted }}>
                   Expected
                   <input name="expectedOn" type="date" defaultValue={m.expectedOn ?? ""} style={{ ...inputStyle, display: "block", marginTop: 4, padding: "6px 8px" }} />
                 </label>
-                <button type="submit" style={{ ...buttonGhost, padding: "6px 10px" }}>Save</button>
+                <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                  <button type="submit" style={{ ...buttonGhost, padding: "6px 10px" }}>Save</button>
+                  {(m.status === "needed" || m.status === "quoted") && (
+                    <button type="submit" name="press" value="placed" style={{ ...buttonPrimary, padding: "6px 10px" }}>Ordered</button>
+                  )}
+                  {(m.status === "placed" || m.status === "confirmed") && (
+                    <button type="submit" name="press" value="arrived" style={{ ...buttonPrimary, padding: "6px 10px" }}>Arrived</button>
+                  )}
+                </div>
               </form>
             </div>
           ))}
@@ -257,7 +273,10 @@ export default async function OrderPage({
               <div className="order-fields" style={threeUp}>
                 <Field label="How many" name="qty" type="number" step="any" min="0" />
                 <Field label="Of what" name="uom" placeholder="bottles, kg, litres" />
-                <Field label="Supplier, if known" name="supplierName" />
+                <label style={{ display: "block" }}>
+                  <span style={labelStyle}>Supplier, if known</span>
+                  <input name="supplierName" list="supplier-names" style={inputStyle} />
+                </label>
               </div>
               <div className="order-fields" style={threeUp}>
                 <Select label="Where it is" name="status" required defaultValue="needed" options={MATERIAL_STATUSES.filter((s) => s.value !== "cancelled").map((s) => ({ value: s.value, label: s.label }))} />
@@ -268,7 +287,7 @@ export default async function OrderPage({
           </details>
         </section>
 
-        <section>
+        <section id="stands">
           <h2 style={heading}>Where it stands</h2>
           <form action={save} style={{ display: "grid", gap: 16 }}>
             <div className="order-fields" style={threeUp}>

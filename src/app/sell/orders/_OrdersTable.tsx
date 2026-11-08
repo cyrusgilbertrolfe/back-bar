@@ -43,7 +43,7 @@ export function OrdersTable({ orders, today }: { orders: OrderRow[]; today: stri
                     liveLines(o).map((l) => <div key={l.id}>{lineText(l)}</div>)
                   )}
                 </td>
-                <td style={cell}>{o.planned ? "Planned" : stageLabel(o.status)}</td>
+                <td style={{ ...cell, whiteSpace: "nowrap" }}>{o.planned ? "Planned" : stageLabel(o.status)}</td>
                 <td style={{ ...cell, whiteSpace: "nowrap", color: waiting.overdue ? COLOR.flag : dispatchDate(o) ? COLOR.ink : COLOR.muted }}>
                   {shortDate(dispatchDate(o))}
                 </td>
