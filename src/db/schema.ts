@@ -1009,6 +1009,11 @@ export const wholesaleOrders = pgTable(
     waitingOn: text("waiting_on"),
     /** Expected but not yet firm. Counted for planning, never asked "has it gone?". */
     planned: boolean("planned").notNull().default(false),
+    /**
+     * `on_despatch`, invoiced when it goes, or `proforma`, invoiced once the
+     * order is in, ahead of despatch (Cyrus, 8 Nov 2026, for the Cripps Jeroboam).
+     */
+    invoiceTiming: text("invoice_timing").notNull().default("on_despatch"),
     /** Printed on the confirmation: "Quotation MFQ-2026-001", "From prepaid stock". */
     priceNote: text("price_note"),
     /** The day the confirmation went to the customer. */
@@ -1037,6 +1042,7 @@ export const wholesaleOrders = pgTable(
     index("wholesale_orders_status_idx").on(t.status),
     index("wholesale_orders_trade_buyer_idx").on(t.tradeBuyerId),
     check("wholesale_orders_source_known", sql`${t.source} in ('mailbox', 'portal', 'phone', 'in_person')`),
+    check("wholesale_orders_invoice_timing_known", sql`${t.invoiceTiming} in ('on_despatch', 'proforma')`),
     uniqueIndex("wholesale_orders_customer_order_uq").on(t.customerId, t.orderNumber),
   ],
 );

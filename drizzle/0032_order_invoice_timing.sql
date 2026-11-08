@@ -1,0 +1,2 @@
+ALTER TABLE "wholesale_orders" ADD COLUMN "invoice_timing" text DEFAULT 'on_despatch' NOT NULL;--> statement-breakpoint
+ALTER TABLE "wholesale_orders" ADD CONSTRAINT "wholesale_orders_invoice_timing_known" CHECK ("wholesale_orders"."invoice_timing" in ('on_despatch', 'proforma'));

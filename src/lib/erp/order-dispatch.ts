@@ -90,6 +90,22 @@ type OrderForMatch = {
 };
 
 /**
+ * The invoice raised for an order, whether or not it has gone. A proforma
+ * carries the order number and no shipping date until the pallet leaves.
+ */
+export function invoiceFor(
+  order: Pick<OrderForMatch, "orderNumber" | "customerName">,
+  invoices: InvoiceFact[],
+): string | null {
+  const found = invoices.find(
+    (i) =>
+      i.customerName.trim().toLowerCase() === order.customerName.trim().toLowerCase() &&
+      refersTo(i.references, order.orderNumber),
+  );
+  return found?.invoiceNumber ?? null;
+}
+
+/**
  * What has gone against one order, or null if nothing has. An invoice dated
  * ahead of its pick-up does not count until that day. A line with no case size
  * is already counted in bottles.

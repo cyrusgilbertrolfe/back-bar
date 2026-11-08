@@ -7,7 +7,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { components, customers, purchaseCommitments, skus, suppliers, wholesaleOrderLines, wholesaleOrders, type NewWholesaleOrder } from "@/db/schema";
 import { MATERIAL_STATUSES, type MaterialStatus } from "@/lib/erp/order-materials";
-import { dueDate, londonToday, nextDispatchNumber, STAGES, SOURCES, type Stage } from "@/lib/erp/orders";
+import { dueDate, INVOICE_TIMINGS, londonToday, nextDispatchNumber, STAGES, SOURCES, type Stage } from "@/lib/erp/orders";
 import { getCurrentPrice } from "@/lib/erp/pricing";
 import { confirmationPdf, confirmationSubject } from "@/lib/erp/order-confirmation";
 import { getOrder } from "@/lib/erp/orders";
@@ -134,6 +134,11 @@ function refresh(orderId?: number) {
   if (orderId) revalidatePath(`/sell/orders/${orderId}`);
 }
 
+function invoiceTimingOf(form: FormData): string {
+  const value = form.get("invoiceTiming");
+  return INVOICE_TIMINGS.some((t) => t.value === value) ? String(value) : "on_despatch";
+}
+
 export async function createOrder(form: FormData) {
   const path = "/sell/orders/new";
   const po = text(form, "orderNumber");
@@ -181,6 +186,7 @@ export async function createOrder(form: FormData) {
     requestedDeliveryFrom: date,
     requestedDeliveryTo: date,
     planned: form.get("planned") === "on",
+    invoiceTiming: invoiceTimingOf(form),
     deliveryAddress: text(form, "deliveryAddress"),
     waitingOn: text(form, "waitingOn"),
     notes: text(form, "notes"),
@@ -225,6 +231,7 @@ export async function updateOrder(orderId: number, form: FormData) {
       status: stageOf(form),
       ...dates,
       planned: form.get("planned") === "on",
+      invoiceTiming: invoiceTimingOf(form),
       deliveryCharge: "value" in delivery ? delivery.value : null,
       priceNote: text(form, "priceNote"),
       confirmationSentOn: dateOf(form, "confirmationSentOn"),

@@ -14,6 +14,7 @@ import {
   liveLines,
   londonToday,
   orderSteps,
+  INVOICE_TIMINGS,
   orderValue,
   SOURCES,
   STAGES,
@@ -278,6 +279,7 @@ export default async function OrderPage({
             <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
               <input type="checkbox" name="planned" defaultChecked={order.planned} /> Planned: we expect it, but it is not firm yet
             </label>
+            <Select label="Invoice" name="invoiceTiming" required defaultValue={order.invoiceTiming} options={INVOICE_TIMINGS.map((t) => ({ value: t.value, label: t.label }))} />
             <Field label="Price note, printed on the confirmation" name="priceNote" defaultValue={order.priceNote} placeholder="Quotation MFQ-2026-001" />
 
             <h3 style={group}>From the customer</h3>
