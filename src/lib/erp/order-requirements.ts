@@ -14,7 +14,7 @@
  * its category goes live. A blank is never a zero.
  */
 
-import { computeSkuCost, type CostLine, type SkuCost } from "@/lib/erp/cogs";
+import { costFrom, loadCostData, type CostData, type CostLine, type SkuCost } from "@/lib/erp/cogs";
 import { planBatch, type BatchPlan } from "@/lib/erp/sub-recipes";
 import { lineBottles, liveLines, lineValue, type OrderRow } from "@/lib/erp/orders";
 
@@ -85,10 +85,12 @@ export async function orderRequirements(order: OrderRow): Promise<Requirements> 
   let wastage = 0;
   let wastagePct = 0;
 
+  // One read of the cost tables for the whole order, however many lines it has.
+  let costData: Promise<CostData> | null = null;
   const costOf = async (skuId: number) => {
     const known = costs.get(skuId);
     if (known) return known;
-    const cost = await computeSkuCost(skuId);
+    const cost = costFrom(await (costData ??= loadCostData()), skuId);
     costs.set(skuId, cost);
     return cost;
   };

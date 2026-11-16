@@ -32,7 +32,7 @@ import {
   type StockCount,
   type StockCountLine,
 } from "@/db/schema";
-import { computeSkuCost, unitCostResolver, type SkuCost } from "@/lib/erp/cogs";
+import { costFrom, loadCostData, unitCostResolver, type SkuCost } from "@/lib/erp/cogs";
 import { historySource, newestByComponent, operativeProvenance } from "@/lib/erp/ingredients";
 import type { CostSource } from "@/lib/erp/provenance";
 
@@ -269,7 +269,9 @@ export async function valueCount(countId: number): Promise<ValuedCount | null> {
         ...bulkSku.values(),
       ]),
     ];
-    const costs = await bounded(toCost, (id) => computeSkuCost(id, { asOf, currentRecipeBeforeRecords: true, borrowedTakeTodaysSource: true }),
+    const costData = await loadCostData();
+    const costs = toCost.map((id) =>
+      costFrom(costData, id, { asOf, currentRecipeBeforeRecords: true, borrowedTakeTodaysSource: true }),
     );
     for (const c of costs) skuCost.set(c.skuId, c);
 

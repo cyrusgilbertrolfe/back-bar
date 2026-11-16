@@ -18,15 +18,8 @@
 import { and, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
-import {
-  clients,
-  drinks,
-  skuPrices,
-  skus,
-  systemSettings,
-  SETTING_KEYS,
-} from "@/db/schema";
-import { computeSkuCost, type SkuCost } from "@/lib/erp/cogs";
+import { skuPrices, systemSettings, SETTING_KEYS } from "@/db/schema";
+import { costFrom, loadCostData, type CostData, type SkuCost } from "@/lib/erp/cogs";
 import type { CostSource } from "@/lib/erp/provenance";
 
 export interface PricingConfig {
@@ -117,26 +110,47 @@ export async function getCurrentPrice(
   return row ?? null;
 }
 
+type PriceRow = typeof skuPrices.$inferSelect;
+
+/** Every price in force now, keyed `${skuId}:${priceType}`: the first row read wins, as getCurrentPrice's does. */
+async function loadCurrentPrices(): Promise<Map<string, PriceRow>> {
+  const rows = await db.select().from(skuPrices).where(isNull(skuPrices.effectiveTo));
+  const out = new Map<string, PriceRow>();
+  for (const r of rows) {
+    const k = `${r.skuId}:${r.priceType}`;
+    if (!out.has(k)) out.set(k, r);
+  }
+  return out;
+}
+
 export async function computeSkuProfitability(
   skuId: number,
   config?: PricingConfig,
 ): Promise<SkuProfitability> {
-  const cfg = config ?? (await getPricingConfig());
+  const [cfg, data, prices] = await Promise.all([
+    config ?? getPricingConfig(),
+    loadCostData(),
+    loadCurrentPrices(),
+  ]);
+  return profitabilityFrom(data, prices, skuId, cfg);
+}
 
-  const [sku] = await db.select().from(skus).where(eq(skus.id, skuId));
+function profitabilityFrom(
+  data: CostData,
+  prices: Map<string, PriceRow>,
+  skuId: number,
+  cfg: PricingConfig,
+): SkuProfitability {
+  const sku = data.skuById.get(skuId);
   if (!sku) throw new Error(`No SKU ${skuId}`);
 
-  const [drink] = sku.drinkId
-    ? await db.select().from(drinks).where(eq(drinks.id, sku.drinkId))
-    : [undefined];
-  const [client] = sku.clientId
-    ? await db.select().from(clients).where(eq(clients.id, sku.clientId))
-    : [undefined];
+  const drink = sku.drinkId ? data.drinkById.get(sku.drinkId) : undefined;
+  const client = sku.clientId ? data.clientById.get(sku.clientId) : undefined;
 
-  const cost = await computeSkuCost(skuId);
+  const cost = costFrom(data, skuId);
 
-  const wholesaleRow = await getCurrentPrice(skuId, "wholesale");
-  const rrpRow = await getCurrentPrice(skuId, "rrp");
+  const wholesaleRow = prices.get(`${skuId}:wholesale`) ?? null;
+  const rrpRow = prices.get(`${skuId}:rrp`) ?? null;
 
   const wholesale = wholesaleRow ? n(wholesaleRow.amount) : null;
   const rrp = rrpRow ? n(rrpRow.amount) : null;
@@ -172,26 +186,15 @@ export async function computeSkuProfitability(
   };
 }
 
-/** How many SKUs to roll up at once. Matches ROLLUP_CONCURRENCY in cogs.ts. */
-const PROFIT_CONCURRENCY = 8;
-
-/** Every active SKU, costed and priced. Worst margin first. */
+/**
+ * Every active SKU, costed and priced. Worst margin first. Three reads in
+ * parallel, then all in memory: see CostData in cogs.ts.
+ */
 export async function computeAllProfitability(): Promise<SkuProfitability[]> {
-  const cfg = await getPricingConfig();
-  const rows = await db.select().from(skus).where(eq(skus.active, true));
-
-  // Bounded parallelism, as in computeAllSkuCosts: each rollup is a run of
-  // round trips, so the wall time is latency and not work. Written back by
-  // index so the order does not depend on which finishes first.
-  const out: SkuProfitability[] = new Array(rows.length);
-  let next = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(PROFIT_CONCURRENCY, rows.length) }, async () => {
-      for (let i = next++; i < rows.length; i = next++) {
-        out[i] = await computeSkuProfitability(rows[i].id, cfg);
-      }
-    }),
-  );
+  const [cfg, data, prices] = await Promise.all([getPricingConfig(), loadCostData(), loadCurrentPrices()]);
+  const out = [...data.skuById.values()]
+    .filter((s) => s.active)
+    .map((s) => profitabilityFrom(data, prices, s.id, cfg));
   return out.sort((a, b) => {
     if (a.marginPct === null && b.marginPct === null) return a.code.localeCompare(b.code);
     if (a.marginPct === null) return 1;
