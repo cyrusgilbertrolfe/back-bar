@@ -7,6 +7,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { components, customers, purchaseCommitments, skus, suppliers, wholesaleOrderLines, wholesaleOrders, type NewWholesaleOrder } from "@/db/schema";
 import { MATERIAL_STATUSES, type MaterialStatus } from "@/lib/erp/order-materials";
+import { SHIPPING_METHODS, trackingFrom } from "@/lib/erp/order-parcels";
 import { dueDate, INVOICE_TIMINGS, londonToday, nextDispatchNumber, STAGES, SOURCES, type Stage } from "@/lib/erp/orders";
 import { getCurrentPrice } from "@/lib/erp/pricing";
 import { confirmationPdf, confirmationSubject } from "@/lib/erp/order-confirmation";
@@ -139,6 +140,12 @@ function invoiceTimingOf(form: FormData): string {
   return INVOICE_TIMINGS.some((t) => t.value === value) ? String(value) : "on_despatch";
 }
 
+/** A chosen method, or null to go by size. */
+function shippingMethodOf(form: FormData): string | null {
+  const value = form.get("shippingMethod");
+  return SHIPPING_METHODS.some((m) => m.value === value) ? String(value) : null;
+}
+
 export async function createOrder(form: FormData) {
   const path = "/sell/orders/new";
   const po = text(form, "orderNumber");
@@ -240,11 +247,15 @@ export async function updateOrder(orderId: number, form: FormData) {
       customerNeedsMetOn: dateOf(form, "customerNeedsMetOn"),
       productionOn: dateOf(form, "productionOn"),
       packingOn: dateOf(form, "packingOn"),
-      palletBuildOn: dateOf(form, "palletBuildOn"),
+      // A parcel order shows no pallet build, so a date set before stays.
+      palletBuildOn: form.has("palletBuildOn") ? dateOf(form, "palletBuildOn") : order.palletBuildOn,
       carrier: text(form, "carrier"),
       carrierBookedOn: dateOf(form, "carrierBookedOn"),
       collectionOn: dateOf(form, "collectionOn"),
       palletPackedOn: dateOf(form, "palletPackedOn"),
+      shippingMethod: form.has("shippingMethod") ? shippingMethodOf(form) : order.shippingMethod,
+      // Only a parcel order shows the field, so a pallet order keeps what it had.
+      ...(form.has("parcelTracking") ? { parcelTracking: trackingFrom(text(form, "parcelTracking")) } : {}),
       deliveryAddress: text(form, "deliveryAddress"),
       waitingOn: text(form, "waitingOn"),
       notes: text(form, "notes"),

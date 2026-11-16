@@ -1032,7 +1032,18 @@ export const wholesaleOrders = pgTable(
     carrierBookedOn: date("carrier_booked_on"),
     /** The planned pick-up. The day it actually went comes from the invoice. */
     collectionOn: date("collection_on"),
+    /** The pallet packed, or for a parcel order the boxes packed. */
     palletPackedOn: date("pallet_packed_on"),
+    /**
+     * `pallet` or `parcel` when someone chose; null to go by size, parcel at
+     * ten boxes or fewer (Cyrus, 15 Nov 2026, first DUGD-DN00004). A parcel
+     * order has no pallet build; its boxes are worked out from its lines, and
+     * each box carries a covert label outside and its contents inside. See
+     * src/lib/erp/order-parcels.ts.
+     */
+    shippingMethod: text("shipping_method"),
+    /** One tracking number a box, in box order, so a missing box can be chased. */
+    parcelTracking: text("parcel_tracking").array(),
     /** Someone looked and nothing needs buying for this order. */
     materialsCheckedOn: date("materials_checked_on"),
     notes: text("notes"),
@@ -1043,6 +1054,7 @@ export const wholesaleOrders = pgTable(
     index("wholesale_orders_trade_buyer_idx").on(t.tradeBuyerId),
     check("wholesale_orders_source_known", sql`${t.source} in ('mailbox', 'portal', 'phone', 'in_person')`),
     check("wholesale_orders_invoice_timing_known", sql`${t.invoiceTiming} in ('on_despatch', 'proforma')`),
+    check("wholesale_orders_shipping_method_known", sql`${t.shippingMethod} in ('pallet', 'parcel')`),
     uniqueIndex("wholesale_orders_customer_order_uq").on(t.customerId, t.orderNumber),
   ],
 );

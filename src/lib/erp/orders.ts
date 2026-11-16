@@ -13,9 +13,10 @@
 import { asc, eq, inArray, like, notInArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { customers, skus, wholesaleOrderLines, wholesaleOrders, type WholesaleOrder } from "@/db/schema";
+import { customers, drinks, skus, wholesaleOrderLines, wholesaleOrders, type WholesaleOrder } from "@/db/schema";
 import { goneFor, invoiceFor, readInvoices, type Gone } from "@/lib/erp/order-dispatch";
 import { materialsFor, materialsState, type MaterialRow } from "@/lib/erp/order-materials";
+import { boxPlan, shippingMethodFor, type BoxPlan, type ShippingMethod } from "@/lib/erp/order-parcels";
 
 export const STAGES = [
   { value: "received", label: "Received", next: "Acknowledge it" },
@@ -93,7 +94,7 @@ export function waitingOn(o: OrderRow, today: string): WaitingOn {
   const and = (text: string) =>
     typed ? `${text}${text.endsWith("?") ? "" : "."} ${typed.charAt(0).toUpperCase()}${typed.slice(1)}` : text;
   if (materials.overdue) return { text: and(materials.text!), overdue: true };
-  if (o.palletBuildOn && o.palletBuildOn < today && !o.palletPackedOn && !o.planned)
+  if (orderShipping(o) === "pallet" && o.palletBuildOn && o.palletBuildOn < today && !o.palletPackedOn && !o.planned)
     return { text: "Pallet build date passed: is it packed?", overdue: true };
   if (materials.text) return { text: and(materials.text), overdue: false };
   if (typed) return { text: typed, overdue: false };
@@ -113,7 +114,22 @@ export type OrderLineRow = {
   skuId: number | null;
   skuCode: string | null;
   skuDescription: string | null;
+  skuShortCode: string | null;
+  skuSizeMl: number | null;
+  drinkName: string | null;
 };
+
+/** The boxes a parcel order goes in, from its live lines. */
+export function orderBoxPlan(o: Pick<OrderRow, "lines">): BoxPlan {
+  return boxPlan(
+    liveLines(o).map((l) => ({ id: l.id, bottles: lineBottles(l), drinkName: l.drinkName, sizeMl: l.skuSizeMl, shortCode: l.skuShortCode })),
+  );
+}
+
+/** Pallet or parcel: as chosen, or by size, parcel at ten boxes or fewer. */
+export function orderShipping(o: Pick<OrderRow, "lines" | "shippingMethod">): ShippingMethod {
+  return shippingMethodFor(o.shippingMethod, orderBoxPlan(o));
+}
 
 export type OrderRow = WholesaleOrder & {
   customerName: string;
@@ -195,15 +211,45 @@ export function orderSteps(o: OrderRow): OrderStep[] {
     },
     { key: "production", label: "Production date set", done: Boolean(o.productionOn), next: "Set a production date" },
     { key: "packing", label: "Packing date set", done: Boolean(o.packingOn), next: "Set a packing date" },
-    { key: "pallet", label: "Pallet build date set", done: Boolean(o.palletBuildOn), next: "Set a pallet build date" },
-    { key: "carrier", label: "Carrier booked", done: Boolean(o.carrierBookedOn), next: "Book the carrier" },
-    { key: "packed", label: "Pallet packed", done: Boolean(o.palletPackedOn), next: "Pack the pallet" },
+    ...(orderShipping(o) === "parcel" ? parcelSteps(o) : [
+      { key: "pallet", label: "Pallet build date set", done: Boolean(o.palletBuildOn), next: "Set a pallet build date" },
+      { key: "carrier", label: "Carrier booked", done: Boolean(o.carrierBookedOn), next: "Book the carrier" },
+      { key: "packed", label: "Pallet packed", done: Boolean(o.palletPackedOn), next: "Pack the pallet" },
+    ]),
   ];
   return [
     ...steps.map((s) => ({ ...s, done: s.done || gone })),
     proforma
       ? { key: "gone", label: "Gone, shipping date on the proforma invoice", done: gone, next: "Add the shipping date to the proforma when it goes" }
       : { key: "gone", label: "Gone, on a QuickBooks invoice", done: gone, next: "Goes when it is invoiced in QuickBooks" },
+  ];
+}
+
+/**
+ * A parcel order's steps in place of the pallet's (Cyrus, 15 Nov 2026): the
+ * boxes worked out, packed, booked with Royal Mail, and a tracking number for
+ * every box. Whether it has gone is still read from QuickBooks.
+ */
+function parcelSteps(o: OrderRow): OrderStep[] {
+  const plan = orderBoxPlan(o);
+  const n = plan.boxes.length;
+  const tracked = o.parcelTracking?.length ?? 0;
+  const carrier = o.carrier ?? "Royal Mail";
+  return [
+    {
+      key: "boxes",
+      label: n && !plan.problems.length ? `Boxes worked out: ${n}` : "Boxes worked out",
+      done: n > 0 && plan.problems.length === 0,
+      next: plan.problems[0] ?? "Add the lines, so the boxes can be worked out",
+    },
+    { key: "packed", label: "Boxes packed and labelled", done: Boolean(o.palletPackedOn), next: "Pack the boxes, covert label outside, contents inside" },
+    { key: "carrier", label: `${carrier} booked`, done: Boolean(o.carrierBookedOn), next: `Book ${carrier}` },
+    {
+      key: "tracking",
+      label: n ? `Tracking numbers: ${tracked} of ${n}` : "Tracking numbers",
+      done: n > 0 && tracked >= n,
+      next: `Enter the tracking number for each box${n ? `, ${tracked} of ${n} so far` : ""}`,
+    },
   ];
 }
 
@@ -230,9 +276,13 @@ async function linesFor(orderIds: number[]): Promise<OrderLineRow[]> {
       skuId: wholesaleOrderLines.skuId,
       skuCode: skus.code,
       skuDescription: skus.customerDescription,
+      skuShortCode: skus.shortCode,
+      skuSizeMl: skus.sizeMl,
+      drinkName: drinks.name,
     })
     .from(wholesaleOrderLines)
     .leftJoin(skus, eq(skus.id, wholesaleOrderLines.skuId))
+    .leftJoin(drinks, eq(drinks.id, skus.drinkId))
     .where(inArray(wholesaleOrderLines.orderId, orderIds))
     .orderBy(asc(wholesaleOrderLines.lineNo), asc(wholesaleOrderLines.id));
 }
