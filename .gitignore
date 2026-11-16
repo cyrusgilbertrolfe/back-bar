@@ -41,3 +41,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# Printed labels and documents: finished files live in Google Drive, not git
+/outputs/
+# Claude Code worktrees
+/.claude/worktrees/
