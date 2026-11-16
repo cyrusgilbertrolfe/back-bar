@@ -46,6 +46,7 @@ export const NAV_SECTIONS: NavSection[] = [
       "/dashboard",
       "/strategy",
       "/finances/pnl",
+      "/production/audit",
       "/finances/profitability",
       "/finances",
     ],
