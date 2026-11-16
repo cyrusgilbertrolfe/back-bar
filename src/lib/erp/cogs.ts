@@ -17,7 +17,7 @@
  * so nobody can mistake a hand-loaded April figure for a verified one.
  */
 
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -186,23 +186,95 @@ function packOf(c: typeof components.$inferSelect) {
   };
 }
 
-async function wastagePct(): Promise<number> {
-  const rows = await db
-    .select()
-    .from(systemSettings)
-    .where(eq(systemSettings.key, SETTING_KEYS.WASTAGE_PCT));
-  return rows.length > 0 ? n(rows[0].value) : 0;
+type PriceHistoryRow = typeof componentPriceHistory.$inferSelect;
+
+/** Rows grouped by a key, each group in the order the rows were read. */
+function groupBy<T>(rows: T[], key: (r: T) => number): Map<number, T[]> {
+  const out = new Map<number, T[]>();
+  for (const r of rows) {
+    const k = key(r);
+    const g = out.get(k);
+    if (g) g.push(r);
+    else out.set(k, [r]);
+  }
+  return out;
+}
+
+/**
+ * Everything a cost rollup reads, loaded in one go.
+ *
+ * Costing a SKU used to issue about ten queries of its own, so a page costing
+ * every SKU made over a thousand round trips and took 12 to 18 seconds (16 Nov
+ * 2026). These tables are small, so each is read whole, once, in parallel, and
+ * every SKU is then costed in memory from the same snapshot. A caller costing
+ * many SKUs loads this once and passes it to each call.
+ */
+export interface CostData {
+  skuById: Map<number, typeof skus.$inferSelect>;
+  drinkById: Map<number, typeof drinks.$inferSelect>;
+  clientById: Map<number, typeof clients.$inferSelect>;
+  compById: Map<number, typeof components.$inferSelect>;
+  /** Every recipe version, keyed `${drinkId}:${clientId}`. */
+  recipesByPair: Map<string, (typeof recipes.$inferSelect)[]>;
+  linesByRecipe: Map<number, (typeof recipeLines.$inferSelect)[]>;
+  bomBySku: Map<number, (typeof skuComponents.$inferSelect)[]>;
+  setLinesBySet: Map<number, (typeof skuSetLines.$inferSelect)[]>;
+  history: PriceHistoryRow[];
+  wastagePct: number;
+  /** Price lookups derived from `history`, worked out once per date. */
+  pricesAtCache: Map<string, ReturnType<typeof pricesFrom>>;
+  newestCache?: Map<number, PriceHistoryRow>;
+}
+
+export async function loadCostData(): Promise<CostData> {
+  const [skuRows, drinkRows, clientRows, compRows, recipeRows, lineRows, bomRows, setRows, history, wastageRows] =
+    await Promise.all([
+      db.select().from(skus),
+      db.select().from(drinks),
+      db.select().from(clients),
+      db.select().from(components),
+      db.select().from(recipes),
+      db.select().from(recipeLines),
+      db.select().from(skuComponents),
+      db.select().from(skuSetLines),
+      db.select().from(componentPriceHistory),
+      db.select().from(systemSettings).where(eq(systemSettings.key, SETTING_KEYS.WASTAGE_PCT)),
+    ]);
+  const recipesByPair = new Map<string, (typeof recipes.$inferSelect)[]>();
+  for (const r of recipeRows) {
+    const k = `${r.drinkId}:${r.clientId}`;
+    const g = recipesByPair.get(k);
+    if (g) g.push(r);
+    else recipesByPair.set(k, [r]);
+  }
+  return {
+    skuById: new Map(skuRows.map((s) => [s.id, s])),
+    drinkById: new Map(drinkRows.map((d) => [d.id, d])),
+    clientById: new Map(clientRows.map((c) => [c.id, c])),
+    compById: new Map(compRows.map((c) => [c.id, c])),
+    recipesByPair,
+    linesByRecipe: groupBy(lineRows, (l) => l.recipeId),
+    bomBySku: groupBy(bomRows, (b) => b.skuId),
+    setLinesBySet: groupBy(setRows, (s) => s.setSkuId),
+    history,
+    wastagePct: wastageRows.length > 0 ? n(wastageRows[0].value) : 0,
+    pricesAtCache: new Map(),
+  };
+}
+
+function newestOf(data: CostData): Map<number, PriceHistoryRow> {
+  return (data.newestCache ??= newestByComponent(data.history));
 }
 
 /** Newest price-history source for each component id in the set. */
-async function sourcesFor(
-  comps: Map<number, typeof components.$inferSelect>,
+function sourcesFor(
+  data: CostData,
   ids: number[],
-): Promise<Map<number, ReturnType<typeof operativeProvenance>>> {
+): Map<number, ReturnType<typeof operativeProvenance>> {
+  const comps = data.compById;
   const out = new Map<number, ReturnType<typeof operativeProvenance>>();
   if (ids.length === 0) return out;
-  const rows = await db.select().from(componentPriceHistory);
-  const newest = newestByComponent(rows.filter((r) => ids.includes(r.componentId)));
+  const newest = newestOf(data);
   // The same rule as the ingredients list: the newest row counts only while it
   // matches the price in use, otherwise the line reads unsourced.
   for (const id of ids) {
@@ -241,9 +313,24 @@ export interface CostOptions {
 }
 
 /** The newest price-history row per component dated on or before `asOf`, and the newest of all. */
+function pricesFrom(rows: PriceHistoryRow[], asOf: string, newest?: Map<number, PriceHistoryRow>) {
+  return {
+    at: newestByComponent(rows.filter((r) => r.effectiveDate <= asOf)),
+    newest: newest ?? newestByComponent(rows),
+  };
+}
+
 async function pricesAt(asOf: string) {
-  const rows = await db.select().from(componentPriceHistory);
-  return { at: newestByComponent(rows.filter((r) => r.effectiveDate <= asOf)), newest: newestByComponent(rows) };
+  return pricesFrom(await db.select().from(componentPriceHistory), asOf);
+}
+
+function pricesAtFrom(data: CostData, asOf: string) {
+  let p = data.pricesAtCache.get(asOf);
+  if (!p) {
+    p = pricesFrom(data.history, asOf, newestOf(data));
+    data.pricesAtCache.set(asOf, p);
+  }
+  return p;
 }
 
 /**
@@ -260,7 +347,7 @@ export async function unitCostResolver(
 }
 
 function resolverFrom(
-  historic: Awaited<ReturnType<typeof pricesAt>> | null,
+  historic: ReturnType<typeof pricesFrom> | null,
   asOf: string | undefined,
   problems: string[],
 ): (c: typeof components.$inferSelect) => number {
@@ -281,42 +368,47 @@ function resolverFrom(
   };
 }
 
+/**
+ * Costs one SKU. Pass `data` from loadCostData when costing several, so they
+ * share one read of the tables; without it this loads its own.
+ */
 export async function computeSkuCost(
   skuId: number,
   opts: CostOptions = {},
-  ctx: CostContext = { path: [] },
+  data?: CostData,
 ): Promise<SkuCost> {
+  return costFrom(data ?? (await loadCostData()), skuId, opts, { path: [] });
+}
+
+/** computeSkuCost over an already-loaded snapshot: no queries. */
+export function costFrom(
+  data: CostData,
+  skuId: number,
+  opts: CostOptions = {},
+  ctx: CostContext = { path: [] },
+): SkuCost {
   const problems: string[] = [];
   const asOf = opts.asOf;
-  const historic = asOf ? await pricesAt(asOf) : null;
+  const historic = asOf ? pricesAtFrom(data, asOf) : null;
   const unitCostOf = resolverFrom(historic, asOf, problems);
 
-  const [sku] = await db.select().from(skus).where(eq(skus.id, skuId));
+  const sku = data.skuById.get(skuId);
   if (!sku) throw new Error(`No SKU with id ${skuId}`);
 
-  const [drink] = sku.drinkId
-    ? await db.select().from(drinks).where(eq(drinks.id, sku.drinkId))
-    : [undefined];
-  const [client] = sku.clientId
-    ? await db.select().from(clients).where(eq(clients.id, sku.clientId))
-    : [undefined];
+  const drink = sku.drinkId ? data.drinkById.get(sku.drinkId) : undefined;
+  const client = sku.clientId ? data.clientById.get(sku.clientId) : undefined;
 
-  const setLines = await db.select().from(skuSetLines).where(eq(skuSetLines.setSkuId, skuId));
+  const setLines = data.setLinesBySet.get(skuId) ?? [];
 
-  const allComponents = await db.select().from(components);
-  const compById = new Map(allComponents.map((c) => [c.id, c]));
+  const compById = data.compById;
 
   // ── Liquid ───────────────────────────────────────────────────────────────
   const liquid: CostLine[] = [];
   let liquidTotal = 0;
 
   if (sku.drinkId && sku.clientId) {
-    const versions = asOf
-      ? await db
-          .select()
-          .from(recipes)
-          .where(and(eq(recipes.drinkId, sku.drinkId), eq(recipes.clientId, sku.clientId)))
-      : [];
+    const pair = data.recipesByPair.get(`${sku.drinkId}:${sku.clientId}`) ?? [];
+    const versions = asOf ? pair : [];
     // The latest version that existed by the end of `asOf`.
     let atDate = versions
       .filter((r) => r.createdAt.toISOString().slice(0, 10) <= asOf!)
@@ -333,28 +425,14 @@ export async function computeSkuCost(
         problems.push(`No recipe recorded by ${asOf}, so the current one (v${atDate[0].version}) is used`);
       }
     }
-    const recipeRows = asOf
-      ? atDate
-      : await db
-          .select()
-          .from(recipes)
-          .where(
-            and(
-              eq(recipes.drinkId, sku.drinkId),
-              eq(recipes.clientId, sku.clientId),
-              eq(recipes.isCurrent, true),
-            ),
-          );
+    const recipeRows = asOf ? atDate : pair.filter((r) => r.isCurrent);
 
     if (recipeRows.length === 0) {
       problems.push(
         `No current recipe for drink ${sku.drinkId} under client ${sku.clientId}, so liquid cost is zero`,
       );
     } else {
-      const lines = await db
-        .select()
-        .from(recipeLines)
-        .where(eq(recipeLines.recipeId, recipeRows[0].id));
+      const lines = data.linesByRecipe.get(recipeRows[0].id) ?? [];
 
       const pctTotal = lines.reduce((s, l) => s + n(l.percentage), 0);
       if (Math.abs(pctTotal - 100) > 0.01) {
@@ -393,7 +471,7 @@ export async function computeSkuCost(
   }
 
   // ── Packaging ────────────────────────────────────────────────────────────
-  const bom = await db.select().from(skuComponents).where(eq(skuComponents.skuId, skuId));
+  const bom = data.bomBySku.get(skuId) ?? [];
   const packaging: CostLine[] = [];
   const excluded: CostLine[] = [];
   let packagingTotal = 0;
@@ -442,7 +520,7 @@ export async function computeSkuCost(
       problems.push(`Set contains SKU ${sl.childSkuId}, which contains this set, so it is left out`);
       continue;
     }
-    const child = await computeSkuCost(sl.childSkuId, opts, { path: [...ctx.path, skuId] });
+    const child = costFrom(data, sl.childSkuId, opts, { path: [...ctx.path, skuId] });
     const qty = n(sl.quantity);
     const cost = child.total * qty;
     itemsTotal += cost;
@@ -469,10 +547,10 @@ export async function computeSkuCost(
           { source: historySource(h), setAt: h.effectiveDate, invoice: invoiceLabel(h), landed: landedSplit(h) },
         ]),
       )
-    : await sourcesFor(compById, all.map((l) => l.componentId));
+    : sourcesFor(data, all.map((l) => l.componentId));
   if (historic && opts.borrowedTakeTodaysSource) {
     const borrowed = all.map((l) => l.componentId).filter((id) => !srcMap.has(id));
-    for (const [id, s] of await sourcesFor(compById, borrowed)) srcMap.set(id, s);
+    for (const [id, s] of sourcesFor(data, borrowed)) srcMap.set(id, s);
   }
   for (const l of all) {
     const s = srcMap.get(l.componentId);
@@ -510,7 +588,7 @@ export async function computeSkuCost(
     ...items.map((it) => ({ source: it.source ?? ("unsourced" as const), setAt: it.setAt })),
   ]);
 
-  const pct = await wastagePct();
+  const pct = data.wastagePct;
   const wastage = own * pct;
 
   return {
@@ -542,37 +620,14 @@ export async function computeSkuCost(
   };
 }
 
-/** Every active SKU, costed. */
 /**
- * How many SKU rollups to run at once.
- *
- * Measured 19 Aug 2026: the fully sequential version took 7.2s for 103 SKUs,
- * warm and cold alike, which rules out Neon scale-to-zero as the cause and
- * confirms the N+1 named as diagnosis 3 in the 11 Aug release plan. Each
- * computeSkuCost issues roughly seven round trips over Neon's HTTP driver, so
- * the wall time is almost entirely latency and not work.
- *
- * 8 is deliberately modest. The driver is connectionless so there is no pool
- * to exhaust, but Neon still rate-limits, and the point is to remove the
- * eight-second wait rather than to win a benchmark.
+ * Every active SKU, costed, from one read of the tables (see CostData). The
+ * per-SKU version this replaced took 7.2s sequentially on 19 Aug 2026 and
+ * still 12s at eight at a time from Washington on 16 Nov 2026.
  */
-const ROLLUP_CONCURRENCY = 8;
-
-export async function computeAllSkuCosts(opts: CostOptions = {}): Promise<SkuCost[]> {
-  const rows = await db.select().from(skus).where(eq(skus.active, true));
-
-  // Bounded parallelism. Results are written back by index so the order is
-  // deterministic regardless of which rollup finishes first; the sort below
-  // then applies as it always did.
-  const out: SkuCost[] = new Array(rows.length);
-  let next = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(ROLLUP_CONCURRENCY, rows.length) }, async () => {
-      for (let i = next++; i < rows.length; i = next++) {
-        out[i] = await computeSkuCost(rows[i].id, opts);
-      }
-    }),
-  );
+export async function computeAllSkuCosts(opts: CostOptions = {}, data?: CostData): Promise<SkuCost[]> {
+  const d = data ?? (await loadCostData());
+  const out = [...d.skuById.values()].filter((s) => s.active).map((s) => costFrom(d, s.id, opts));
 
   return out.sort(
     (a, b) =>
