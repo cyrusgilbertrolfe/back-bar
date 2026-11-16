@@ -232,6 +232,13 @@
       "when": 1794138117010,
       "tag": "0032_order_invoice_timing",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1794752831465,
+      "tag": "0033_order_shipping",
+      "breakpoints": true
     }
   ]
 }

@@ -13,6 +13,8 @@ import {
   lineValue,
   liveLines,
   londonToday,
+  orderBoxPlan,
+  orderShipping,
   orderSteps,
   INVOICE_TIMINGS,
   orderValue,
@@ -34,6 +36,7 @@ import {
 } from "../actions";
 import { MATERIAL_STATUSES, materialStatusLabel, materialText, supplierNames } from "@/lib/erp/order-materials";
 import { orderRequirements } from "@/lib/erp/order-requirements";
+import { boxBottles, boxProduct, PARCEL_BOX_KG, PARCEL_MAX_BOXES, SHIPPING_METHODS } from "@/lib/erp/order-parcels";
 import { RequirementsTable } from "./_Requirements";
 import { Saved } from "./_Saved";
 import { LineFields, skuOptions } from "../_LineFields";
@@ -75,6 +78,14 @@ export default async function OrderPage({
   const value = orderValue(order);
   const confirmable = liveLines(order).length > 0 && liveLines(order).every((l) => l.unitPriceQuoted !== null);
   const source = SOURCES.find((s) => s.value === order.source)?.label ?? order.source;
+  const boxes = orderBoxPlan(order);
+  const shipping = orderShipping(order);
+  const parcel = shipping === "parcel";
+  const shippingWhy = order.shippingMethod
+    ? "chosen"
+    : boxes.problems.length || boxes.boxes.length === 0
+      ? "it cannot be worked out in boxes"
+      : `${boxes.boxes.length} ${boxes.boxes.length === 1 ? "box" : "boxes"}, so by size`;
 
   return (
     <div style={{ background: COLOR.paper, color: COLOR.ink, minHeight: "100vh" }}>
@@ -138,22 +149,16 @@ export default async function OrderPage({
                     </span>
                   </form>
                 )}
-                {label && label.problems.length > 0 && (
+                {!parcel && label && label.problems.length > 0 && (
                   <ul style={{ fontSize: 13, color: COLOR.flag, margin: "8px 0 0", paddingLeft: 18 }}>
                     {label.problems.map((p) => <li key={p}>{p}</li>)}
                   </ul>
                 )}
-                {label && label.problems.length === 0 && (
+                {!parcel && label && label.problems.length === 0 && (
                   <form action={`/api/case-labels/${l.id}`} method="get" target="_blank" style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end", marginTop: 10 }}>
                     <label style={{ fontSize: 12, color: COLOR.muted }}>
                       Cases this shipment
                       <input name="cases" type="number" min="1" max={label.cases} step="1" defaultValue={label.cases} style={{ ...inputStyle, width: 90, display: "block", marginTop: 4, padding: "6px 8px" }} />
-                    </label>
-                    <label style={{ fontSize: 12, color: COLOR.muted }}>
-                      Start at label
-                      <select name="start" defaultValue="1" style={{ ...inputStyle, width: 70, display: "block", marginTop: 4, padding: "6px 8px" }}>
-                        {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
-                      </select>
                     </label>
                     <button type="submit" style={buttonPrimary}>Print case labels</button>
                   </form>
@@ -169,6 +174,42 @@ export default async function OrderPage({
               <div><button type="submit" style={buttonGhost}>Add line</button></div>
             </form>
           </details>
+        </section>
+
+        <section id="shipping" style={{ marginBottom: 36 }}>
+          <h2 style={heading}>{parcel ? "Boxes, by parcel" : "On a pallet"}</h2>
+          <p style={{ fontSize: 13, color: COLOR.muted, margin: "0 0 12px" }}>
+            {parcel ? "Goes by parcel" : "Goes on a pallet"}: {shippingWhy}. Up to {PARCEL_MAX_BOXES} boxes go by post; change it under Where it stands.
+          </p>
+          {parcel && boxes.problems.length > 0 && (
+            <ul style={{ fontSize: 13, color: COLOR.flag, margin: "0 0 12px", paddingLeft: 18 }}>
+              {boxes.problems.map((p) => <li key={p}>{p}</li>)}
+            </ul>
+          )}
+          {parcel && boxes.problems.length === 0 && boxes.boxes.length > 0 && (
+            <>
+              <ol style={{ listStyle: "none", margin: "0 0 12px", padding: 0, borderTop: `1px solid ${COLOR.rule}` }}>
+                {boxes.boxes.map((b, i) => (
+                  <li key={i} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "8px 0", borderBottom: `1px solid ${COLOR.rule}`, fontSize: 14 }}>
+                    <span>Box {i + 1}: {boxProduct(b)}</span>
+                    <span style={{ color: boxBottles(b) < b.capacity ? COLOR.flag : COLOR.muted, whiteSpace: "nowrap" }}>
+                      {boxBottles(b)} of {b.capacity}
+                      {order.parcelTracking?.[i] ? ` · ${order.parcelTracking[i]}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+              {boxes.notes.map((n) => <p key={n} style={{ fontSize: 13, color: COLOR.flag, margin: "0 0 8px" }}>{n}</p>)}
+              <p style={{ fontSize: 13, color: COLOR.muted, margin: "0 0 12px" }}>
+                About {(boxes.boxes.length * PARCEL_BOX_KG).toLocaleString("en-GB")} kg, {PARCEL_BOX_KG} kg a box. The outside label says nothing of what is inside; the contents label goes inside, on top of the bottles.
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                <a href={`/api/parcel-labels/${order.id}?side=outside`} target="_blank" rel="noreferrer" style={{ ...buttonPrimary, textDecoration: "none" }}>Print outside labels</a>
+                <a href={`/api/parcel-labels/${order.id}?side=inside`} target="_blank" rel="noreferrer" style={{ ...buttonGhost, textDecoration: "none" }}>Print contents labels</a>
+              </div>
+            </>
+          )}
+          {!parcel && <p style={{ fontSize: 13, color: COLOR.muted, margin: 0 }}>Case labels print from each line above.</p>}
         </section>
 
         <section style={{ marginBottom: 36 }}>
@@ -298,6 +339,13 @@ export default async function OrderPage({
             <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
               <input type="checkbox" name="planned" defaultChecked={order.planned} /> Planned: we expect it, but it is not firm yet
             </label>
+            <Select
+              label="Shipping"
+              name="shippingMethod"
+              required
+              defaultValue={order.shippingMethod ?? "by_size"}
+              options={[{ value: "by_size", label: `By size: parcel up to ${PARCEL_MAX_BOXES} boxes, else pallet` }, ...SHIPPING_METHODS.map((m) => ({ value: m.value, label: m.label }))]}
+            />
             <Select label="Invoice" name="invoiceTiming" required defaultValue={order.invoiceTiming} options={INVOICE_TIMINGS.map((t) => ({ value: t.value, label: t.label }))} />
             <Field label="Price note, printed on the confirmation" name="priceNote" defaultValue={order.priceNote} placeholder="Quotation MFQ-2026-001" />
 
@@ -313,16 +361,24 @@ export default async function OrderPage({
             <div className="order-fields" style={threeUp}>
               <Field label="Production" name="productionOn" type="date" defaultValue={order.productionOn} />
               <Field label="Packing" name="packingOn" type="date" defaultValue={order.packingOn} />
-              <Field label="Pallet build" name="palletBuildOn" type="date" defaultValue={order.palletBuildOn} />
+              {!parcel && <Field label="Pallet build" name="palletBuildOn" type="date" defaultValue={order.palletBuildOn} />}
             </div>
 
             <h3 style={group}>Getting it there</h3>
             <div className="order-fields" style={threeUp}>
-              <Field label="Carrier" name="carrier" defaultValue={order.carrier} placeholder="Pallet Track" />
+              <Field label="Carrier" name="carrier" defaultValue={order.carrier} placeholder={parcel ? "Royal Mail" : "Pallet Track"} />
               <Field label="Carrier booked" name="carrierBookedOn" type="date" defaultValue={order.carrierBookedOn} />
-              <Field label="Collection" name="collectionOn" type="date" defaultValue={order.collectionOn} />
-              <Field label="Pallet packed" name="palletPackedOn" type="date" defaultValue={order.palletPackedOn} />
+              <Field label={parcel ? "Handed over" : "Collection"} name="collectionOn" type="date" defaultValue={order.collectionOn} />
+              <Field label={parcel ? "Boxes packed" : "Pallet packed"} name="palletPackedOn" type="date" defaultValue={order.palletPackedOn} />
             </div>
+            {parcel && (
+              <Textarea
+                label={`Tracking numbers, one a line, in box order${boxes.boxes.length ? ` (${boxes.boxes.length} boxes)` : ""}`}
+                name="parcelTracking"
+                rows={Math.max(2, Math.min(boxes.boxes.length, PARCEL_MAX_BOXES))}
+                defaultValue={order.parcelTracking?.join("\n") ?? ""}
+              />
+            )}
             <p style={{ fontSize: 13, color: COLOR.muted, margin: 0 }}>
               The day it actually goes comes from the shipping date on its QuickBooks invoice, with this order&apos;s number in Tracking no. or the memo.
               {dispatchDate(order) && !order.collectionOn && " No collection booked yet, so it is held to the date they want it."}

@@ -1,12 +1,14 @@
 /**
  * Outer-case labels for goods inbound to a client's warehouse, first built for
- * Fortnum's (19 Sep 2026). One label per case, four to an A4 sheet.
+ * Fortnum's (19 Sep 2026). One label per case.
  *
  * Pure: takes the facts and the font bytes, returns PDF bytes. No database,
  * so the same code serves the download route and the command-line script.
  *
- * Printed on a mono laser, so everything is black and the hierarchy is carried
- * by size and weight alone. Grey text dithers into fuzz at these sizes.
+ * Printed on the Zebra, one 4 × 6 in label a page: Zebra is the standard for
+ * every label from 15 Nov 2026 (Cyrus). The A4 four-up sheet is kept only as
+ * an option. Either way the print is mono, so everything is black and the
+ * hierarchy is carried by size and weight alone.
  */
 
 import fontkit from "@pdf-lib/fontkit";
@@ -44,6 +46,59 @@ function labelOrigin(position: number): { x: number; y: number } {
   };
 }
 
+/**
+ * What the labels are printed on. Every design is drawn at the A4 label's
+ * 99.1 × 139 mm and placed on the stock, so one design serves both.
+ */
+export type LabelStock = {
+  name: string;
+  pageW: number;
+  pageH: number;
+  perPage: number;
+  /** Top-left of label position n on a page, in mm from the page's top-left. */
+  origin: (position: number) => { x: number; y: number };
+};
+
+export const A4_SHEET: LabelStock = {
+  name: "A4, four to a sheet",
+  pageW: SHEET.pageW,
+  pageH: SHEET.pageH,
+  perPage: SHEET.perSheet,
+  origin: labelOrigin,
+};
+
+/** A 4 × 6 in (101.6 × 152.4 mm) Zebra label, the design centred on it. */
+export const ZEBRA_4X6: LabelStock = {
+  name: "Zebra 4 × 6 in",
+  pageW: 101.6,
+  pageH: 152.4,
+  perPage: 1,
+  origin: () => ({ x: (101.6 - SHEET.labelW) / 2, y: (152.4 - SHEET.labelH) / 2 }),
+};
+
+/** Zebra is the standard for every label (Cyrus, 15 Nov 2026). */
+export const DEFAULT_STOCK = ZEBRA_4X6;
+
+/** One label per call to draw, filling pages of the stock in order. */
+function layOut(
+  doc: PDFDocument,
+  stock: LabelStock,
+  count: number,
+  startAt: number | undefined,
+  draw: (page: PDFPage, origin: { x: number; y: number }, n: number) => void,
+) {
+  let position = Math.min(Math.max(Math.floor(startAt ?? 1), 1), stock.perPage);
+  let page: PDFPage | null = null;
+  for (let n = 0; n < count; n++) {
+    if (!page || position > stock.perPage) {
+      page = doc.addPage([stock.pageW * MM, stock.pageH * MM]);
+      if (n > 0) position = 1;
+    }
+    draw(page, stock.origin(position), n);
+    position++;
+  }
+}
+
 export type CaseLabelFacts = {
   /** Their PO number, or our dispatch number for a customer who issues no PO. */
   orderNumber: string;
@@ -63,8 +118,10 @@ export type CaseLabelFacts = {
 export type CaseLabelOptions = {
   /** How many labels (cases). */
   count: number;
-  /** First label position on the first sheet, 1–4, so a part-used sheet is not wasted. */
+  /** First label position on the first A4 sheet, 1–4, so a part-used sheet is not wasted. Ignored on the Zebra. */
   startAt?: number;
+  /** Defaults to the Zebra. */
+  stock?: LabelStock;
   /**
    * Bottles in each case, for a shipment packed in mixed cases: the Cripps
    * Jeroboam Negroni went as 12, 12 and 6 (20 Oct 2026). One label per entry,
@@ -96,17 +153,20 @@ const INK = rgb(0, 0, 0);
 
 /** Drawing in label-local millimetres, measured from the label's top-left. */
 class LabelPen {
+  private pageH: number;
   constructor(
     private page: PDFPage,
     private originX: number,
     private originY: number,
-  ) {}
+  ) {
+    this.pageH = page.getHeight() / MM;
+  }
 
   private px(x: number) {
     return (this.originX + x) * MM;
   }
   private py(y: number) {
-    return (SHEET.pageH - this.originY - y) * MM;
+    return (this.pageH - this.originY - y) * MM;
   }
 
   /** Text with its baseline at y. Tracking is in ems. */
@@ -312,22 +372,109 @@ export async function buildCaseLabelsPdf(
 ): Promise<Uint8Array> {
   const count = opts.mixedCases ? opts.mixedCases.length : Math.floor(opts.count);
   if (!(count > 0)) throw new Error("Nothing to print: the label count must be at least 1.");
-  const startAt = Math.min(Math.max(Math.floor(opts.startAt ?? 1), 1), SHEET.perSheet);
 
   const { doc, fonts } = await newDoc(fontBytes, `Case labels ${facts.orderNumber} ${facts.supplierSku}`);
-
-  let page: PDFPage | null = null;
-  let position = startAt;
-  for (let n = 0; n < count; n++) {
-    if (!page || position > SHEET.perSheet) {
-      page = doc.addPage([SHEET.pageW * MM, SHEET.pageH * MM]);
-      if (n > 0) position = 1;
-    }
-    const o = labelOrigin(position);
+  layOut(doc, opts.stock ?? DEFAULT_STOCK, count, opts.startAt, (page, o, n) => {
     const caseFacts = opts.mixedCases ? { ...facts, unitsPerCase: opts.mixedCases[n] } : facts;
     drawLabel(new LabelPen(page, o.x, o.y), fonts, caseFacts, n + 1, count);
-    position++;
-  }
+  });
+  return doc.save();
+}
+
+/**
+ * One case label per box of a shipment whose boxes hold different products,
+ * CASE n OF N counted across the whole shipment. First used inside the
+ * Royal Mail boxes for DUGD-DN00004 (15 Nov 2026), where the outside carries
+ * only the covert label.
+ */
+export async function buildShipmentCaseLabelsPdf(
+  boxes: CaseLabelFacts[],
+  opts: { stock?: LabelStock; startAt?: number },
+  fontBytes: BrandFontBytes,
+): Promise<Uint8Array> {
+  if (!boxes.length) throw new Error("Nothing to print.");
+  const { doc, fonts } = await newDoc(fontBytes, `Contents labels ${boxes[0].orderNumber}`);
+  layOut(doc, opts.stock ?? DEFAULT_STOCK, boxes.length, opts.startAt, (page, o, n) =>
+    drawLabel(new LabelPen(page, o.x, o.y), fonts, boxes[n], n + 1, boxes.length),
+  );
+  return doc.save();
+}
+
+export type CovertBoxFacts = {
+  /** Our dispatch number or their PO, as on the delivery note. */
+  orderNumber: string;
+  /** Who it is for, as on the address label. */
+  recipient: string;
+  boxes: number;
+};
+
+/**
+ * The outside of a box that goes by post or courier rather than on a pallet
+ * (Cyrus, 15 Nov 2026, first for DuGARD by Royal Mail). Nothing on it says
+ * what is inside or who made it: no brand, no product, no bottle count, no
+ * size, because "6 × Negroni" on a parcel is an invitation. It carries only
+ * what the recipient needs to match it to the delivery note and count the
+ * delivery complete: the reference, BOX n OF N, and who it is for. The
+ * contents go on a case label inside the box.
+ */
+function drawCovertBoxLabel(page: PDFPage, origin: { x: number; y: number }, f: Fonts, facts: CovertBoxFacts, boxNo: number) {
+  const pen = new LabelPen(page, origin.x, origin.y);
+  const left = PAD_X;
+  const right = SHEET.labelW - PAD_X;
+  const width = right - left;
+  const caption = (s: string, x: number, y: number) =>
+    pen.text(s.toUpperCase(), x, y, f.kraftig, CAPTION_SIZE, CAPTION_TRACKING);
+
+  // ── The reference, the thing Goods In matches to the delivery note ──────
+  caption("Reference", left, 14);
+  pen.text(facts.orderNumber, left, 26, f.kraftig, fitSize(facts.orderNumber, f.kraftig, 30, width), 0.01);
+  pen.rule(left, right, 32, 0.75);
+
+  // ── Which box, as large as it goes ──────────────────────────────────────
+  caption("Box", left, 40);
+  const of = `${boxNo} OF ${facts.boxes}`;
+  pen.text(of, left, 70, f.kraftig, fitSize(of, f.kraftig, 96, width, 0.02), 0.02);
+  pen.rule(left, right, 77, 0.3);
+
+  // ── Who it is for ───────────────────────────────────────────────────────
+  caption("For", left, 84);
+  const who = facts.recipient.toUpperCase();
+  pen.text(who, left, 93, f.kraftig, fitSize(who, f.kraftig, 16, width, 0.02), 0.02);
+  pen.rule(left, right, 98, 0.3);
+
+  // ── Handling: an arrow, FRAGILE, THIS WAY UP ────────────────────────────
+  const ax = left + 7;
+  const top = 101.5;
+  const pts: [number, number][] = [
+    [ax, top],
+    [ax + 7, top + 7],
+    [ax + 2.6, top + 7],
+    [ax + 2.6, top + 17],
+    [ax - 2.6, top + 17],
+    [ax - 2.6, top + 7],
+    [ax - 7, top + 7],
+  ];
+  const path = pts.map(([x, y], i) => `${i ? "L" : "M"} ${x * MM} ${y * MM}`).join(" ") + " Z";
+  page.drawSvgPath(path, { x: origin.x * MM, y: page.getHeight() - origin.y * MM, color: INK });
+  pen.text("FRAGILE", left + 19, 110.5, f.kraftig, 20, 0.06);
+  pen.text("THIS WAY UP", left + 19, 117.5, f.kraftig, 10, 0.1);
+
+  // ── Footer: where the contents are, and where to send it back ───────────
+  pen.rule(left, right, 121, 0.75);
+  caption("Contents listed inside the box", left, 126.5);
+  caption("If undelivered: 11 Upstall Street, London SE5 9JE", left, 130.5);
+}
+
+export async function buildCovertBoxLabelsPdf(
+  facts: CovertBoxFacts,
+  opts: { stock?: LabelStock; startAt?: number },
+  fontBytes: BrandFontBytes,
+): Promise<Uint8Array> {
+  if (!(facts.boxes > 0)) throw new Error("Nothing to print.");
+  const { doc, fonts } = await newDoc(fontBytes, `Box labels ${facts.orderNumber}`);
+  layOut(doc, opts.stock ?? DEFAULT_STOCK, facts.boxes, opts.startAt, (page, o, n) =>
+    drawCovertBoxLabel(page, o, fonts, facts, n + 1),
+  );
   return doc.save();
 }
 
@@ -373,7 +520,7 @@ function drawUpLabel(page: PDFPage, origin: { x: number; y: number }, f: Fonts) 
     [cx - headW / 2, top + headH],
   ];
   const path = pts.map(([x, y], i) => `${i ? "L" : "M"} ${x * MM} ${y * MM}`).join(" ") + " Z";
-  page.drawSvgPath(path, { x: origin.x * MM, y: (SHEET.pageH - origin.y) * MM, color: INK });
+  page.drawSvgPath(path, { x: origin.x * MM, y: page.getHeight() - origin.y * MM, color: INK });
 
   // ── UP, as large as the width allows ────────────────────────────────────
   const upSize = fitSize("UP", f.kraftig, 110, width - 20, 0.04);
@@ -388,34 +535,108 @@ function drawUpLabel(page: PDFPage, origin: { x: number; y: number }, f: Fonts) 
 
 export async function buildUpLabelsPdf(
   facts: UpLabelFacts,
-  opts: { perCase: number; startAt?: number },
+  opts: { perCase: number; startAt?: number; stock?: LabelStock },
   fontBytes: BrandFontBytes,
 ): Promise<Uint8Array> {
   const perCase = Math.floor(opts.perCase);
   if (!(perCase > 0) || facts.cases.length === 0) throw new Error("Nothing to print.");
-  const startAt = Math.min(Math.max(Math.floor(opts.startAt ?? 1), 1), SHEET.perSheet);
 
   const { doc, fonts } = await newDoc(fontBytes, `UP labels ${facts.orderNumber}`);
-  let page: PDFPage | null = null;
-  let position = startAt;
-  let n = 0;
-  for (let caseNo = 1; caseNo <= facts.cases.length; caseNo++) {
-    for (let k = 0; k < perCase; k++, n++) {
-      if (!page || position > SHEET.perSheet) {
-        page = doc.addPage([SHEET.pageW * MM, SHEET.pageH * MM]);
-        if (n > 0) position = 1;
-      }
-      const o = labelOrigin(position);
-      drawUpLabel(page, o, fonts);
-      position++;
-    }
+  layOut(doc, opts.stock ?? DEFAULT_STOCK, facts.cases.length * perCase, opts.startAt, (page, o) =>
+    drawUpLabel(page, o, fonts),
+  );
+  return doc.save();
+}
+
+export type JerryCanLabelFacts = {
+  /** The drink, set as the headline, e.g. "Gingertini". */
+  drink: string;
+  /** One line under the headline, e.g. "RECIPE V3 · 26.01 L A CAN". */
+  subtitle: string;
+  /** In the order they go into the can. */
+  lines: { name: string; volume: string }[];
+};
+
+/**
+ * A production label for a jerry can that is filled again and again: the
+ * drink, then each ingredient in pouring order with a row of tick boxes to
+ * its right. Each column of boxes is one fill, so the same label serves the
+ * can for several batches (Cyrus, 22 Oct 2026, first for the Gingertini).
+ */
+function drawJerryCanLabel(page: PDFPage, origin: { x: number; y: number }, f: Fonts, facts: JerryCanLabelFacts, fills: number) {
+  const pen = new LabelPen(page, origin.x, origin.y);
+  const left = PAD_X;
+  const right = SHEET.labelW - PAD_X;
+  const headline = facts.drink.toUpperCase();
+  pen.text(headline, left, 24, f.kraftig, fitSize(headline, f.kraftig, 40, right - left, 0.04), 0.04);
+  pen.text(facts.subtitle.toUpperCase(), left, 31, f.kraftig, CAPTION_SIZE, CAPTION_TRACKING);
+  pen.rule(left, right, 35, 0.75);
+
+  // ── The tick grid: one column per fill, right-aligned ───────────────────
+  const box = 6.5;
+  const gap = Math.min(2, (50 - fills * box) / Math.max(fills - 1, 1));
+  const gridLeft = right - fills * box - (fills - 1) * gap;
+  const nameWidth = gridLeft - left - 3;
+  const colX = (i: number) => gridLeft + i * (box + gap);
+
+  pen.text("FILL", left, 42, f.kraftig, CAPTION_SIZE, CAPTION_TRACKING);
+  for (let i = 0; i < fills; i++) {
+    const n = String(i + 1);
+    pen.text(n, colX(i) + box / 2 - trackedWidth(n, f.kraftig, 8, 0) / 2, 42, f.kraftig, 8);
   }
+
+  const top = 45;
+  const bottom = 126;
+  const rowH = (bottom - top) / facts.lines.length;
+  const nameSize = 9.5;
+  facts.lines.forEach((line, r) => {
+    const y0 = top + r * rowH;
+    const names = wrap(line.name.toUpperCase(), f.kraftig, nameSize, nameWidth).slice(0, 2);
+    const block = names.length * 4 + 4.5;
+    let y = y0 + (rowH - block) / 2 + 3.4;
+    for (const n of names) {
+      pen.text(n, left, y, f.kraftig, nameSize);
+      y += 4;
+    }
+    pen.text(line.volume, left, y + 0.5, f.buch, 9);
+    for (let i = 0; i < fills; i++) {
+      page.drawRectangle({
+        x: (origin.x + colX(i)) * MM,
+        y: (page.getHeight() / MM - origin.y - y0 - rowH / 2 - box / 2) * MM,
+        width: box * MM,
+        height: box * MM,
+        borderColor: INK,
+        borderWidth: 0.9,
+      });
+    }
+    if (r < facts.lines.length - 1) pen.rule(left, right, y0 + rowH, 0.3);
+  });
+
+  pen.rule(left, right, bottom, 0.75);
+  pen.text("TICK EACH LINE AS IT GOES IN · ONE COLUMN A FILL", left, 132, f.kraftig, CAPTION_SIZE, CAPTION_TRACKING);
+}
+
+export async function buildJerryCanLabelsPdf(
+  facts: JerryCanLabelFacts,
+  opts: { count: number; fills: number; startAt?: number; stock?: LabelStock },
+  fontBytes: BrandFontBytes,
+): Promise<Uint8Array> {
+  const count = Math.floor(opts.count);
+  const fills = Math.floor(opts.fills);
+  if (!(count > 0) || !facts.lines.length) throw new Error("Nothing to print.");
+  if (!(fills >= 1 && fills <= 6)) throw new Error("Between 1 and 6 fills fit across a label.");
+
+  const { doc, fonts } = await newDoc(fontBytes, `${facts.drink} jerry can labels`);
+  layOut(doc, opts.stock ?? DEFAULT_STOCK, count, opts.startAt, (page, o) =>
+    drawJerryCanLabel(page, o, fonts, facts, fills),
+  );
   return doc.save();
 }
 
 /**
  * Print this on plain paper at 100% and hold it over a label sheet against a
  * window. Every outline should sit on a label edge. Run it once per printer.
+ * For the A4 sheet only; the Zebra prints one label a page and needs none.
  */
 export async function buildCalibrationPdf(fontBytes: BrandFontBytes): Promise<Uint8Array> {
   const { doc, fonts } = await newDoc(fontBytes, "Case label calibration");
