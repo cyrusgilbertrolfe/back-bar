@@ -35,6 +35,14 @@ const MODULES: HubModule[] = [
     status: "live",
   },
   {
+    href: "/production/audit",
+    label: "Stock Count",
+    sublabel: "Year-end stock figure",
+    description:
+      "Count every SKU, component and bulk batch against Back Bar's own list, valued at its cost as at the year end, then close it and send the figure to the accountant.",
+    status: "live",
+  },
+  {
     href: "/strategy",
     label: "Strategy",
     sublabel: "The written position",
